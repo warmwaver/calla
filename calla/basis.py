@@ -1,51 +1,127 @@
 __all__ = [
-    'open_html',
-    'html2text',
     'abacus',
+    'html2text',
+    'table2html',
+    'table2text',
+    'open_html',
+    'default_html_style',
     ]
 
 def html2text(html, ignore_sub=True):
     """Convert html to plain text
 
-    >>> html2text('<div><a>hello,</a><p>abc</p></div><span>gogogo</span>')
-    'hello,abc\\n\\ngogogo'
+    >>> html2text('<div><a>hello,</a><p>world</p></div><span>i miss you</span>')
+    'hello,world\\n\\ni miss you'
     """
-    s = html
-    n = 0
-    while True:
-        i = s.find('<',n)
-        j = s.find('>',i)
+    def split_block(html):
+        """
+        Returns:
+        element,front,prefix,content,suffix,back
+        """
+        start = 0
+        i = html.find('<',start)
+        j = html.find('>',i)
         if i >= 0 and j > 0:
-            element = s[i+1:j]
+            content = html[i+1:j]
+            element = content.split()[0]
             if element != '':
-                n = i
-                prefix = '<{}>'.format(element)
+                start = i
+                prefix = '<{}>'.format(content)
                 suffix = '</{}>'.format(element)
-                if s.find(suffix)>0:
-                    # Convertion
-                    if element == 'p' or element == 'div':
-                        s = s.replace(suffix,'\n')
-                    elif element == 'sub':
-                        if ignore_sub:
-                            s = s.replace(prefix,'')
-                        else:
-                            s = s.replace(prefix,'_')
-                    elif element == 'sup':
-                        s = s.replace(prefix,'^')
-                    s = s.replace(prefix,'')
-                    s = s.replace(suffix,'')
-                else:
-                    n += 1
-            else:
-                n = i + 1
+                end = html.find(suffix,start+len(prefix))
+                # locate the right position of suffix
+                pre = '<{}'.format(element)
+                n = end
+                while True:
+                    m = html.rfind(pre, start+len(prefix), n)
+                    if m>0 and html.find('>',m+len(pre),n) > 0:
+                        end = html.find(suffix,end+len(suffix))
+                        n = m
+                    else:
+                        break
+                if end>0:
+                    return (element,html[:i],prefix,html[start+len(prefix):end],suffix,html[end+len(suffix):])
+        return ('','','',html,'','')
+    
+    s = ''
+    start = 0
+    while html != '':
+        element,front,prefix,content,suffix,back = split_block(html)
+        if element != '' and prefix != '' and suffix != '':
+            prefix = ''
+            suffix = ''
+            if element == 'p' or element == 'div'\
+                or element == 'table' or element == 'tr':
+                suffix = '\n'
+            elif element == 'sub':
+                prefix = '' if ignore_sub else '_'
+            elif element == 'sup':
+                prefix = '^'
+            elif element == 'head' or  element == 'style':
+                content = ''
+            elif element == 'td' or element == 'th':
+                suffix = '\t'
+            elif element.startswith('h') and element[1:].isdigit():
+                suffix = '\n'
+            s += front + prefix + html2text(content) + suffix
+            html = back
         else:
+            s += content
             break
     return s
 
-def open_html(content,path = 'calla-result.html',font='12px times-new-roman'):
+def table2html(table, digits=2):
+    def f(table, digits=2):
+        yield '<table border="1" cellpadding="5">'
+        i = 0
+        for row in table:
+            element = 'td' if i>0 else 'th'
+            yield '<tr>'
+            j = 0
+            for col in row:
+                align = 'right'  if j>0 else 'left'
+                if isinstance(col,float):
+                    yield '<{1} align="{3}">{2:.{0}f}</{1}>'.format(digits, element, col, align)
+                else:
+                    yield '<{0} align="{2}">{1}</{0}>'.format(element, col, align)
+                j += 1
+            yield '</tr>'
+            i += 1
+        yield '</table>'
+    # generate html
+    result = ''
+    gen = f(table,digits)
+    for p in gen:
+        result += p
+    gen.close()
+    return result
+    
+def table2text(table, digits=2):
+    def f(table, digits=2):
+        for row in table:
+            for col in row:
+                if isinstance(col,float):
+                    yield '{1:.{0}f}\t'.format(digits, col)
+                else:
+                    yield '{0}\t'.format(col)
+            yield '\n'
+    # generate text
+    result = ''
+    gen = f(table,digits)
+    for p in gen:
+        result += p
+    gen.close()
+    return result
+
+default_html_style = '''
+body{font:12px times-new-roman}
+table{border-collapse:collapse; font-size:12px;}
+'''
+            
+def open_html(content,path = 'calla-result.html',style=default_html_style):
     """Save and open html file in default browser"""
     f = open(path, 'w')
-    f.write('<html><head><style>body{{font:{}}}</style></head><body>'.format(font))
+    f.write('<html><head><style>{}</style></head><body>'.format(style))
     f.write(content)
     f.write('</body></html>')
     f.close()

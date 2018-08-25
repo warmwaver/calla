@@ -65,7 +65,6 @@ class test_compressive_capacity(TestCase):
         assert_value(nac.ξb, 0.518)
         assert_value(nac.Asp, 292)
         assert_value(nac.As, 1334)
-        #exec_html(nac.html())
         print(nac.text())
 
     def test2(self):

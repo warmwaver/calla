@@ -9,7 +9,7 @@ __all__ = [
 
 from collections import OrderedDict
 from math import pi,sqrt
-from calla.basis import *
+from calla import abacus, html
 
 class axial_compression(abacus):
     """
@@ -23,13 +23,31 @@ class axial_compression(abacus):
     >>> axial_compression.compression_ratio(140.8*1000, 400**2, 16.7)
     0.05269461077844311
     """
+    __title__ = '轴心受压承载力'
+    __inputs__ = OrderedDict((
+        ('N',('<i>N</i>','kN',1000,'轴力')),
+        ('b',('<i>b</i>','mm',500)),
+        ('d',('<i>d</i>','mm',0)),
+        ('i',('<i>i</i>','mm',0)),
+        ('l0',('<i>l</i><sub>0</sub>','mm',1000)),
+        ('A',('<i>A</i>','mm<sup>2</sup>',500*500)),
+        ('fc',('<i>f</i>c','MPa',16.7)),
+        ('fy_',('<i>f</i><sub>y</sub><sup>\'</sup>','MPa',360)),
+        ('As_',('<i>A</i><sub>s</sub><sup>\'</sup>','mm<sup>2</sup>',60)),
+        ))
+    __deriveds__ = OrderedDict((
+        ('φ',('<i>φ</i>','',0,'稳定系数')),
+        ('Nd',('<i>N</i><sub>d</sub>','kN',0,'抗压承载力')),
+        ('轴压比',('轴压比','',0)),
+        ))
+    
     def index(array, value):
         for i in range(len(array)):
             if value <= array[i]:
                 return i
             elif value > array[i] and value <= array[i+1]:
                 return i+1
-    def Nd(phi, fc, A, fy_=300, As_=0):
+    def getNd(phi, fc, A, fy_=300, As_=0):
         """
         Args:
             phi: 稳定系数
@@ -41,7 +59,7 @@ class axial_compression(abacus):
             设计抗压强度
         """
         return 0.9*phi*(fc*A+fy_*As_)
-    def phi(l0, b=0,d=0,i=0):
+    def getphi(l0, b=0,d=0,i=0):
         if b<=0 and d<=0 and i<=0:
             raise Exception('输入值必须大于0')
         n = 22
@@ -56,7 +74,6 @@ class axial_compression(abacus):
             phis[1] = _phi[axial_compression.index(_d, l0/d)]
         if i > 0:
             phis[2] = _phi[axial_compression.index(_i, l0/i)]
-        #print(phis)
         return min(phis)
     """
     轴压比
@@ -66,7 +83,17 @@ class axial_compression(abacus):
         fc: 混凝土强度设计值
     """
     compression_ratio = lambda N, A, fc:N/(A*fc)
-
+    
+    def solve(self):
+        self.φ = axial_compression.getphi(self.l0, self.b,self.d,self.i)
+        self.Nd = axial_compression.getNd(self.φ, self.fc, self.A, self.fy_, self.As_)*1e-3
+        self.轴压比 = axial_compression.compression_ratio(self.N, self.A, self.fc)*1e3
+    def _html(self,digits=2):
+        yield self.formatX('轴压比')
+        yield self.formatX('φ')
+        yield self.formatX('Nd')
+        yield '{} {} Nd, {}满足规范要求。'.format(self.formatX('N', sep=''),'<' if self.N<self.Nd else '>', '' if self.N<self.Nd else '不')
+        
 def query_beta1(fcuk):
     if fcuk<50:
         return 0.8
@@ -83,7 +110,6 @@ class non_axial_compression(abacus):
     >>> nac.solve()
     >>> nac.As
     1000.0
-    >>> print(nac.text())
     """
     eval_Nd = lambda alpha1,fc,b,x,fy_,As_,sigma_s,As:\
         alpha1*fc*b*x+fy_*As_-sigma_s*As
@@ -147,20 +173,20 @@ class non_axial_compression(abacus):
             else:
                 raise Exception('No proper solution.')
     # hidden attributes
-    __name__ = '钢筋混凝土矩形截面偏心受压构件正截面受压承载力计算'
+    __title__ = '矩形截面偏心受压承载力'
     __inputs__ = OrderedDict((
-        ('N',('N','kN',1000)),
-        ('M',('M','kN·m',600)),
-        ('α1',('α1','',1)),
-        ('fc',('fc','MPa',16.7)),
-        ('fcuk',('fcuk','MPa',35)),
-        ('b',('b','mm',500)),
-        ('h',('h','mm',1000)),
-        ('fy',('fy','MPa',360)),
-        ('fyp',('fyp','MPa',360)),
-        ('a_s',('as','mm',60)),
-        ('asp',('asp','mm',60)),
-        ('Es',('Es','MPa',2E5)),
+        ('N',('<i>N</i>','kN',1000,'轴力')),
+        ('M',('<i>M</i>','kN·m',600,'弯矩')),
+        ('α1',('<i>α</i><sub>1</sub>','',1,'系数')),
+        ('fc',('<i>f</i><sub>c</sub>','MPa',16.7)),
+        ('fcuk',('<i>f</i><sub>cu,k</sub>','MPa',35)),
+        ('b',('<i>b</i>','mm',500,'矩形截面宽度')),
+        ('h',('<i>h</i>','mm',1000,'矩形截面高度')),
+        ('fy',('<i>f</i><sub>y</sub>','MPa',360,'钢筋抗拉强度设计值')),
+        ('fyp',('<i>f</i><sub>y</sub><sup>\'</sup>','MPa',360,'钢筋抗压强度设计值')),
+        ('a_s',('<i>a</i><sub>s</sub>','mm',60,'受拉区纵向普通钢筋合力点至受拉边缘的距离')),
+        ('asp',('<i>a</i><sub>s</sub><sup>\'</sup>','mm',60,'受拉区纵向预应力筋合力点至受拉边缘的距离')),
+        ('Es',('<i>E</i><sub>s</sub>','MPa',2E5,'钢筋弹性模量')),
         ))
     # Non-static members
     ηs = 1.0
@@ -268,8 +294,9 @@ class non_axial_compression(abacus):
                 self.Asp = self.As = nac.eval_Asp(N,self.e,self.α1,self.fc,self.b,self.ξ*self.h0,self.h0,self.fy,self.asp)
         
     def _html(self, digits = 2):
+        yield '偏心受压承载力计算'
         yield '截面尺寸: <i>b</i> = {} mm, <i>h</i> = {} mm, <i>h</i><sub>0</sub> = {} mm'.format(self.b,self.h,self.h0)
-        yield '设计内力: <i>N</i> = {0} kN, <i>M</i> = {0} kN·m'.format(self.N,self.M)
+        yield '设计内力: <i>N</i> = {} kN, <i>M</i> = {} kN·m'.format(self.N,self.M)
         yield '材料特性:'
         yield '''<i>f</i><sub>c</sub> = {} MPa, <i>f</i><sub>cu,k</sub> = {} MPa, 
 <i>f</i><sub>y</sub> = {} MPa, <i>f</i><sub>y</sub>\' = {} MPa'''.format(self.fc,self.fcuk,self.fy,self.fyp)

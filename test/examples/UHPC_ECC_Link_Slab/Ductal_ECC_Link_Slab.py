@@ -1,4 +1,4 @@
-from calla.basis import open_html
+from calla import html
 from calla.GB import flexural_capacity
 from calla.JTG import crack_width
 
@@ -29,7 +29,7 @@ cw.solve()
 print(cw.text(3))
 
 result = '{}<br>{}'.format(flc.html(),cw.html(3))
-f = open_html(result)
+f = html.save_and_open(result)
 
 # 主梁（T形截面）验算
 flct=flexural_capacity.fc_T()

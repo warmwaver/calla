@@ -8,51 +8,60 @@ __all__ = [
 
 from collections import OrderedDict
 import math
-from calla.basis import *
+from calla import abacus
 
 class crack_width(abacus):
-    """裂缝宽度
+    """
+    裂缝宽度计算
     计算裂缝宽度或根据裂缝宽度反算配筋。
+    《混凝土结构设计规范》（GB 50010-2010）第7.1节
     """
     def __init__(self,b=500,h=1000,h0=900):
+        super().__init__()
         self.b=b
         self.h=h
         self.h0=h0
-        
-    # parameters format: (name, (alias, unit, default_value, description, choices))
+
+    __title__ = '裂缝宽度'
+    # parameters format: (parameter, (symbol, unit, default_value, name, description[, choices]))
     # 'alias' is usually in html style that can be displayed better in browser.
     __inputs__ = OrderedDict((
-        ('option',('计算选项','',0,'',{0:'计算裂缝宽度',1:'计算配筋'})),
-        ('force_type',('受力类型','',0,'',{0:'受弯构件',1:'偏心受压构件',2:'偏心受拉构件',3:'轴心受拉构件'})),
-        ('Es',('E<sub>s</sub>','MPa',2.0E5,'钢筋弹性模量')),
-        ('ftk',('f<sub>tk</sub>','MPa',2.2)),
-        ('cs',('c<sub>s</sub>','mm',20)),
-        ('deq',('d<sub>eq</sub>','mm',25)),
-        ('b',('b','mm',500)),
-        ('h',('h','mm',1000)),
-        ('h0',('h<sub>0</sub>','mm')),
-        ('bf',('b<sub>f</sub>','mm')),
-        ('hf',('h<sub>f</sub>','mm')),
-        ('bf_comp',('bf<sup>\'</sup>','mm')),
-        ('hf_comp',('hf<sup>\'</sup>','mm')),
-        ('As',('A<sub>s</sub>','mm<sup>2</sup>')),
-        ('Ap',('A<sub>p</sub>','mm<sup>2</sup>')),
-        ('Nq',('N<sub>q</sub>','kN')),
-        ('Mq',('M<sub>q</sub>','kN·m')),
-        ('bear_repeated_load',('承受重复荷载','')),
-        ('wlim',('w<sub>lim</sub>','mm'))
+        ('option',('计算选项','','0','','',{'0':'计算裂缝宽度','1':'计算配筋'})),
+        ('force_type',('受力类型','','0','','',{'0':'受弯构件','1':'偏心受压构件','2':'偏心受拉构件','3':'轴心受拉构件'})),
+        ('Es',('<i>E</i><sub>s</sub>','MPa',2.0E5,'钢筋弹性模量')),
+        ('ftk',('<i>f</i><sub>tk</sub>','MPa',2.2)),
+        ('cs',('<i>c</i><sub>s</sub>','mm',20)),
+        ('deq',('<i>d</i><sub>eq</sub>','mm',25)),
+        ('b',('<i>b</i>','mm',500)),
+        ('h',('<i>h</i>','mm',1000)),
+        ('h0',('<i>h</i><sub>0</sub>','mm',900)),
+        ('bf',('<i>b</i><sub>f</sub>','mm')),
+        ('hf',('<i>h</i><sub>f</sub>','mm')),
+        ('bf_comp',('<i>bf</i><sup>\'</sup>','mm')),
+        ('hf_comp',('<i>hf</i><sup>\'</sup>','mm')),
+        ('l0',('<i>l</i><sub>0</sub>','mm')),
+        ('As',('<i>A</i><sub>s</sub>','mm<sup>2</sup>')),
+        ('Ap',('<i>A</i><sub>p</sub>','mm<sup>2</sup>')),
+        ('Nq',('<i>N</i><sub>q</sub>','kN',0,'轴力','按荷载准永久组合计算的轴向力值')),
+        ('Mq',('<i>M</i><sub>q</sub>','kN·m',0,'弯矩','按荷载准永久组合计算的弯矩值')),
+        ('bear_repeated_load',('承受重复荷载','',False,'','',{True:'是',False:'否'})),
+        ('wlim',('w<sub>lim</sub>','mm',0.2,'允许裂缝宽度'))
         ))
     __deriveds__ = OrderedDict((
         ('alpha_cr',('α<sub>cr</sub>','')),
         ('sigma_s',('σ<sub>s</sub>','MPa')),
         ('rho_te',('ρ<sub>te</sub>',''))
         ))
-    # 受力类型
-    # = 0：受弯构件
-    # = 1：偏心受压构件
-    # = 2：偏心受拉构件
-    # = 3：轴心受拉构件
-    force_type = 0
+    __toggles__ = {
+        'option':{'0':(),'1':('As')},
+        'force_type':{'0':('l0','Nq'),'1':(),'2':('l0'),'3':('Mq','l0')},
+        }
+    
+    # options
+    # 0:计算裂缝宽度;
+    # 1:根据裂缝宽度限值、内力反算钢筋面积;
+    # 2:根据裂缝宽度限值、钢筋面积反算设计内力.(待实现)
+    option = '0'
     #构件受力特征系数
     alpha_cr = 1.9
     sigma_s = 0
@@ -67,14 +76,6 @@ class crack_width(abacus):
     # 当ψ<0.2时，ψ=0.2
     # 当ψ>1.0时，ψ=1.0
     # 直接承受重复荷载的构件，ψ=1.0
-    b = 1000.0 #mm
-    h = 1000.0 #mm
-    _as = 45.0 #mm
-    h0 = h - _as #mm
-    bf = 0.0 #mm
-    hf = 0.0 #mm
-    bf_comp = 0 #mm
-    hf_comp = 0 #mm
     psi = 0.0
     As = 0.0
     Ap = 0.0
@@ -87,19 +88,9 @@ class crack_width(abacus):
     ys = 0
     #有效受拉混凝土截面面积
     Ate = 0
-    # 按荷载准永久组合计算的轴向力值
-    Nq = 0.0
-    # 按荷载准永久组合计算的弯矩值
-    Mq = 0.0
-    wlim = 0.2
     # 直接承受重复荷载的构件
     bear_repeated_load = False
-    out = ''
-    # options
-    # 0:计算裂缝宽度;
-    # 1:根据裂缝宽度限值、内力反算钢筋面积;
-    # 2:根据裂缝宽度限值、钢筋面积反算设计内力.(待实现)
-    option = 0 
+    
     # 计算最大裂缝宽度
     def cal_wmax(self):
         # alpha_cr #uncomplete
@@ -137,9 +128,9 @@ class crack_width(abacus):
             hf_comp = self.hf_comp;
             if self.hf_comp>0.2*self.h0:
                 hf_comp = 0.2*self.h0
-            gamma_f_comp = (self.bf_comp-b)*hf_comp/self.b/self.h0
+            gamma_f_comp = (self.bf_comp-self.b)*hf_comp/self.b/self.h0
             e0 = self.Mq/self.Nq
-            eta_s=1+1/4000/(e0/self.h0)*math.pow(l0/self.h,2)
+            eta_s=1+1/4000/(e0/self.h0)*math.pow(self.l0/self.h,2)
             e=eta_s*e0+self.ys
             z=(0.87-0.12*(1-gamma_f_comp)*math.pow(self.h0/e,2))*self.h0
             self.sigma_s = self.Nq*(e-z)/self.As/z
@@ -228,5 +219,7 @@ class crack_width(abacus):
             yield p
 		
 if __name__ == '__main__':
+    cw = crack_width()
+    print(cw.Mq)
     import doctest
     doctest.testmod()

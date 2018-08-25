@@ -10,12 +10,13 @@ __all__ = [
 
 from collections import OrderedDict
 from math import pi
-from calla.basis import *
+from calla import abacus
 
 class shear_capacity(abacus):
     """钢筋混凝土斜截面承载力计算
     《混凝土结构设计规范》(GB 50010-2010）第6.3.1节
     """
+    __title__ = '斜截面承载力'
     __inputs__ = OrderedDict((
         ('V',('N','kN',0)),
         ('b',('b','mm',500)),

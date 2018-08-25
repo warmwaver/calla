@@ -8,43 +8,49 @@ __all__ = [
 
 from collections import OrderedDict
 import math
-from calla.basis import *
+from calla import abacus
 
 class crack_width(abacus):
     """裂缝宽度
-    计算裂缝宽度或根据裂缝宽度反算配筋。"""
+    计算裂缝宽度或根据裂缝宽度反算配筋。
+    《公路钢筋混凝土及预应力混凝土桥涵设计规范》（JTG D62-2004）第6.4节
+    """
+    __title__ = '裂缝宽度'
     __inputs__ = OrderedDict((
-        ('option',('计算选项','',0,'',{0:'计算裂缝宽度',1:'计算配筋'})),
-        ('force_type',('受力类型','',0,'',{0:'受弯构件',1:'偏心受压构件',2:'偏心受拉构件',3:'轴心受拉构件'})),
-        ('Es',('E<sub>s</sub>','MPa',2.0E5,'钢筋弹性模量')),
+        ('option',('计算选项','','0','','',{'0':'计算裂缝宽度','1':'计算配筋'})),
+        ('force_type',('受力类型','','0','','',{'0':'受弯构件','1':'偏心受压构件','2':'偏心受拉构件','3':'轴心受拉构件'})),
+        ('Es',('<i>E</i><sub>s</sub>','MPa',2.0E5,'钢筋弹性模量')),
         ('ftk',('f<sub>tk</sub>','MPa',2.2)),
-        ('cs',('c<sub>s</sub>','mm',20)),
         ('deq',('d<sub>eq</sub>','mm',25)),
-        ('b',('b','mm',500)),
-        ('h',('h','mm',1000)),
+        ('b',('<i>b</i>','mm',500)),
+        ('h',('<i>h</i>','mm',1000)),
         ('h0',('h<sub>0</sub>','mm')),
         ('bf',('b<sub>f</sub>','mm')),
         ('hf',('h<sub>f</sub>','mm')),
-        ('bf_comp',('bf<sup>\'</sup>','mm')),
-        ('hf_comp',('hf<sup>\'</sup>','mm')),
+        ('bf_',('bf<sup>\'</sup>','mm')),
+        ('hf_',('hf<sup>\'</sup>','mm')),
+        ('l',('<i>l</i>','mm',0,'构件长度')),
+        ('l0',('<i>l</i>0','mm',0,'构件计算长度')),
+        ('ys',('<i>t</i>s','mm','截面重心至纵向受拉钢筋合力点的距离')),
         ('As',('A<sub>s</sub>','mm<sup>2</sup>')),
         ('Ap',('A<sub>p</sub>','mm<sup>2</sup>')),
-        ('Nq',('N<sub>q</sub>','kN')),
-        ('Mq',('M<sub>q</sub>','kN·m')),
-        ('bear_repeated_load',('承受重复荷载','')),
-        ('wlim',('w<sub>lim</sub>','mm'))
+        ('Nl',('N<sub>q</sub>','kN')),
+        ('Ml',('M<sub>q</sub>','kN·m')),
+        ('Ns',('N<sub>q</sub>','kN')),
+        ('Ms',('M<sub>q</sub>','kN·m')),
+        ('wlim',('w<sub>lim</sub>','mm',0.2,'裂缝宽度限值'))
         ))
     __deriveds__ = OrderedDict((
         ('alpha_cr',('α<sub>cr</sub>','')),
         ('sigma_s',('σ<sub>s</sub>','MPa')),
         ('rho_te',('ρ<sub>te</sub>',''))
         ))
-    # 受力类型
-    # = 0：受弯构件
-    # = 1：偏心受压构件
-    # = 2：偏心受拉构件
-    # = 3：轴心受拉构件
-    force_type = 0
+    
+    # options
+    # 0:计算裂缝宽度;
+    # 1:根据裂缝宽度限值、内力反算钢筋面积;
+    # 2:根据裂缝宽度限值、钢筋面积反算设计内力.(待实现)
+    option = '0' 
     # 钢筋表面形状系数，对光面钢筋，C1=1.4；对带肋钢筋，C1=1.0
     C1=1.0
     # 与构件受力性质有关的系数，钢筋混凝土板式受弯构件C3=1.15，其它受弯构件C3=1.0，轴心受拉构件C3=1.2，偏心受拉构件C3=1.1，偏心受压构件C3=0.9
@@ -52,10 +58,6 @@ class crack_width(abacus):
     σss = 0
     Es = 2.0E5
     ftk = 2.2 #N/mm^2
-    # 最外层纵向受拉钢筋外边缘至受拉区底边的距离
-    # 当cs<20时，cs=20
-    # 当cs>65时，cs=65
-    cs = 20 #mm
     # 纵向受拉钢筋配筋率
     ρ = 0.0
     # 裂缝间纵向受拉钢筋应变不均匀系数ψ
@@ -68,8 +70,8 @@ class crack_width(abacus):
     h0 = h - _as #mm
     bf = 0.0 #mm
     hf = 0.0 #mm
-    bf_comp = 0 #mm
-    hf_comp = 0 #mm
+    bf_ = 0 #mm
+    hf_ = 0 #mm
     psi = 0.0
     As = 0.0
     Ap = 0.0
@@ -91,26 +93,30 @@ class crack_width(abacus):
     # 按荷载短期效应组合计算的弯矩值
     Ms = 0.0
     wlim = 0.2
-    # 直接承受重复荷载的构件
-    bear_repeated_load = False
-    out = ''
-    # options
-    # 0:计算裂缝宽度;
-    # 1:根据裂缝宽度限值、内力反算钢筋面积;
-    # 2:根据裂缝宽度限值、钢筋面积反算设计内力.(待实现)
-    option = 0 
     # 计算最大裂缝宽度
     cal_Wtk=lambda C1,C2,C3,σss,Es,d,ρ:C1*C2*C3*σss/Es*(30+d)/(0.28+10*ρ)
     cal_ρ=lambda As,Ap,b,h0,bf,hf:(As+Ap)/(b*h0+(bf-b)*hf)
+    cal_σss_0=lambda Ms,As,h0:Ms*1e6/0.87/As/h0
+    def cal_σss_1(b,bf_,h,hf_,l,l0,h0,As,ys,Ns,Ms):
+        e0 = Ms/Ns
+        ηs = 1+l/(4000*e0/h0)*(l0/h)**2
+        γf_=(bf_-b)*hf_/b/h0
+        es = ηs*e0+ys
+        z = (0.87-0.12*(1-γf_)*(h0/es)**2)*h0
+        σss=Ns*1e3*(es-z)/As/z
+        return σss
+    cal_σss_2=lambda Ns,es_,As,h0,as_:Ns*1e3*es_/As/(h0-as_)
+    cal_σss_3=lambda Ns,As:Ns*1e3/As
     def cal_σss(self):
         if self.force_type == 0:
-            self.σss=self.Ms*1e6/0.87/self.As/self.h0
+            self.σss=crack_width.cal_σss_0(self.Ms,self.As,self.h0)
         elif self.force_type == 1:
-            self.σss=self.Ns*1e3*(self.es-self.z)/self.As/self.z
+            self.σss=crack_width.cal_σss_1(self.b,self.bf_,self.h,self.hf_,self.l,self.l0,\
+                               self.h0,self.As,self.ys,self.Ns,self.Ms)
         elif self.force_type == 2:
-            self.σss=self.Ns*1e3*self.es_/self.As/(self.h0-self.as_)
+            self.σss=crack_width.cal_σss_2(self.Ns,self.es_,self.As,self.h0,self.as_)
         elif self.force_type == 3:
-            self.σss=self.Ns*1e3/self.As
+            self.σss=crack_width.cal_σss_3(self.Ns,self.As)
         return self.σss
     # 根据裂缝宽度限值反算钢筋面积
     def cal_Asd(self):
@@ -160,8 +166,8 @@ class crack_width(abacus):
         elif self.force_type == 3:
             yield '轴心受拉构件'
         yield '构件尺寸:'
-        yield 'b = {} mm, h = {} mm, h0 = {} mm, cs = {} mm'.format(
-            self.b,self.h,self.h0,self.cs)
+        yield 'b = {} mm, h = {} mm, h0 = {} mm'.format(
+            self.b,self.h,self.h0)
         yield '钢筋面积:'
         yield 'As = {:.0f} mm<sup>2</sup>, Ap = {:.0f} mm<sup>2</sup>'.format(
             self.As,self.Ap)

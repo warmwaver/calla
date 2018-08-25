@@ -1,8 +1,7 @@
-"""
-(c)2013,warmwaver
-"""
 from math import pi, sqrt
+
 density = 7850 #kg/m^3
+
 def area(diameter: 'mm'):
     '''area of rebar
     '''

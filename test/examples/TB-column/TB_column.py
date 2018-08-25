@@ -1,5 +1,5 @@
 import json
-from calla.basis import *
+from calla import *
 from calla.TB.RC_strength import *
 from collections import OrderedDict
 
@@ -19,7 +19,7 @@ class TBColumn(abacus):
         yield '<h2>偏心受压构件验算</h2><p>《铁路桥涵混凝土结构设计规范》（TB 10092-2017）</p>'
         for key in self.tables:
             yield '<h3>{}</h3>'.format(key)
-            yield table2html(self.tables[key],digits)
+            yield html.table2html(self.tables[key],digits)
 
     def solve(self, c):
         '''
@@ -119,7 +119,7 @@ try:
     import os
     files=os.listdir()
     count = 1
-    style = default_html_style+'h3 {font-size:14px}'
+    style = html.default_html_style+'h3 {font-size:14px}'
     for filename in files:
         if filename.startswith('input') == False or filename.endswith('json') == False:
             continue
@@ -141,7 +141,7 @@ try:
         file_out = 'result_{}.html'.format(name) #file_out = 'result.html'
         print(tb.text())
         print('计算结果写入当前目录的"{}"文件中.\n'.format(file_out))
-        open_html(result,file_out,style)
+        html.save_and_open(result,file_out,style)
         count = count + 1
 except:
     import sys

@@ -4,7 +4,7 @@
 """
 
 from collections import OrderedDict
-from calla.basis import abacus
+from calla import abacus
 
 eta1 = lambda beta_s: 0.4+1.2/beta_s
 eta2 = lambda alpha_s,h0,um: 0.5+alpha_s*h0/4/um
@@ -19,7 +19,7 @@ class punching_shear_capacity(abacus):
     >>> p.f
     1821.15
     """
-    __name__ = '受冲切承载力计算'
+    __title__ = '受冲切承载力计算'
     __description__ = '6.5.1 在局部荷载或集中反力作用下，不配置箍筋或弯起钢筋的板的受冲切承载力。'
     __inputs__ = OrderedDict((
         ('beta_s',('<i>β</i><sub>s</sub>','',2,'钢筋弹性模量')),

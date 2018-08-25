@@ -12,7 +12,7 @@ __all__ = [
 
 from math import pi, sin, sqrt
 from collections import OrderedDict
-from calla.basis import *
+from calla import abacus
 
 class fc_rect(abacus):
     """矩形截面或翼缘位于受拉边的倒T形截面混凝土构件正截面受弯承载力计算
@@ -33,20 +33,21 @@ class fc_rect(abacus):
     eval_Md = lambda α1,fc,b,x,h0,fy_,As_,as_,σp0_,fpy_,Ap_,ap_:\
          α1*fc*b*x*(h0-x/2)+fy_*As_*(h0-as_)-(σp0_-fpy_)*Ap_*(h0-ap_)
     # hidden attributes
+    __title__ = '矩形或倒T形截面受弯承载力'
     __inputs__ = OrderedDict((
-        ('option',('选项','')),
-        ('gamma0',('γ0','')),
-        ('beta1',('β1','')),
-        ('alpha1',('α1','')),
-        ('fc',('fc','N/mm<sup>2</sup>')),
-        ('fcu_k',('fcu_k','N/mm<sup>2</sup>')),
-        ('Es',('Es','N/mm<sup>2</sup>')),
+        ('option',('选项','',1,'','',{0:'根据配筋计算承载力',1:'根据内力设计值计算配筋'})),
+        ('gamma0',('γ0','',1.0)),
+        ('beta1',('β1','',0.8)),
+        ('alpha1',('α1','',1.0)),
+        ('fc',('fc','N/mm<sup>2</sup>',14.3)),
+        ('fcu_k',('fcu_k','N/mm<sup>2</sup>',35)),
+        ('Es',('Es','N/mm<sup>2</sup>',2.0E5)),
         ('b',('b','mm')),
         ('h0',('h0','mm')),
-        ('fy',('fy','N/mm<sup>2</sup>')),
+        ('fy',('fy','N/mm<sup>2</sup>',360)),
         ('As',('As','mm<sup>2</sup>')),
-        ('fy_comp',('fy\'','N/mm<sup>2</sup>')),
-        ('as_comp',('as\'','mm')),
+        ('fy_comp',('fy\'','N/mm<sup>2</sup>',360)),
+        ('as_comp',('as\'','mm',30)),
         ('M',('M','kN·m'))
         ))
     __deriveds__ = OrderedDict((
@@ -185,6 +186,8 @@ class fc_T(fc_rect):
     翼缘位于受压区的T形、I形截面受弯构件，正截面受弯承载力计算
     混凝土结构设计规范（GB 50010-2010）第6.2.11节
     """
+    __title__ = 'T形或I形截面受弯承载力'
+    
     bf_=1000
     hf_=200
     fpy=0
@@ -276,9 +279,26 @@ class fc_round(abacus):
 
     >>> As = 20*pi/4*25**2
     >>> A = pi/4*800**2
-    >>> fc_round.solve(1,14.3,360,800,700,A,0,100*1e6)
+    >>> fc_round.solve_As(1,14.3,360,800,700,A,0,100*1e6)
     (0.1353837087975943, 372.5808715200759)
     """
+    __title__ = '圆形截面承载力'
+    __inputs__ = OrderedDict((
+        ('option',('选项','',1,'','',{0:'根据配筋计算承载力',1:'根据内力设计值计算配筋'})),
+        ('α1',('α1','',1.0)),
+        ('fc',('fc','N/mm<sup>2</sup>',14.3)),
+        ('fy',('fy','N/mm<sup>2</sup>',360)),
+        ('r',('r','mm',800)),
+        ('rs',('rs','mm',700)),
+        ('A',('A','mm<sup>2</sup>',pi/4*800**2)),
+        ('N',('N','kN',1000.0)),
+        ('M',('M','kN·m',100.0))
+        ))
+    __deriveds__ = OrderedDict((
+        ('α',('<i>α</i>','',0,'受压区域圆心角')),
+        ('As',('<i>A</i><sub>s</sub>','mm<sup>2</sup>',0,'全截面钢筋面积'))
+        ))
+    
     αt = lambda α:1.25-2*α if α<0.625 else 0
     As = lambda α,α1,fc,fy,A,N:\
         (N-α*α1*fc*A*(1-sin(2*pi*α)/2/pi/α))/(α-fc_round.αt(α))/fy
@@ -286,7 +306,56 @@ class fc_round(abacus):
          α*α1*fc*A*(1-sin(2*pi*α)/2/pi/α)+(α-fc_round.αt(α))*fy*As
     Md = lambda α,α1,fc,fy,r,rs,A,As:2/3*α1*fc*A*r*sin(pi*α)**3/pi\
          +fy*As*rs*(sin(pi*α)+sin(pi*fc_round.αt(α)))/pi
-    def solve(α1,fc,fy,r,rs,A,N,M):
+    def solve_As(α1,fc,fy,r,rs,A,N,M):
+        """
+        求解alpha和As,已知N和M
+        """
+        def func(α,α1,fc,fy,r,rs,A,N,M):
+            if α<0.625:
+                αt = 1.25-2*α
+            else:
+                αt = 0
+            C1=2/3*sin(pi*α)**3/pi
+            C2=(sin(pi*α)+sin(pi*αt))/pi
+            fyAs=(N-α1*fc*A*(α-sin(2*pi*α)/2/pi))/(α-αt)
+            f=α1*fc*A*r*C1+fyAs*rs*C2-M
+            return f
+        if not N == 0 and not M == 0:
+            e0=M/N
+            ea=r/30
+            if ea<20:
+                ea=20
+            ei=e0+ea
+            M=N*ei
+        # 查找正值
+        x0 = 0
+        x1 = 1
+        f0 = func(x0,α1,fc,fy,r,rs,A,N,M)
+        f1 = func(x1,α1,fc,fy,r,rs,A,N,M)
+        if f0*f1>0:
+            delta = 0.01
+            while x0<x1:
+                x0 += delta
+                f0 = func(x0,α1,fc,fy,r,rs,A,N,M)
+                if f0*f1<0:
+                    break
+        # 折半查找法求解非线性方程
+        while True:
+            x = (x0+x1)/2
+            f = func(x,α1,fc,fy,r,rs,A,N,M)
+            if abs(x-x0)<1E-9 or abs(f)<1E-3:
+                #print('f = ',func(x2,α1,fc,fy,r,rs,A,N,M))
+                α = x
+                As = fc_round.As(α,α1,fc,fy,A,N)
+                return (α,As)
+            if f*f0<0:
+                x1 = x
+                f1 = f
+            else:
+                x0 = x
+                f0 = f
+            
+    def solve_As2(α1,fc,fy,r,rs,A,N,M):
         """
         求解alpha和As,已知N和M
         """
@@ -308,30 +377,47 @@ class fc_round(abacus):
             ei=e0+ea
             M=N*ei
         # 割线法求解非线性方程
-        x0=0.1
-        x1=0.2
+        x0=0.42
+        x1=0.9
         count = 0
+        # test
+        for i in range(100):
+            f=func(i*0.01,α1,fc,fy,r,rs,A,N,M)
+            print(i*0.01,f)
         while True:
             f0=func(x0,α1,fc,fy,r,rs,A,N,M)
             f1=func(x1,α1,fc,fy,r,rs,A,N,M)
             x2=x1-f1*(x1-x0)/(f1-f0)
-            #print('x0=',x0,'x1=',x1,'x2=',x2)
+            f_ = (f1-f0)/(x1-x0)
+            print('x0=',x0,'x1=',x1, 'f\'=',f_,'x2=',x2)
             if abs(x2-x1)<1E-9 and x2>0 and x2<1:
-                #print('f = ',func(x2,α1,fc,fy,r,rs,A,N,M))
+                print('f = ',func(x2,α1,fc,fy,r,rs,A,N,M))
                 α = x2
                 As = fc_round.As(α,α1,fc,fy,A,N)
                 return (α,As)
             if count>100:
                 raise Exception('No real solution.')
             if x2 <= 0:
-                x2 = 0.1
+                x2 = min(x0,x1)+0.01
             elif x2 >= 1:
-                x2 = 0.9
+                x2 = max(x0,x1)-0.01
             x0 = x1
             x1 = x2
             count += 1
+            
+    def solve(self):
+        self.α,self.As = fc_round.solve_As(
+            self.α1,self.fc,self.fy,self.r,self.rs,self.A,self.N*1e3,self.M*1e6)
+        pass
+    
+    def _html(self,digits=2):
+        yield '圆形截面抗弯承载力计算'
+        yield self.formatX('α',digits)
+        yield self.formatX('As',digits)
 
 
 if __name__ == '__main__':
     import doctest
     doctest.testmod()
+    r=fc_round.solve_As(1,14.3,360,1000,900,1000**2*3.14/4,4313*1e3,9600*1e6)
+    print(r)

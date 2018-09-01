@@ -5,16 +5,26 @@ __all__ = [
     ]
 
 from calla import abacus
+from collections import OrderedDict
 
 class wind(abacus):
+    '''风荷载计算
+    《公路桥梁抗风设计规范》（JTG/T D60-01-2004）
+    '''
+    __title__ = '风荷载计算'
+    __inputs__ = OrderedDict([
+            ('B',('<i>B</i>','m',0,'主梁断面全宽')),
+            ('H',('<i>H</i>','m',0,'主梁投影高度')),
+            ('V10',('<i>V</i><sub>10</sub>','m/s',10,'基本风速')),
+            ('GV',('<i>G</i><sub>V</sub>','',1.0,'静阵风系数','查表4.2.1')),
+            ('Z',('<i>Z</i>','m',10,'基准高度')),
+            ('地表类别',('地表类别','','A','')),
+            ('ρ',('<i>ρ</i>','kg/m<sup>3</sup>',1.25,'空气密度')),
+            ])
     __deriveds__ = {
             'Vg':('<i>V</i><sub>g</sub>','m/s',0,'静阵风风速'),
             'FH':('<i>F</i><sub>H</sub>','N/m',0,'静阵风荷载'),
             }
-    def __init__(self,B=1,H=1,V10=10,GV=1, Z=10,地表类别='A',ρ=1.25):
-        super().__init__()
-        self.B=B;self.H=H;self.V10=V10;self.GV=GV;self.Z=Z;
-        self.地表类别=地表类别;self.ρ=ρ
         
     def K1(Z,地表类别):
         if 地表类别=='A':

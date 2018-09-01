@@ -10,23 +10,32 @@ __all__ = [
 
 from calla import abacus
 from math import pi
+from collections import OrderedDict
 
 class GJZ(abacus):
     '''
     矩形板式橡胶支座
 
-    >>> gjz = GJZ(300,350,63,8,3)
+    >>> gjz = GJZ(la=300,lb=350,t=63,t1=8,t0=3)
     >>> assert abs(gjz.S()-9.78)<0.01
     >>> gjz.te()
     45.0
     '''
-    def __init__(self, la,lb,t,t1,t0):
-        self.la=la # mm
-        self.lb=lb # mm
-        self.t=t
-        self.t1=t1
-        self.t0=t0
-        self.G=1.0 # MPa
+    __title__ = '矩形板式橡胶支座'
+    __inputs__ = OrderedDict([
+            ('la',('<i>l</i><sub>a</sub>','mm',100,'平面尺寸')),
+            ('lb',('<i>l</i><sub>b</sub>','mm',150,'平面尺寸')),
+            ('t',('<i>t</i>','mm',21,'支座总厚度')),
+            ('t1',('<i>t</i><sub>1</sub>','mm',5,'中间橡胶层厚度')),
+            ('t0',('<i>t</i><sub>0</sub>','mm',2,'单层钢板厚度')),
+            ('G',('<i>G</i>','MPa',1.0,'剪变模量')),
+            ])
+    __deriveds__ = {
+            'E':('<i>E</i>','MPa',0,'压缩模量'),
+            'kx':('<i>k</i><sub>v</sub>','kN/m',0,'水平弹簧系数'),
+            'kz':('<i>k</i><sub>c</sub>','kN/m',0,'竖向弹簧系数'),
+            }
+    
     def S(self):
         l0a = self.l0a()
         l0b = self.l0b()
@@ -69,17 +78,25 @@ class GYZ(abacus):
     '''
     圆形板式橡胶支座
 
-    >>> gyz = GYZ(350,63,8,3)
+    >>> gyz = GYZ(d=350,t=63,t1=8,t0=3)
     >>> assert abs(gyz.S()-10.63)<0.01
     >>> gyz.te()
     45.0
     '''
-    def __init__(self, d,t,t1,t0):
-        self.d=d # mm
-        self.t=t
-        self.t1=t1
-        self.t0=t0
-        self.G=1.0 # MPa
+    __title__ = '圆形板式橡胶支座'
+    __inputs__ = OrderedDict([
+            ('d',('<i>d</i>','mm',150,'直径')),
+            ('t',('<i>t</i>','mm',21,'支座总厚度')),
+            ('t1',('<i>t</i><sub>1</sub>','mm',5,'中间橡胶层厚度')),
+            ('t0',('<i>t</i><sub>0</sub>','mm',2,'单层钢板厚度')),
+            ('G',('<i>G</i>','MPa',1.0,'剪变模量')),
+            ])
+    __deriveds__ = {
+            'E':('<i>E</i>','MPa',1.0,'压缩模量'),
+            'kx':('<i>k</i><sub>v</sub>','kN/m',0,'水平弹簧系数'),
+            'kz':('<i>k</i><sub>c</sub>','kN/m',0,'竖向弹簧系数'),
+            }
+    
     def S(self):
         return self.d0()/4/self.t1
     def E(self):

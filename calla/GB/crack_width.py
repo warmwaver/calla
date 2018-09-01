@@ -16,12 +16,6 @@ class crack_width(abacus):
     计算裂缝宽度或根据裂缝宽度反算配筋。
     《混凝土结构设计规范》（GB 50010-2010）第7.1节
     """
-    def __init__(self,b=500,h=1000,h0=900):
-        super().__init__()
-        self.b=b
-        self.h=h
-        self.h0=h0
-
     __title__ = '裂缝宽度'
     # parameters format: (parameter, (symbol, unit, default_value, name, description[, choices]))
     # 'alias' is usually in html style that can be displayed better in browser.
@@ -29,28 +23,32 @@ class crack_width(abacus):
         ('option',('计算选项','','0','','',{'0':'计算裂缝宽度','1':'计算配筋'})),
         ('force_type',('受力类型','','0','','',{'0':'受弯构件','1':'偏心受压构件','2':'偏心受拉构件','3':'轴心受拉构件'})),
         ('Es',('<i>E</i><sub>s</sub>','MPa',2.0E5,'钢筋弹性模量')),
-        ('ftk',('<i>f</i><sub>tk</sub>','MPa',2.2)),
-        ('cs',('<i>c</i><sub>s</sub>','mm',20)),
-        ('deq',('<i>d</i><sub>eq</sub>','mm',25)),
-        ('b',('<i>b</i>','mm',500)),
-        ('h',('<i>h</i>','mm',1000)),
-        ('h0',('<i>h</i><sub>0</sub>','mm',900)),
-        ('bf',('<i>b</i><sub>f</sub>','mm')),
-        ('hf',('<i>h</i><sub>f</sub>','mm')),
-        ('bf_comp',('<i>bf</i><sup>\'</sup>','mm')),
-        ('hf_comp',('<i>hf</i><sup>\'</sup>','mm')),
-        ('l0',('<i>l</i><sub>0</sub>','mm')),
-        ('As',('<i>A</i><sub>s</sub>','mm<sup>2</sup>')),
-        ('Ap',('<i>A</i><sub>p</sub>','mm<sup>2</sup>')),
+        ('ftk',('<i>f</i><sub>tk</sub>','MPa',2.2,'混凝土轴心抗拉强度标准值')),
+        ('cs',('<i>c</i><sub>s</sub>','mm',20,'受拉钢筋净保护层厚度','最外层纵向受拉钢筋外边缘至受拉区底边的距离')),
+        ('deq',('<i>d</i><sub>eq</sub>','mm',25,'受拉区纵向钢筋的等效直径')),
+        ('b',('<i>b</i>','mm',500,'矩形截面宽度')),
+        ('h',('<i>h</i>','mm',1000,'矩形截面高度')),
+        ('h0',('<i>h</i><sub>0</sub>','mm',900,'截面有效高度')),
+        ('bf',('<i>b</i><sub>f</sub>','mm',0,'受拉区翼缘计算宽度')),
+        ('hf',('<i>h</i><sub>f</sub>','mm',0,'受拉区翼缘计算高度')),
+        ('bf_',('<i>b</i><sub>f</sub><sup>\'</sup>','mm',0,'受压区翼缘计算宽度')),
+        ('hf_',('<i>h</i><sub>f</sub><sup>\'</sup>','mm',0,'受压区翼缘计算高度')),
+        ('l0',('<i>l</i><sub>0</sub>','mm',0,'构件计算长度')),
+        ('As',('<i>A</i><sub>s</sub>','mm<sup>2</sup>',0,'受拉钢筋面积')),
+        ('Ap',('<i>A</i><sub>p</sub>','mm<sup>2</sup>',0,'受拉预应力筋面积')),
         ('Nq',('<i>N</i><sub>q</sub>','kN',0,'轴力','按荷载准永久组合计算的轴向力值')),
         ('Mq',('<i>M</i><sub>q</sub>','kN·m',0,'弯矩','按荷载准永久组合计算的弯矩值')),
         ('bear_repeated_load',('承受重复荷载','',False,'','',{True:'是',False:'否'})),
-        ('wlim',('w<sub>lim</sub>','mm',0.2,'允许裂缝宽度'))
+        ('wlim',('<i>w</i><sub>lim</sub>','mm',0.2,'允许裂缝宽度'))
         ))
     __deriveds__ = OrderedDict((
-        ('alpha_cr',('α<sub>cr</sub>','')),
-        ('sigma_s',('σ<sub>s</sub>','MPa')),
-        ('rho_te',('ρ<sub>te</sub>',''))
+        ('alpha_cr',('<i>α</i><sub>cr</sub>','',1.9,'构件受力特征系数')),
+        ('sigma_s',('<i>σ</i><sub>s</sub>','MPa',0,'受拉钢筋等效应力','''按
+荷载准永久组合计算的钢筋混凝土构件纵向受拉普通钢筋应力或按标准组合计算的
+预应力混凝土构件纵向受拉钢筋等效应力''')),
+        ('rho_te',('<i>ρ</i><sub>te</sub>','',0,'纵向受拉钢筋配筋率','''按
+有效受拉混凝土截面面积计算的纵向受拉钢筋配筋率；对无粘结后张构件，仅取纵向
+受拉普通钢筋计算配筋率；在最大裂缝宽度计算中，当ρte<O. 01 时，取ρte=0.01'''))
         ))
     __toggles__ = {
         'option':{'0':(),'1':('As')},
@@ -94,24 +92,24 @@ class crack_width(abacus):
     # 计算最大裂缝宽度
     def cal_wmax(self):
         # alpha_cr #uncomplete
-        if self.force_type == 0 or self.force_type == 1:
+        if self.force_type == '0' or self.force_type == '1':
             if self.Ap>0:
                 self.alpha_cr = 1.5
             else:
                 self.alpha_cr = 1.9
-        elif self.force_type == 2:
+        elif self.force_type == '2':
             if self.Ap>0:
                 self.alpha_cr = 1.5 #?
             else:
                 self.alpha_cr = 2.4
-        elif self.force_type == 3:
+        elif self.force_type == '3':
             if self.Ap>0:
                 self.alpha_cr = 2.2
             else:
                 self.alpha_cr = 2.7
         # todo: 添加预应力混凝土构件特征系数
         # Ate
-        if self.force_type==3:
+        if self.force_type=='3':
             self.Ate=self.b*self.h
         else:
             self.Ate=0.5*self.b*self.h
@@ -122,21 +120,21 @@ class crack_width(abacus):
         if self.rho_te<0.01:
             self.rho_te = 0.01
         # 钢筋等效应力
-        if self.force_type == 0:
+        if self.force_type == '0':
             self.sigma_s = 1E6*self.Mq/0.87/self.h0/self.As
-        elif self.force_type == 1:
-            hf_comp = self.hf_comp;
-            if self.hf_comp>0.2*self.h0:
-                hf_comp = 0.2*self.h0
-            gamma_f_comp = (self.bf_comp-self.b)*hf_comp/self.b/self.h0
+        elif self.force_type == '1':
+            hf_ = self.hf_;
+            if self.hf_>0.2*self.h0:
+                hf_ = 0.2*self.h0
+            gamma_f_comp = (self.bf_-self.b)*hf_/self.b/self.h0
             e0 = self.Mq/self.Nq
             eta_s=1+1/4000/(e0/self.h0)*math.pow(self.l0/self.h,2)
             e=eta_s*e0+self.ys
             z=(0.87-0.12*(1-gamma_f_comp)*math.pow(self.h0/e,2))*self.h0
             self.sigma_s = self.Nq*(e-z)/self.As/z
-        elif self.force_type == 2:
+        elif self.force_type == '2':
             self.sigma_s = self.Nq*1E3*self.e_comp/self.As/(self.h0-self.as_comp)
-        elif self.force_type == 3:
+        elif self.force_type == '3':
             self.sigma_s = self.Nq*1E3/self.As
         # ψ - psi
         self.psi = 1.1 - 0.65 * self.ftk / self.rho_te / self.sigma_s
@@ -169,7 +167,9 @@ class crack_width(abacus):
                 A1 = self.As
         return self.As
     def solve(self):
-        if self.option == 0:
+        self.positive_check('Es','ftk','cs','deq','b','h','h0','Mq','wlim')
+        if self.option == '0':
+            self.positive_check('As')
             return self.cal_wmax()
         return self.cal_Asd()
     def _html(self,digits=2):
@@ -181,13 +181,13 @@ class crack_width(abacus):
         yield '裂缝宽度验算'
         yield '验算依据：混凝土结构设计规范（GB 50010-2010）第7.1节'
         yield '构件受力类型: '
-        if self.force_type == 0:
+        if self.force_type == '0':
             yield '受弯构件'
-        elif self.force_type == 1:
+        elif self.force_type == '1':
             yield '偏心受压构件'
-        elif self.force_type == 2:
+        elif self.force_type == '2':
             yield '偏心受拉构件'
-        elif self.force_type == 3:
+        elif self.force_type == '3':
             yield '轴心受拉构件'
         yield '构件尺寸:'
         yield '{}, {}, {}, {}'.format(
@@ -202,7 +202,7 @@ class crack_width(abacus):
         yield '构件受力特征系数: {}'.format(self.formatD('alpha_cr'))
         yield '有效受拉混凝土截面面积: Ate = {:.3f} mm<sup>2</sup>'.format(self.Ate)
         #yield '纵向受拉钢筋配筋率: ρte = ({0} + {1})/ {2} = {3:.3f}'.format(self.As,self.Ap,self.Ate,self.rho_te)
-        yield '纵向受拉钢筋配筋率: {} = {} = {:.3f}'.format(self.alias('rho_te'),self.express('(As + Ap)/ Ate'),self.rho_te)
+        yield '纵向受拉钢筋配筋率: {} = {} = {:.3f}'.format(self.symbol('rho_te'),self.express('(As + Ap)/ Ate'),self.rho_te)
         yield '钢筋等效应力: σs = {:.2f} MPa'.format(self.sigma_s)
         yield '是否承受重复荷载的构件：{0}'.format('是' if self.bear_repeated_load else '否')
         yield '裂缝间纵向受拉钢筋应变不均匀系数: ψ = {:.3f}'.format(self.psi)
@@ -219,7 +219,5 @@ class crack_width(abacus):
             yield p
 		
 if __name__ == '__main__':
-    cw = crack_width()
-    print(cw.Mq)
     import doctest
     doctest.testmod()

@@ -19,73 +19,53 @@ class fc_rect(abacus):
     依据：
     混凝土结构设计规范（GB 50010-2010）第6.2.10节
     公路钢筋混凝土及预应力混凝土桥涵设计规范（JTG D62-2004）第5.2.2节
-    >>> flc=fc_rect(180,250,460,14.3,360)
+    >>> flc=fc_rect(M=180,b=250,h0=460,fc=14.3,fy=360)
     >>> flc.cal_Asd()
     1261.0061148778957
     """
-    def __init__(self,M=0,b=500,h0=900,fc=14.3,fy=360):
-        self.M=M
-        self.b=b
-        self.h0=h0
-        self.fc=fc
-        self.fy=fy
-        
-    eval_Md = lambda α1,fc,b,x,h0,fy_,As_,as_,σp0_,fpy_,Ap_,ap_:\
-         α1*fc*b*x*(h0-x/2)+fy_*As_*(h0-as_)-(σp0_-fpy_)*Ap_*(h0-ap_)
-    # hidden attributes
     __title__ = '矩形或倒T形截面受弯承载力'
     __inputs__ = OrderedDict((
-        ('option',('选项','',1,'','',{0:'根据配筋计算承载力',1:'根据内力设计值计算配筋'})),
-        ('gamma0',('γ0','',1.0)),
-        ('beta1',('β1','',0.8)),
-        ('alpha1',('α1','',1.0)),
-        ('fc',('fc','N/mm<sup>2</sup>',14.3)),
-        ('fcu_k',('fcu_k','N/mm<sup>2</sup>',35)),
-        ('Es',('Es','N/mm<sup>2</sup>',2.0E5)),
-        ('b',('b','mm')),
-        ('h0',('h0','mm')),
-        ('fy',('fy','N/mm<sup>2</sup>',360)),
-        ('As',('As','mm<sup>2</sup>')),
-        ('fy_comp',('fy\'','N/mm<sup>2</sup>',360)),
-        ('as_comp',('as\'','mm',30)),
-        ('M',('M','kN·m'))
+        ('option',('选项','','1','','',{'0':'根据配筋计算承载力','1':'根据内力设计值计算配筋'})),
+        ('gamma0',('<i>γ</i><sub>0</sub>','',1.0,'重要性系数')),
+        ('beta1',('<i>β</i><sub>1</sub>','',0.8,'系数','按本规范第6.2.6条的规定计算')),
+        ('alpha1',('<i>α</i><sub>1</sub>','',1,'系数')),
+        ('fc',('<i>f</i>c','MPa',16.7,'混凝土轴心抗压强度设计值')),
+        ('fcuk',('<i>f</i><sub>cu,k</sub>','MPa',35,'混凝土立方体抗压强度标准值','取混凝土标高')),
+        ('Es',('<i>E</i><sub>s</sub>','MPa',2.0E5,'钢筋弹性模量')),
+        ('b',('<i>b</i>','mm',500,'矩形截面的短边尺寸')),
+        ('h0',('<i>h</i><sub>0</sub>','mm',900,'截面有效高度')),
+        ('fy',('<i>f</i><sub>y</sub>','MPa',360,'钢筋抗拉强度设计值')),
+        ('As',('<i>A</i><sub>s</sub>','mm<sup>2</sup>',0,'受拉钢筋面积')),
+        ('fy_',('<i>f</i><sub>y</sub><sup>\'</sup>','MPa',360,'受压区普通钢筋抗压强度设计值')),
+        ('As_',('<i>A</i><sub>s</sub><sup>\'</sup>','mm<sup>2</sup>',60,'受压区钢筋面积', '受压区纵向普通钢筋的截面面积')),
+        ('as_',('<i>a</i><sub>s</sub><sup>\'</sup>','mm',30,'受压钢筋合力点边离','受压区纵向普通钢筋合力点至截面受压边缘的距离')),
+        ('M',('<i>M</i>','kN·m',600,'弯矩')),
         ))
     __deriveds__ = OrderedDict((
-        ('sigma_s',('σ<sub>s</sub>','MPa')),
-        ('xb',('x<sub>b</sub>','mm'))
+        ('sigma_s',('<i>σ</i><sub>s</sub>','MPa',0,'受拉钢筋等效应力')),
+        ('xb',('<i>x</i><sub>b</sub>','mm',0,'界限受压区高度'))
         ))
-    gamma0=1.0
-    beta1=0.8
-    alpha1=1.0
-    fc=14.3 #N/mm^2
-    fcu_k=35 #N/mm^2
-    Es=2.0E5 #N/mm^2
-    b=1000.0 #mm
-    h0=900.0-30 #mm
-    fy=360.0 #N/mm^2
-    As=0.0 #mm^2
-    fy_comp=300 #N/mm^2
-    As_comp=0.0 #mm^2
-    as_comp=30.0 #mm
-    M=0.0 #kN*m
+    
+    # hidden attributes
     _x=0.0
     _Md=0.0 #kN*m
-    out=''
-    # Options
-    option = 1 # 0-根据配筋计算承载力;1-根据内力设计值计算配筋
+    
+    eval_Md = lambda α1,fc,b,x,h0,fy_,As_,as_,σp0_,fpy_,Ap_,ap_:\
+         α1*fc*b*x*(h0-x/2)+fy_*As_*(h0-as_)-(σp0_-fpy_)*Ap_*(h0-ap_)
+    
     def update(args):
         __dict__.update(args)
     def epsilon_cu(self):
-        return 0.0033-(self.fcu_k-50)*1E-5
+        return 0.0033-(self.fcuk-50)*1E-5
     def xi_b(self):
         return self.beta1/(1+self.fy/(self.Es*self.epsilon_cu()))
     def cal_x(self):
-        return (self.fy*self.As-self.fy_comp*self.As_comp)\
+        return (self.fy*self.As-self.fy_comp*self.As_)\
                /(self.alpha1*self.fc*self.b)
     def cal_Md(self):
         self._x=self.cal_x()
         Md = self.alpha1*self.fc*self.b*self._x*(self.h0-self._x/2)\
-             +self.fy_comp*self.As_comp*(self.h0-self.as_comp)
+             +self.fy_comp*self.As_*(self.h0-self.as_)
         self._Md=Md/self.gamma0/1E6
         return self._Md
     def cal_Asd(self):
@@ -97,7 +77,7 @@ class fc_rect(abacus):
                 self.As = self.alpha1*self.fc*self.b*self.x/self.fy
                 return self.As
             else:
-                epsilon_cu = 0.0033 - (self.fcu_k - 50)*1E-5
+                epsilon_cu = 0.0033 - (self.fcuk - 50)*1E-5
                 if epsilon_cu>0.0033:
                     epsilon_cu = 0.0033
                 self.sigma_s = self.Es*epsilon_cu*(self.beta1*self.h0/x-1)
@@ -135,7 +115,7 @@ class fc_rect(abacus):
         yield '材料力学特性:'
         yield '''<i>f</i><sub>c</sub> = {} N/mm<sup>2</sup>,
 <i>f</i><sub>cu,k</sub> = {} N/mm<sup>2</sup>,
-<i>f</i><sub>y</sub> = {} N/mm<sup>2</sup>'''.format(self.fc,self.fcu_k,self.fy)
+<i>f</i><sub>y</sub> = {} N/mm<sup>2</sup>'''.format(self.fc,self.fcuk,self.fy)
         yield '截面受压区高度:'
         yield 'x = {:.2f} mm\n'.format(self._x)
         yield '正截面受弯承载力弯矩值:'
@@ -154,7 +134,7 @@ class fc_rect(abacus):
         yield '材料力学特性:'
         yield '''<i>f</i><sub>c</sub> = {} N/mm<sup>2</sup>,
 <i>f</i><sub>cu,k</sub> = {} N/mm<sup>2</sup>,
-<i>f</i><sub>y</sub> = {} N/mm<sup>2</sup>'''.format(self.fc,self.fcu_k,self.fy)
+<i>f</i><sub>y</sub> = {} N/mm<sup>2</sup>'''.format(self.fc,self.fcuk,self.fy)
         #yield 'Δ = {1:.{0}f}\n'.format(digits,self.delta)
         if self.delta>0:
             yield '截面受压区高度:'
@@ -193,31 +173,19 @@ class fc_T(fc_rect):
     fpy=0
     Ap=0
     same_as_rect = True
-    def __init__(self):
+    
+    def __init__(self, **inputs):
+        fc_rect.__init__(self, **inputs)
         self.option=0
         self.b=500
+        
     def solve(self):
         if self.option == 1:
             raise 'Not implemented.'
-        fy=self.fy
-        As=self.As
-        fpy=self.fpy
-        Ap=self.Ap
-        α1=self.alpha1
-        fc=self.fc
-        bf_=self.bf_
-        hf_=self.hf_
-        b=self.b
-        h0=self.h0
-        as_=self.as_comp
-        fy_=self.fy_comp
-        As_=self.As_comp
-        fpy=0
-        fpy_=0
-        Ap=0
-        Ap_=0
-        σp0_=0
-        ap_=0
+        fy=self.fy; As=self.As; fpy=self.fpy; Ap=self.Ap; α1=self.alpha1; fc=self.fc
+        bf_=self.bf_; hf_=self.hf_; b=self.b; h0=self.h0; as_=self.as_
+        fy_=self.fy_comp; As_=self.As_;
+        fpy=0; fpy_=0; Ap=0; Ap_=0; σp0_=0; ap_=0 #todo:update values
         if fy*As+fpy*Ap<=α1*fc*bf_*hf_+fy_*As_-(σp0_-fpy_)*Ap_:
             self.same_as_rect = True
             fc_rect.solve(self)
@@ -248,7 +216,7 @@ class fc_ring:
     alpha=0
     alphat=0
     fc=19.1 #N/mm^2
-    fcu_k=26.8 #N/mm^2
+    fcuk=26.8 #N/mm^2
     Es=2.0E5 #N/mm^2
     fy=300 #N/mm^2
     A=0 #mm^2
@@ -280,22 +248,24 @@ class fc_round(abacus):
     >>> As = 20*pi/4*25**2
     >>> A = pi/4*800**2
     >>> fc_round.solve_As(1,14.3,360,800,700,A,0,100*1e6)
-    (0.1353837087975943, 372.5808715200759)
+    (0.13546417236328123, 373.3362955499133)
     """
     __title__ = '圆形截面承载力'
     __inputs__ = OrderedDict((
         ('option',('选项','',1,'','',{0:'根据配筋计算承载力',1:'根据内力设计值计算配筋'})),
-        ('α1',('α1','',1.0)),
-        ('fc',('fc','N/mm<sup>2</sup>',14.3)),
-        ('fy',('fy','N/mm<sup>2</sup>',360)),
-        ('r',('r','mm',800)),
-        ('rs',('rs','mm',700)),
-        ('A',('A','mm<sup>2</sup>',pi/4*800**2)),
-        ('N',('N','kN',1000.0)),
-        ('M',('M','kN·m',100.0))
+        ('α1',('<i>α</i><sub>1</sub>','',1.0,'系数')),
+        ('fc',('<i>f</i><sub>c</sub>','N/mm<sup>2</sup>',14.3,'混凝土轴心抗压强度设计值')),
+        ('fy',('<i>f</i><sub>y</sub>','N/mm<sup>2</sup>',360,'普通钢筋抗拉强度设计值')),
+        ('r',('<i>r</i>','mm',800,'圆形截面的半径')),
+        ('rs',('<i>r</i><sub>s</sub>','mm',700,'纵向普通钢筋重心所在圆周的半径')),
+        ('A',('<i>A</i>','mm<sup>2</sup>',pi/4*800**2,'圆形截面面积')),
+        ('N',('<i>N</i>','kN',1000.0,'轴力设计值')),
+        ('M',('<i>M</i>','kN·m',100.0,'弯矩设计值'))
         ))
     __deriveds__ = OrderedDict((
-        ('α',('<i>α</i>','',0,'受压区域圆心角')),
+        ('α',('<i>α</i>','',0,'受压区域圆心角与2π的比值')),
+        ('e0',('<i>e</i><sub>0</sub>','',0,'轴向压力对截面重心的偏心距')),
+        ('ea',('<i>e</i><sub>a</sub>','',0,'附加偏心距')),
         ('As',('<i>A</i><sub>s</sub>','mm<sup>2</sup>',0,'全截面钢筋面积'))
         ))
     
@@ -329,21 +299,21 @@ class fc_round(abacus):
             M=N*ei
         # 查找正值
         x0 = 0
-        x1 = 1
+        x1 = 1.25/3*0.999
         f0 = func(x0,α1,fc,fy,r,rs,A,N,M)
         f1 = func(x1,α1,fc,fy,r,rs,A,N,M)
         if f0*f1>0:
-            delta = 0.01
-            while x0<x1:
-                x0 += delta
-                f0 = func(x0,α1,fc,fy,r,rs,A,N,M)
-                if f0*f1<0:
-                    break
+            x0 = 1.25/3*1.001
+            x1 = 1
+            f0 = func(x0,α1,fc,fy,r,rs,A,N,M)
+            f1 = func(x1,α1,fc,fy,r,rs,A,N,M)
+            if f0*f1>0:
+                raise Exception('No real solution.')
         # 折半查找法求解非线性方程
         while True:
             x = (x0+x1)/2
             f = func(x,α1,fc,fy,r,rs,A,N,M)
-            if abs(x-x0)<1E-9 or abs(f)<1E-3:
+            if abs(x-x0)<abs(x0)*1e-3 or abs(f)<1e-3:
                 #print('f = ',func(x2,α1,fc,fy,r,rs,A,N,M))
                 α = x
                 As = fc_round.As(α,α1,fc,fy,A,N)
@@ -377,30 +347,31 @@ class fc_round(abacus):
             ei=e0+ea
             M=N*ei
         # 割线法求解非线性方程
-        x0=0.42
-        x1=0.9
+        x0=0.1
+        x1=0.2
         count = 0
         # test
-        for i in range(100):
-            f=func(i*0.01,α1,fc,fy,r,rs,A,N,M)
-            print(i*0.01,f)
+##        for i in range(200):
+##            x = i*0.005
+##            f=func(x,α1,fc,fy,r,rs,A,N,M)
+##            print(x,f)
         while True:
             f0=func(x0,α1,fc,fy,r,rs,A,N,M)
             f1=func(x1,α1,fc,fy,r,rs,A,N,M)
             x2=x1-f1*(x1-x0)/(f1-f0)
             f_ = (f1-f0)/(x1-x0)
-            print('x0=',x0,'x1=',x1, 'f\'=',f_,'x2=',x2)
+            #print('x0=',x0,'x1=',x1, 'f\'=',f_,'x2=',x2)
             if abs(x2-x1)<1E-9 and x2>0 and x2<1:
-                print('f = ',func(x2,α1,fc,fy,r,rs,A,N,M))
+                #print('f = ',func(x2,α1,fc,fy,r,rs,A,N,M))
                 α = x2
                 As = fc_round.As(α,α1,fc,fy,A,N)
                 return (α,As)
             if count>100:
                 raise Exception('No real solution.')
             if x2 <= 0:
-                x2 = min(x0,x1)+0.01
+                x2 = 0.1
             elif x2 >= 1:
-                x2 = max(x0,x1)-0.01
+                x2 = 0.9
             x0 = x1
             x1 = x2
             count += 1
@@ -408,16 +379,20 @@ class fc_round(abacus):
     def solve(self):
         self.α,self.As = fc_round.solve_As(
             self.α1,self.fc,self.fy,self.r,self.rs,self.A,self.N*1e3,self.M*1e6)
-        pass
     
     def _html(self,digits=2):
         yield '圆形截面抗弯承载力计算'
-        yield self.formatX('α',digits)
-        yield self.formatX('As',digits)
+##        yield self.formatX('α',digits=digits)
+##        yield self.formatX('As',digits=digits)
+        for item in abacus._html(self, digits):
+            yield item
 
+def _test():
+    print(fc_round.solve_As(1,14.3,360,1000,900,1000**2*3.14/4,4313*1e3,9600*1e6))
+    print(fc_round.solve_As(1,14.3,360,800,700,pi/4*800**2,0,100*1e6))
+    print(fc_round.solve_As2(1,14.3,360,800,700,pi/4*800**2,0,100*1e6))
 
 if __name__ == '__main__':
     import doctest
     doctest.testmod()
-    r=fc_round.solve_As(1,14.3,360,1000,900,1000**2*3.14/4,4313*1e3,9600*1e6)
-    print(r)
+    _test()

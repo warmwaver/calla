@@ -75,7 +75,7 @@ def html2text(html, ignore_sub=True):
             break
     return s
 
-def table2html(table, digits=2, attr_class='result'):
+def table2html(table, digits=2, reverse=False, attr_class='result'):
     def f(table, digits=2):
         yield '<table class="{}" border="1" cellpadding="5">'.format(attr_class)
         i = 0
@@ -93,9 +93,26 @@ def table2html(table, digits=2, attr_class='result'):
             yield '</tr>'
             i += 1
         yield '</table>'
+    def rf(table, digits=2):
+        yield '<table class="{}" border="1" cellpadding="5">'.format(attr_class)
+        ncol = 0
+        for i in range(len(table)):
+            ncol = max(ncol, len(table[i]))
+        for j in range(ncol):
+            yield '<tr>'
+            for i in range(len(table)):
+                element = 'td' if i>0 else 'th'
+                align = 'right'
+                col = table[i][j]
+                if isinstance(col,float):
+                    yield '<{1} align="{3}">{2:.{0}f}</{1}>'.format(digits, element, col, align)
+                else:
+                    yield '<{0} align="{2}">{1}</{0}>'.format(element, col, align)
+            yield '</tr>'
+        yield '</table>'
     # generate html
     result = ''
-    gen = f(table,digits)
+    gen = rf(table,digits) if reverse else f(table,digits)
     for p in gen:
         result += p
     gen.close()

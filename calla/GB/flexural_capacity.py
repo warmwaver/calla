@@ -60,12 +60,12 @@ class fc_rect(abacus):
     def xi_b(self):
         return self.beta1/(1+self.fy/(self.Es*self.epsilon_cu()))
     def cal_x(self):
-        return (self.fy*self.As-self.fy_comp*self.As_)\
+        return (self.fy*self.As-self.fy_*self.As_)\
                /(self.alpha1*self.fc*self.b)
     def cal_Md(self):
         self._x=self.cal_x()
         Md = self.alpha1*self.fc*self.b*self._x*(self.h0-self._x/2)\
-             +self.fy_comp*self.As_*(self.h0-self.as_)
+             +self.fy_*self.As_*(self.h0-self.as_)
         self._Md=Md/self.gamma0/1E6
         return self._Md
     def cal_Asd(self):
@@ -184,7 +184,7 @@ class fc_T(fc_rect):
             raise 'Not implemented.'
         fy=self.fy; As=self.As; fpy=self.fpy; Ap=self.Ap; α1=self.alpha1; fc=self.fc
         bf_=self.bf_; hf_=self.hf_; b=self.b; h0=self.h0; as_=self.as_
-        fy_=self.fy_comp; As_=self.As_;
+        fy_=self.fy_; As_=self.As_;
         fpy=0; fpy_=0; Ap=0; Ap_=0; σp0_=0; ap_=0 #todo:update values
         if fy*As+fpy*Ap<=α1*fc*bf_*hf_+fy_*As_-(σp0_-fpy_)*Ap_:
             self.same_as_rect = True

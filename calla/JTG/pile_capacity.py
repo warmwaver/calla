@@ -76,12 +76,12 @@ class friction_pile_capacity(abacus):
             t.append([i, self.soil[i], self.li[i], self.qik[i], self.fak[i]])
         yield html.table2html(t)
         yield '系数:'
-        yield self.formatI('m0', precision)
-        yield self.formatI('lamb', precision)
-        yield self.formatI('k2', precision)
-        yield self.formatI('γ2', precision)
-        yield '桩端埋深: h = {0:.{1}f} m'.format(self.h, precision)
-        yield self.formatD('qr',precision)
+        yield self.format('m0', digits=None)
+        yield self.format('lamb', digits=None)
+        yield self.format('k2', digits=None)
+        yield self.format('γ2', digits=None)
+        yield self.format('h', precision)
+        yield self.format('qr',precision)
         yield '桩基竖向承载力: {0} = {1} = {2:.{3}f} kN'.format(self.symbol('Ra'),self.replace_by_symbols('0.5*u*∑qik*li+Ap*qr'),self.Ra,precision)
 
 class end_bearing_pile_capacity(abacus):
@@ -147,16 +147,16 @@ class end_bearing_pile_capacity(abacus):
         return self.getRa()
     def _html(self, precision = 2):
         yield '桩基竖向承载力计算'
-        yield self.formatI('L',precision)
-        yield self.formatI('u',precision)
-        yield self.formatI('Ap',precision)
+        yield self.format('L',digits=None)
+        yield self.format('u',digits=None)
+        yield self.format('Ap',digits=None)
         yield '地质资料:'
         t = []
         t.append(('地层编号','地层名称(m)','地层厚度(m)','q<sub>ik</sub>(kPa)','f<sub>ak</sub>(kPa)','f<sub>rk</sub>(kPa)'))
         for i in range(len(self.li)):
             t.append((i, self.soil[i], self.li[i], self.qik[i], self.fak[i], self.frk[i]))
         yield html.table2html(t)
-        yield self.formatD('ζs', precision)
+        yield self.format('ζs', precision)
         yield '桩基竖向承载力: {0} = {1} = {2:.{3}f} kN'.format(self.symbol('Ra'),self.replace_by_symbols('c1*Ap*frk+u*∑c2i*hi*frki+0.5*ζs*u*∑qik*li'),self.Ra,precision)
 
 def _test1():
@@ -168,7 +168,7 @@ def _test1():
     pc.L = 15
     pc.soil = ['填土', '粉质粘土', '粉质粘土', '粘土', '强风化花岗岩', '中风化花岗岩', '微风化花岗岩']
     pc.li = [6.2, 5.3, 1.2, 2.5, 2.4, 5.8, 8.4]
-    pc.rho = [18.2, 19.6, 19.0, 18.7, 19.5, 18.2, 18.2]
+    pc.γ2 = [18.2, 19.6, 19.0, 18.7, 19.5, 18.2, 18.2]
     pc.qik = [50, 60, 45, 85, 90, 150, 250]
     pc.fak = [220, 200, 220, 250, 300, 800, 2000]
     ra = pc.solve()

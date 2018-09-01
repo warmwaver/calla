@@ -153,42 +153,36 @@ class abacus:
                 r.append(items)
         return r
                         
-    def formatI(self, name, digits=None, sep=''):
-        """Format Input parameters"""
-        info = self.__inputs__[name]
-        s = '{}{}'.format(info[3],sep) if (len(info)>3 and info[3] != '') else ''
-        v = getattr(self,name)
-        if digits != None:
+    def format(self, parameter, digits = 2, value=None, sep=''):
+        """Format Input parameters as {name}{sep}{symbol} = {value} {unit}"""
+        info = None
+        if parameter in self.__inputs__:
+            info = self.__inputs__[parameter]
+        elif parameter in self.__deriveds__:
+            info = self.__deriveds__[parameter]
+        value = value or getattr(self,parameter)
+        if info == None or len(info)<1:
+            return '{} = {}'.format(parameter,v)
+        name = info[3] if (len(info)>3 and info[3] != '') else ''
+        s = '{}{}'.format(name,sep) if name != '' else ''
+        if digits != None and digits >= 0:
             try:
-                v = '{1:.{0}f}'.format(digits, v)
-            except:# v is not decimal or numbers
+                value = '{1:.{0}f}'.format(digits, value)
+            except: # v is not decimal or numbers
                 pass
-        s += '{} = {} {}'.format(info[0],v,info[1])
+        symbol = info[0]
+        unit = info[1] if len(info)>2 else ''
+        s += '{} = {} {}'.format(symbol,value,unit)
         return s
     
-    def formatD(self, name, digits = 2, sep=''):
-        """Format Derived parameters, keep given digits after dicimal point."""
-        info = self.__deriveds__[name]
-        s = '{}{}'.format(info[3],sep) if (len(info)>3 and info[3] != '') else ''
-        value = getattr(self,name)
-        if digits != None:
-            v = '{1:.{0}f}'.format(digits, value)
-        s += '{} = {} {}'.format(info[0],v,info[1])
-        return s
-    
-    def formatX(self, *names, digits=2, sep='', sep_names=', '):
+    def formatX(self, *parameters, digits=2, sep='', sep_names=', '):
         """
         Format parameters，choosing diferent format automatically.
         e.g. alpha α = value1, beta β = value2, ...
         """
         s = ''
-        for name in names:
-            if name in self.__inputs__:
-                s += self.formatI(name,digits=None,sep=sep)
-            elif name in self.__deriveds__:
-                s += self.formatD(name,digits,sep)
-            else:
-                s += name
+        for parameter in parameters:
+            s += self.format(parameter,digits=digits,sep=sep)
             s += sep_names
         return s[:len(s)-len(sep_names)]
 
@@ -323,19 +317,38 @@ class InputError(Exception):
         self.calculator = calculator
         self.parameter = parameter
         self.message = '{} = {} 错误{}'.format(parameter, getattr(calculator, parameter), '' if message == None else ' ({})'.format(message))
-        self.xmessage = '{} 错误{}'.format(calculator.formatI(parameter), '' if message == None else ' ({})'.format(message))
+        self.xmessage = '{} 错误{}'.format(calculator.format(parameter,digits=None), '' if message == None else ' ({})'.format(message))
         Exception.__init__(self, self.message)
     def html(self):
         return self.xmessage
 
-##class ZeroValueError(InputError):
-##    def __init__(self, calculator:abacus, parameter:str, message:str=None):
-##        self.message = '{} 不能为0'.format(parameter)
-##        self.xmessage = '{} 不能为0'.format(calculator.symbol(parameter))
-##        if message != None and message != '':
-##            self.message += ' ({})'.format(message)
-##            self.xmessage += ' ({})'.format(message)
-##        InputError.__init__(self, self.message)
+def common_attrs(calculators:[abacus]):
+    """ Get common attributes of calculators. """
+    if calculators == None or len(calculators)<1:
+        return None
+    types = []
+    calc0 = calculators[0]
+    attrs = list(calc0.__inputs__.keys())+list(calc0.__deriveds__.keys())
+    for i in range(1,len(calculators)):
+        calc = calculators[i]
+        t = type(calc)
+        if not t in types:
+            types.append(t)
+            attrs_t = list(t.__inputs__.keys())+list(t.__deriveds__.keys())
+            attrs = [attr for attr in attrs if attr in attrs_t]
+    return attrs
+
+def parameters_table(calculators:[abacus]):
+    """ Get parameters table of calculators based on common attributes. """
+    attrs = common_attrs(calculators)
+    if attrs == None or len(attrs)<1:
+        return None
+    tbl = []
+    tbl.append([calc0.symbol(attr) for attr in attrs])
+    for calc in calculators:
+        paras = calc.parameters()
+        tbl.append([paras[attr] for attr in attrs])
+    return tbl
     
 if __name__ == '__main__':
     import doctest

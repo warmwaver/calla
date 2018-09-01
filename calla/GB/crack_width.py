@@ -190,16 +190,15 @@ class crack_width(abacus):
         elif self.force_type == '3':
             yield '轴心受拉构件'
         yield '构件尺寸:'
-        yield '{}, {}, {}, {}'.format(
-            self.formatI('b'),self.formatI('h'),self.formatI('h0'),self.formatI('cs'))
+        yield self.formatX('b','h','h0','cs',digits=None)
         yield '钢筋面积:'
-        yield '{}, {}'.format(self.formatI('As'),self.formatI('Ap'))
+        yield self.formatX('As','Ap',digits=None)
         yield '荷载准永久组合的设计内力:'
-        yield '{}, {}'.format(self.formatI('Mq'),self.formatI('Nq'))
+        yield self.formatX('Mq','Nq',digits=None)
         yield '材料参数:'
-        yield '混凝土轴心抗拉强度标准值: {}'.format(self.formatI('ftk'))
-        yield '钢筋弹性模量: {}'.format(self.formatI('Es'))
-        yield '构件受力特征系数: {}'.format(self.formatD('alpha_cr'))
+        yield '混凝土轴心抗拉强度标准值: {}'.format(self.format('ftk',digits=None))
+        yield '钢筋弹性模量: {}'.format(self.format('Es',digits=None))
+        yield '构件受力特征系数: {}'.format(self.format('alpha_cr'))
         yield '有效受拉混凝土截面面积: Ate = {:.3f} mm<sup>2</sup>'.format(self.Ate)
         #yield '纵向受拉钢筋配筋率: ρte = ({0} + {1})/ {2} = {3:.3f}'.format(self.As,self.Ap,self.Ate,self.rho_te)
         yield '纵向受拉钢筋配筋率: {} = {} = {:.3f}'.format(self.symbol('rho_te'),self.express('(As + Ap)/ Ate'),self.rho_te)

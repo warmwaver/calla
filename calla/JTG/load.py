@@ -79,10 +79,10 @@ class wind(abacus):
         yield '依据：《公路桥梁抗风设计规范》（JTG/T D60-01-2004）'
         yield '根据《公路桥梁抗风设计规范》4.2.1节公式（4.2.1）'
         vg = wind.Vg(self.V10,self.GV, self.Z,self.地表类别)
-        yield self.formatD('Vg', vg, digits)
+        yield self.format('Vg', vg, digits)
         yield '根据《公路桥梁抗风设计规范》4.3.1节公式（4.3.1）'
         fh = wind.FH(self.B,self.H,self.V10,self.GV, self.Z,self.地表类别,self.ρ)
-        yield self.formatD('FH', fh, digits)
+        yield self.format('FH', fh, digits)
         
 if __name__ == '__main__':
     import doctest

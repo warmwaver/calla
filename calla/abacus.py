@@ -4,7 +4,7 @@ __all__ = [
     'InputError',
     ]
 
-from calla.html import *
+from calla.html import html2text
     
 def replace_by_aliases(expression, aliases):
     """
@@ -14,7 +14,9 @@ def replace_by_aliases(expression, aliases):
     >>> replace_by_aliases('(a*3+b)/c>c',{'a':'A','b':'B','c':'C'})
     '(A*3+B)/C>C'
     """
-    operators = ('+','-','*','/','=','(',')','{','}','&','|','\\','·',':',' ','<','>','^')
+    operators = (
+            '+','-','*','/','=','(',')','{','}','&','|','\\',
+            '·',':',' ','<','>','^')
     s = expression
     i = j = 0
     while i < len(s):
@@ -113,8 +115,8 @@ class abacus:
             elif hasattr(cls, key):
                 v = getattr(cls, key)
             elif hasattr(cls, '__inputs__') and hasattr(cls.__inputs__, key)\
-                 and len(cls__inputs__[key])>2:
-                v = cls__inputs__[key][2]
+                 and len(cls.__inputs__[key])>2:
+                v = cls.__inputs__[key][2]
             if v == None:
                 continue
             items = cls.__toggles__[key][v]
@@ -153,8 +155,15 @@ class abacus:
                 r.append(items)
         return r
                         
-    def format(self, parameter, digits = 2, value=None, sep=''):
-        """Format Input parameters as {name}{sep}{symbol} = {value} {unit}"""
+    def format(self, parameter, digits = 2, value=None, sep=' ', omit_name=False):
+        """
+        Format parameter as {name}{sep}{symbol} = {value} {unit}
+        e.g. force N = 100 kN
+        
+        Arguments:
+            sep: seperator between parameter's name and symbol
+            sep_names: seperator between parameters' names
+        """
         info = None
         if parameter in self.__inputs__:
             info = self.__inputs__[parameter]
@@ -162,9 +171,14 @@ class abacus:
             info = self.__deriveds__[parameter]
         value = value or getattr(self,parameter)
         if info == None or len(info)<1:
-            return '{} = {}'.format(parameter,v)
-        name = info[3] if (len(info)>3 and info[3] != '') else ''
-        s = '{}{}'.format(name,sep) if name != '' else ''
+            return '{} = {}'.format(parameter,value)
+        # use choices' value to substitude parameter value
+        if len(info)>5 and type(info[5]) is dict:
+            value = info[5][value]
+        s = ''
+        if not omit_name:
+            name = info[3] if (len(info)>3 and info[3] != '') else ''
+            s = '{}{}'.format(name,sep) if name != '' else ''
         if digits != None and digits >= 0:
             try:
                 value = '{1:.{0}f}'.format(digits, value)
@@ -175,30 +189,45 @@ class abacus:
         s += '{} = {} {}'.format(symbol,value,unit)
         return s
     
-    def formatX(self, *parameters, digits=2, sep='', sep_names=', '):
+    def formatX(self, *parameters, digits=2, sep='', sep_names=', ', omit_name=True, toggled=True):
         """
         Format parameters，choosing diferent format automatically.
-        e.g. alpha α = value1, beta β = value2, ...
+        e.g. force N = 100 kN, moment M=100 kN·m, ...
+        
+        Arguments:
+            sep: seperator between parameter's name and symbol
+            sep_names: seperator between parameters' names
+            omit_name: format with parameter name or not
+            toggled: if True, visibility is decided by toggles
         """
         s = ''
+        disableds = self.disableds()
         for parameter in parameters:
-            s += self.format(parameter,digits=digits,sep=sep)
+            if toggled and parameter in disableds:
+                continue
+            s += self.format(parameter,digits=digits,sep=sep,omit_name=omit_name)
             s += sep_names
         return s[:len(s)-len(sep_names)]
 
     @classmethod
-    def symbol(self,x):
-        """get symbol of x"""
-        a = ''
-        if x in self.__inputs__:
-            a = self.__inputs__[x]
-        elif x in self.__deriveds__:
-            a = self.__deriveds__[x]
+    def para_attrs(self, parameter):
+        """get attributes of parameter"""
+        if parameter in self.__inputs__:
+            attrs = self.__inputs__[parameter]
+        elif parameter in self.__deriveds__:
+            attrs = self.__deriveds__[parameter]
         else:
-            raise 'Alias not exists.'
-        if isinstance(a, tuple):
-            a = a[0]
-        return a
+            raise Exception('parameter not exists.')
+        n = len(attrs)
+        cls_para = type(
+                'para', (object,),
+                dict(symbol=attrs[0] if n>0 else None,
+                 unit=attrs[1] if n>1 else None,
+                 default_value=attrs[2] if n>2 else None,
+                 name=attrs[3] if n>3 else None,
+                 description=attrs[4] if n>4 else None
+                 ))
+        return cls_para()
         
     def express(self, expression, digits = 2, use_symbols = True, include_self = True):
         """
@@ -272,13 +301,15 @@ class abacus:
         Subclasses should implement this method in order to output
         html format reports.
         """
+        disableds = self.disableds()
         if hasattr(self, '__inputs__'):
             for attr in self.__inputs__:
-                yield self.formatX(attr, digits = digits)
+                if hasattr(self, attr) and (not attr in disableds):
+                    yield self.format(attr, digits = None)
         if hasattr(self, '__deriveds__'):
             for attr in self.__deriveds__:
-                if hasattr(self, attr):
-                    yield self.formatX(attr, digits = digits)
+                if hasattr(self, attr) and (not attr in disableds):
+                    yield self.format(attr, digits = digits)
         
     def html(self, digits = 2):
         result = ''
@@ -344,6 +375,7 @@ def parameters_table(calculators:[abacus]):
     if attrs == None or len(attrs)<1:
         return None
     tbl = []
+    calc0 = calculators[0]
     tbl.append([calc0.symbol(attr) for attr in attrs])
     for calc in calculators:
         paras = calc.parameters()

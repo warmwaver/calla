@@ -17,8 +17,8 @@ class Column(abacus):
     __inputs__ = OrderedDict([
         ('code',('规范','','JTG','','',{'GB':'国家标准(GB)','JTG':'交通行业规范(JTG)','TB':'铁路行业规范(TB)'})),
         ('section',('截面形状','','rectangle','','',{'rectangle':'矩形或倒T形','Tshape':'T形或I形','round':'圆形'})),
-        ('N',('<i>N</i>','kN',0,'轴力','轴力设计值，拉力为正，压力为负')),
-        ('M',('<i>M</i>','kN·m',0,'弯矩','弯矩设计值')),
+        ('N',('<i>N</i>','kN',0,'轴力','轴力设计值，拉力为正，压力为负。TB规范下输入(主力，主力+附加力，主力+地震力)组合值')),
+        ('M',('<i>M</i>','kN·m',0,'弯矩','弯矩设计值。TB规范下输入(主力，主力+附加力，主力+地震力)组合值')),
         ('α1',('<i>α</i><sub>1</sub>','',1,'系数')),
         ('concrete',('混凝土等级','','C35')),
         #('fc',('<i>f</i>c','MPa',16.7)),
@@ -81,17 +81,43 @@ class Column(abacus):
         }
 
     def solve_GB(self):
-        pass
-
-    def solve_JTG(self):
         paras = self.inputs
         # 承载力
         if self.section == 'rectangle':
             nac = calla.GB.compressive_capacity.non_axial_compression(**paras)
         elif self.section == 'Tshape':
-            nac = calla.JTG.flexural_capacity.fc_T(**paras)
+            nac = calla.GB.flexural_capacity.fc_T(**paras)
         elif self.section == 'round':
             nac = calla.GB.flexural_capacity.fc_round(**paras)
+        else:
+            raise NameError('section type {} is not defined'.format(self.section))
+        nac.fcuk = calla.JTG.concrete.fcuk(self.concrete)
+        nac.fc = calla.JTG.concrete.fcd(self.concrete)
+        nac.fy=nac.fyp=calla.JTG.rebar.fsd(self.rebar)
+        nac.solve()
+        # 裂缝宽度
+        cw = calla.GB.crack_width.crack_width(**paras)
+        cw.force_type='1'
+        cw.h0 = self.h-self.a_s
+        cw.As = self.As
+        cw.ys = cw.h/2-50
+        cw.C1 = 1.4 if self.concrete.startswith('HPB') else 1.0
+        cw.C3 = 0.9
+        cw.solve()
+        # 保存计算器
+        self.nac = nac
+        self.cw = cw
+
+    def solve_JTG(self):
+        paras = self.inputs
+        # 承载力
+        if self.section == 'rectangle':
+            # todo: 开发JTG偏心受压构件承载力计算模块
+            nac = calla.GB.compressive_capacity.non_axial_compression(**paras)
+        elif self.section == 'Tshape':
+            nac = calla.JTG.flexural_capacity.fc_T(**paras)
+        elif self.section == 'round':
+            nac = calla.JTG.bearing_capacity.bc_round(**paras)
         else:
             raise NameError('section type {} is not defined'.format(self.section))
         nac.fcuk = calla.JTG.concrete.fcuk(self.concrete)
@@ -113,23 +139,25 @@ class Column(abacus):
 
     def solve_TB(self):
         loadcase=['主力','主力+附加力','主力+地震力']
-        Ecs = [3.0E4,3.2E4,3.3E4,3.4E4,3.45E4,3.55E4,3.6E4,3.65E4]
-        paras = self.parameters
+#        Ecs = [3.0E4,3.2E4,3.3E4,3.4E4,3.45E4,3.55E4,3.6E4,3.65E4]
+        paras = self.inputs
         Ec = calla.JTG.concrete.Ec(paras['concrete']) # temporarily using JTG
         Es = calla.JTG.rebar.Es
         Ms = paras['M']
+        if not (type(Ms) is tuple or type(Ms) is list):
+            Ms = (Ms,)
         Ns = paras['N']
-        Ks = [2.0,1.6,1.6] # 规范值
+        if not (type(Ns) is tuple or type(Ns) is list):
+            Ns = (Ns,)
         Vs = paras['V']
-        σcs = []
-        σss = []
-        σs_s = []
-        τs = []
-        wfs = []
+        if not (type(Vs) is tuple or type(Vs) is list):
+            Vs = (Vs,)
+        Ks = [2.0,1.6,1.6] # 规范值
         a = paras['a_s']
         a_ = paras['as_']
         d = paras['deq']
         As = paras['As']
+        σcs = [];σss = [];σs_s = [];τs = [];wfs = []
         for case,M,N,K,V in zip(loadcase,Ms,Ns,Ks,Vs):
             # 强度计算
             rs = calla.TB.RC_strength.column_strength(paras['b'],paras['h'],paras['l0'],a,a_,Ec,\
@@ -175,7 +203,14 @@ class Column(abacus):
                                ['裂缝宽度允许值[<i>w</i><sub><i>f</i></sub>]（mm）',0.20,0.24]]
         φ_values = [1.0,0.98,0.95,0.92,0.87,0.81,\
                     0.75,0.70,0.65,0.60,0.56,0.52]
-        ratio = paras['l0']*1000/paras['b']
+        if self.section == 'rectangle':
+            ratio = self.l0/self.b
+        elif self.section == 'Tshape':
+            ratio = self.l0/self.b # TODO: 计算T形截面的回转半径i
+        elif self.section == 'round':
+            ratio = self.l0/self.d
+        else:
+            raise NameError('section type {} is not defined'.format(self.section))
         index = int(ratio/2-4)
         index = index if index > 0 else 0
         m_values = [[17.7,15.0,12.8,11.1,10.0,9.0,8.1,7.5],\
@@ -217,7 +252,7 @@ class Column(abacus):
 
     def html(self,digits=2):
         if self.code == 'GB':
-            return 'not implemented'
+            return self.nac.html(digits)+'<br>'+self.cw.html(digits)
         elif self.code == 'JTG':
             return self.nac.html(digits)+'<br>'+self.cw.html(digits)
         elif self.code == 'TB':

@@ -8,10 +8,8 @@ __all__ = [
     ]    
 
 from collections import OrderedDict
-from math import pi,sqrt
-from calla import abacus, html
-
-
+from math import pi
+from calla import abacus
     
 class bearing_capacity(abacus):
     """

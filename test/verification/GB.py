@@ -6,7 +6,7 @@ TestCase = unittest.TestCase
 class test_crack_width(TestCase):
     def test_crack_width_example1(self):
         """
-        《混凝土结构设计原理》【例8-3】P220
+        程文瀼, 王铁成《混凝土结构（上册 混凝土结构设计原理）》（第五版）【例5-4】P220
         轴心受拉构件裂缝宽度验算
         """
         cw = crack_width.crack_width(
@@ -39,18 +39,24 @@ def assert_value(v,t,tolerance=0.01):
 class test_compressive_capacity(TestCase):
     def test1(self):
         """
-        刘文峰,混凝土结构设计原理,例6-1,P211
+        程文瀼, 王铁成《混凝土结构（上册 混凝土结构设计原理）》（第五版）【例5-4】P137
         """
         nac = compressive_capacity.non_axial_compression(
-            N = 300, M = 159, b = 300, h = 400, a_s = 35, asp = 35, fcuk = 25,
-            fc = 11.9, fy = 360, fyp = 360, ηs = 1.017)
+            option_m2 = True, N = 396, M1 = 0.92*218, M2=218, b = 300, h = 400, lc=6*400, a_s = 40, asp = 40, fcuk = 30,
+            fc = 14.3, fy = 360, fyp = 360)
         nac.solve()
-        assert nac.ei == 550
-        assert nac.type == 0
+        self.assertEqual(nac.Cm, 0.976)
+        self.assertEqual(nac.ζc, 1)
+        self.assertEqual(nac.ea, 20)
+        self.assertAlmostEqual(nac.ηns, 1.017, 3)
+        self.assertAlmostEqual(nac.ei, 571, 0)
+        self.assertEqual(nac.type, 0)
+        self.assertAlmostEqual(nac.e, 731, 0)
+        self.assertEqual(nac.x, 185)
         assert_value(nac.ξb, 0.518)
-        assert_value(nac.As_, 292)
-        assert_value(nac.As, 1334)
-        print(nac.ηs, '刘文峰,混凝土结构设计原理,例6-1,P211',nac.text())
+        assert_value(nac.As_, 240)
+        assert_value(nac.As, 1782)
+        #print('刘文峰,混凝土结构设计原理,例6-1,P211',nac.text())
 
     def test2(self):
         """

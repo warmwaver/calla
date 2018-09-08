@@ -82,7 +82,7 @@ class friction_pile_capacity(abacus):
         yield self.format('γ2', digits=None)
         yield self.format('h', precision)
         yield self.format('qr',precision)
-        yield '桩基竖向承载力: {0} = {1} = {2:.{3}f} kN'.format(self.symbol('Ra'),self.replace_by_symbols('0.5*u*∑qik*li+Ap*qr'),self.Ra,precision)
+        yield '桩基竖向承载力: {0} = {1} = {2:.{3}f} kN'.format(self.para_attrs('Ra').symbol,self.replace_by_symbols('0.5*u*∑qik*li+Ap*qr'),self.Ra,precision)
 
 class end_bearing_pile_capacity(abacus):
     """
@@ -157,7 +157,7 @@ class end_bearing_pile_capacity(abacus):
             t.append((i, self.soil[i], self.li[i], self.qik[i], self.fak[i], self.frk[i]))
         yield html.table2html(t)
         yield self.format('ζs', precision)
-        yield '桩基竖向承载力: {0} = {1} = {2:.{3}f} kN'.format(self.symbol('Ra'),self.replace_by_symbols('c1*Ap*frk+u*∑c2i*hi*frki+0.5*ζs*u*∑qik*li'),self.Ra,precision)
+        yield '桩基竖向承载力: {0} = {1} = {2:.{3}f} kN'.format(self.para_attrs('Ra').symbol,self.replace_by_symbols('c1*Ap*frk+u*∑c2i*hi*frki+0.5*ζs*u*∑qik*li'),self.Ra,precision)
 
 def _test1():
     from math import pi
@@ -171,7 +171,7 @@ def _test1():
     pc.γ2 = [18.2, 19.6, 19.0, 18.7, 19.5, 18.2, 18.2]
     pc.qik = [50, 60, 45, 85, 90, 150, 250]
     pc.fak = [220, 200, 220, 250, 300, 800, 2000]
-    ra = pc.solve()
+    pc.solve()
     print(pc.__title__)
     print(pc.text(2))
 
@@ -188,7 +188,7 @@ def _test2():
     pc.fak = (220, 200, 220, 250, 300, 800, 2000)
     pc.frk = (0,0,0,0,0,20000,50000)
     pc.status = (-1,-1,-1,-1,-1,0,0)
-    ra = pc.solve()
+    pc.solve()
     print(pc.text(2))
     
 if __name__ == '__main__':

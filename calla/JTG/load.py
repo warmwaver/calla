@@ -1,11 +1,49 @@
 """JTG/T D60-01-2004 公路桥梁抗风设计规范"""
 
 __all__ = [
+    'earth_pressure',
     'wind',
     ]
 
 from calla import abacus
 from collections import OrderedDict
+from math import pi, sin, cos
+
+class earth_pressure(abacus):
+    __title__ = '土压力计算'
+    __inputs__ = OrderedDict([
+            ('B',('<i>B</i>','m',1,'计算宽度')),
+            ('H',('<i>H</i>','m',0,'计算土层高度')),
+            ('φ',('<i>φ</i>','°',0,'土的内摩擦角')),
+            ('α',('<i>α</i>','°',0,'桥台或挡土墙背与竖直面的夹角','查表4.2.1')),
+            ('β',('<i>β</i>','°',0,'填土表面与水平面的夹角')),
+            ('γ',('<i>γ</i>','kN/m<sup>3<sup>',18,'土的重度')),
+            ])
+    __deriveds__ = {
+            'ξ':('<i>ξ</i>','',0,'静止土压力系数'),
+            'μ':('<i>μ</i>','',0,'主动土压力系数'),
+            'sep':('<i>E</i>','kN',0,'静止土压力'),
+            'aep':('<i>E</i>','kN',0,'主动土压力'),
+            }
+    
+    def static_earth_pressure(φ, B, γ, H):
+        ξ = 1-sin(φ)
+        #ej = ξ*γ*h
+        E = 0.5*B*ξ*γ*H**2
+        return (ξ, E)
+    
+    def active_earth_pressure(φ, α, β, B, γ, H):
+        δ = φ/2
+        μ = cos(φ-α)**2/cos(α)**2/cos(α+δ)/\
+            (1+(sin(φ+δ)*sin(φ-β)/cos(α+δ)/cos(α-β))**0.5)**2
+        E = 0.5*B*μ*γ*H**2
+        return (μ, E)
+    
+    def solve(self):
+        self.ξ, self.sep = earth_pressure.static_earth_pressure(
+            self.φ*pi/180, self.B, self.γ, self.H)
+        self.μ, self.aep = earth_pressure.active_earth_pressure(
+            self.φ*pi/180, self.α*pi/180, self.β*pi/180, self.B, self.γ, self.H)
 
 class wind(abacus):
     '''风荷载计算

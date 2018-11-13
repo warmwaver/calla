@@ -1,4 +1,5 @@
 import unittest
+from math import pi
 from calla.TB.RC_strength import *
 
 TestCase = unittest.TestCase
@@ -35,7 +36,7 @@ class test(TestCase):
         n = 10
         M = 20 #kN
         N = 450
-        r = column_strength(b,h,l0,a,a_,Ec,As,As_,n,M,N,0)
+        r = column_strength.solve_stress(b,h,l0,a,a_,Ec,As,As_,n,M,N,0)
         print('σc,σs,σs\'\n',r)
         assert abs(r[0]-7.56)/7.56<0.01
         assert abs(r[2]-67.8)/67.8<0.01
@@ -58,7 +59,7 @@ class test(TestCase):
         d = 28
         a = 62.5
         n1 = As/(pi/4*d**2)
-        wf = crack_width(M1,M2,M,σs,Es,d,a,b,n1)
+        wf = crack_width.solve_wf(M1,M2,M,σs,Es,d,a,b,n1)
         print('wf = ',wf)
 
     def test_column_strength(self): #随意修改测试
@@ -73,7 +74,7 @@ class test(TestCase):
         n = 10
         M = 2800 #kN
         N = 14000
-        r = column_strength(b,h,l0,a,a_,Ec,As,As_,n,M,N,0)
+        r = column_strength.solve_stress(b,h,l0,a,a_,Ec,As,As_,n,M,N,0)
         print('σc,σs,σs\'\n',r)
 
 if __name__ == '__main__':

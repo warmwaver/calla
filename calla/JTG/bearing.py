@@ -39,6 +39,9 @@ class epbearing:
 class GJZ(abacus, epbearing):
     '''
     矩形板式橡胶支座
+    《公路钢筋混凝土及预应力混凝土桥涵设计规范》（JTG 3362-2018）8.7.3节
+    《公路桥梁板式橡胶支座》（JT/T 4-2004）
+    《公路桥梁板式橡胶支座规格系列》（JT/T 663-2006）
 
     >>> gjz = GJZ(la=300,lb=350,t=63,t1=8,t0=3)
     >>> assert abs(gjz.f_S()-9.78)<0.01
@@ -84,6 +87,9 @@ class GJZ(abacus, epbearing):
 class GYZ(abacus, epbearing):
     '''
     圆形板式橡胶支座
+    《公路钢筋混凝土及预应力混凝土桥涵设计规范》（JTG 3362-2018）8.7.3节
+    《公路桥梁板式橡胶支座》（JT/T 4-2004）
+    《公路桥梁板式橡胶支座规格系列》（JT/T 663-2006）
 
     >>> gyz = GYZ(d=350,t=63,t1=8,t0=3)
     >>> assert abs(gyz.f_S()-10.63)<0.01

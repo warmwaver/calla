@@ -10,12 +10,16 @@ from collections import OrderedDict
 from math import pi, sin, cos
 
 class earth_pressure(abacus):
+    """
+    土压力计算
+    《公路桥涵设计通用规范》（JTG D60-2015）4.2.3节
+    """
     __title__ = '土压力计算'
     __inputs__ = OrderedDict([
             ('B',('<i>B</i>','m',1,'计算宽度')),
-            ('H',('<i>H</i>','m',0,'计算土层高度')),
-            ('φ',('<i>φ</i>','°',0,'土的内摩擦角')),
-            ('α',('<i>α</i>','°',0,'桥台或挡土墙背与竖直面的夹角','查表4.2.1')),
+            ('H',('<i>H</i>','m',3,'计算土层高度')),
+            ('φ',('<i>φ</i>','°',30,'土的内摩擦角')),
+            ('α',('<i>α</i>','°',0,'桥台或挡土墙背与竖直面的夹角')),
             ('β',('<i>β</i>','°',0,'填土表面与水平面的夹角')),
             ('γ',('<i>γ</i>','kN/m<sup>3<sup>',18,'土的重度')),
             ])
@@ -56,7 +60,7 @@ class wind(abacus):
             ('V10',('<i>V</i><sub>10</sub>','m/s',10,'基本风速')),
             ('GV',('<i>G</i><sub>V</sub>','',1.0,'静阵风系数','查表4.2.1')),
             ('Z',('<i>Z</i>','m',10,'基准高度')),
-            ('地表类别',('地表类别','','A','')),
+            ('地表类别',('地表类别','','A','','',('A','B','C','D'))),
             ('ρ',('<i>ρ</i>','kg/m<sup>3</sup>',1.25,'空气密度')),
             ])
     __deriveds__ = {
@@ -111,16 +115,16 @@ class wind(abacus):
             CH=1.3
         return 1/2*ρ*wind.Vg(V10,GV, Z,地表类别)**2*CH*H
     def solve(self):
-        pass
+        self.positive_check('B', 'H')
     def _html(self, digits=2):
         yield '静阵风荷载计算'
         yield '依据：《公路桥梁抗风设计规范》（JTG/T D60-01-2004）'
         yield '根据《公路桥梁抗风设计规范》4.2.1节公式（4.2.1）'
         vg = wind.Vg(self.V10,self.GV, self.Z,self.地表类别)
-        yield self.format('Vg', vg, digits)
+        yield self.format('Vg', digits, vg)
         yield '根据《公路桥梁抗风设计规范》4.3.1节公式（4.3.1）'
         fh = wind.FH(self.B,self.H,self.V10,self.GV, self.Z,self.地表类别,self.ρ)
-        yield self.format('FH', fh, digits)
+        yield self.format('FH', digits, fh)
         
 if __name__ == '__main__':
     import doctest

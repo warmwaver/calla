@@ -84,7 +84,7 @@ class Column(abacus):
         paras = self.inputs
         # 承载力
         if self.section == 'rectangle':
-            nac = calla.GB.compressive_capacity.non_axial_compression(**paras)
+            nac = calla.GB.compressive_capacity.eccentric_compression(**paras)
         elif self.section == 'Tshape':
             nac = calla.GB.flexural_capacity.fc_T(**paras)
         elif self.section == 'round':
@@ -112,10 +112,9 @@ class Column(abacus):
         paras = self.inputs
         # 承载力
         if self.section == 'rectangle':
-            # todo: 开发JTG偏心受压构件承载力计算模块
-            nac = calla.GB.compressive_capacity.non_axial_compression(**paras)
+            nac = calla.JTG.bearing_capacity.eccentric_compression(**paras)
         elif self.section == 'Tshape':
-            nac = calla.JTG.flexural_capacity.fc_T(**paras)
+            nac = calla.JTG.bearing_capacity.fc_T(**paras)
         elif self.section == 'round':
             nac = calla.JTG.bearing_capacity.bc_round(**paras)
         else:

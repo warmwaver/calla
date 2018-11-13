@@ -1,9 +1,10 @@
 __all__ = [
-    'binary_search_eqs',
-    'secant_method_eqs',
+    'binary_search_solve',
+    'iteration_method_solve',
+    'secant_method_solve',
     ]
 
-def binary_search_eqs(function, start, end, **kwargs):
+def binary_search_solve(function, start, end, **kwargs):
     """
     折半查找法求解非线性方程
     必须确保function(start)*function(end) < 0
@@ -26,11 +27,26 @@ def binary_search_eqs(function, start, end, **kwargs):
             x0 = x
             f0 = f
 
-def secant_method_eqs(function, start, end, **kwargs):
+def iteration_method_solve(function, start, **kwargs):
+    """牛顿法求解非线性方程"""
+    count = 0
+    x0 = start
+    while True:
+        x1 = function(x0, **kwargs)
+        # --test--
+        # print(count, x0, x1, sep='\t')
+        # --------
+        if abs((x1-x0)/x0)<1e-3:
+            return x1
+        if count>100:
+            raise Exception('No real solution.')
+        x0 = x1
+        count += 1
+
+def secant_method_solve(function, start, end, **kwargs):
     """
     割线法求解非线性方程
     """
-    # 割线法求解非线性方程
     x0=start
     x1=end
     count = 0
@@ -63,7 +79,7 @@ def test():
             fyAs=(N-α1*fc*A*(α-sin(2*pi*α)/2/pi))/(α-αt)
             f=α1*fc*A*r*C1+fyAs*rs*C2-M
             return f
-    result = secant_method_eqs(func, 0, 1.25/3*0.99,α1=1.0,fc=14.3,fy=360,r=800,rs=700,A=3.14/4*800**2,N=0,M=100*1e6)
+    result = secant_method_solve(func, 0, 1.25/3*0.99,α1=1.0,fc=14.3,fy=360,r=800,rs=700,A=3.14/4*800**2,N=0,M=100*1e6)
     print(result)
 
 if __name__ == '__main__':

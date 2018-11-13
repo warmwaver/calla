@@ -13,7 +13,6 @@ from calla import abacus
 class crack_width(abacus):
     """
     裂缝宽度计算
-    计算裂缝宽度或根据裂缝宽度反算配筋。
     《混凝土结构设计规范》（GB 50010-2010）第7.1节
     """
     __title__ = '裂缝宽度'
@@ -24,7 +23,7 @@ class crack_width(abacus):
         # 0:计算裂缝宽度;
         # 1:根据裂缝宽度限值、内力反算钢筋面积;
         # 2:根据裂缝宽度限值、钢筋面积反算设计内力.(待实现)
-        ('option',('计算选项','','0','','',{'0':'计算裂缝宽度','1':'计算配筋'})),
+        ('option',('计算选项','','review','','',{'review':'计算裂缝宽度','design':'计算配筋'})),
         ('force_type',('受力类型','','0','','',{'0':'受弯构件','1':'偏心受压构件','2':'偏心受拉构件','3':'轴心受拉构件'})),
         ('Es',('<i>E</i><sub>s</sub>','MPa',2.0E5,'钢筋弹性模量')),
         ('ftk',('<i>f</i><sub>tk</sub>','MPa',2.2,'混凝土轴心抗拉强度标准值')),
@@ -64,10 +63,11 @@ class crack_width(abacus):
 预应力混凝土构件纵向受拉钢筋等效应力''')),
         ('ρte',('<i>ρ</i><sub>te</sub>','',0,'纵向受拉钢筋配筋率','''按
 有效受拉混凝土截面面积计算的纵向受拉钢筋配筋率；对无粘结后张构件，仅取纵向
-受拉普通钢筋计算配筋率；在最大裂缝宽度计算中，当ρte<O. 01 时，取ρte=0.01'''))
+受拉普通钢筋计算配筋率；在最大裂缝宽度计算中，当ρte<O. 01 时，取ρte=0.01''')),
+        ('wmax',('<i>w</i><sub>max</sub>','mm',0,'最大裂缝宽度'))
         ))
     __toggles__ = {
-        'option':{'0':(),'1':('As')},
+        'option':{'review':(),'design':('As')},
         'force_type':{'0':('l0','Nq','ys','ys_'),'1':('ys_'),'2':('l0','ys'),'3':('Mq','l0','ys','ys_')},
         }
     
@@ -105,7 +105,7 @@ class crack_width(abacus):
         if self.force_type == '0':
             self.σs = 1E6*self.Mq/0.87/self.h0/self.As
         elif self.force_type == '1':
-            hf_ = self.hf_;
+            hf_ = self.hf_
             if self.hf_>0.2*self.h0:
                 hf_ = 0.2*self.h0
             gamma_f_comp = (self.bf_-self.b)*hf_/self.b/self.h0
@@ -152,16 +152,20 @@ class crack_width(abacus):
         return self.As
     
     def solve(self):
-        self.positive_check('Es','ftk','cs','deq','b','h','h0','Mq','wlim')
-        if self.option == '0':
-            self.positive_check('As')
-        if self.force_type == '1' or self.force_type == '2':
+        # 参数正确性验证
+        self.positive_check('Es','ftk','cs','deq','b','h','h0','wlim')
+        if self.force_type == '1' or self.force_type == '2' or self.force_type == '3':
             self.positive_check('Nq')
+        if self.force_type == '0':
+            self.positive_check('Mq')
+        # 求解
+        if self.option == 'review':
+            self.positive_check('As')
             return self.solve_wmax()
         return self.solve_As()
     
     def _html(self,digits=2):
-        if self.option == 0:
+        if self.option == 'review':
             return self._html_wmax(digits)
         else:
             return self._html_As(digits)
@@ -180,24 +184,27 @@ class crack_width(abacus):
         yield self.formatX('ftk','Es',digits=None)
         yield self.format('αcr')
         yield self.format('Ate')
-        #yield '纵向受拉钢筋配筋率: ρte = ({0} + {1})/ {2} = {3:.3f}'.format(self.As,self.Ap,self.Ate,self.ρte)
-        yield '纵向受拉钢筋配筋率: {} = {} = {:.3f}'.format(self.para_attrs('ρte').symbol,self.express('(As + Ap)/ Ate'),self.ρte)
+        yield self.format('ρte',eq='(As + Ap)/ Ate')
         yield self.format('σs')
         yield self.format('bear_repeated_load')
         yield self.format('ψi',digits=3)
         yield self.format('deq',digits=None)
-        yield '最大裂缝宽度: w<sub>max</sub> = {1} = {2:.{0}f} mm'.format(digits,self.express('αcr*ψi*σs/Es*(1.9*cs+0.08*deq/ρte)'), self.wmax)
-        if self.wmax<self.wlim or abs(self.wmax-self.wlim)<0.001:
-            yield 'w<sub>max</sub> <= w<sub>lim</sub> = {} mm，最大裂缝宽度满足规范要求。'.format(self.wlim)
-        else:
-            yield 'w<sub>max</sub> > w<sub>lim</sub> = {} mm，最大裂缝宽度不满足规范要求。'.format(self.wlim)
+        wmax = self.para_attrs('wmax')
+        yield self.format('wmax',digits=digits, eq='αcr·ψi·σs/Es·(1.9·cs+0.08·deq/ρte)')
+        ok = self.wmax<self.wlim or abs(self.wmax-self.wlim)<0.001
+        yield '{} {} {}，{}{}满足规范要求。'.format(
+            wmax.symbol, '&le;' if ok else '&gt;',
+            self.format('wlim', omit_name=True), wmax.name, '' if ok else '不')
     
     def _html_As(self,digits=2):
-        yield '根据裂缝宽度限值求解钢筋面积'
-        yield '求解得：As = {1:.{0}f} mm<sup>2</sup>'.format(digits,self.As)
+        yield '根据裂缝宽度限值求解得：'
+        yield self.format('As', digits)
         for p in self._html_wmax(digits):
             yield p
 		
 if __name__ == '__main__':
     import doctest
     doctest.testmod()
+    f=crack_width()
+    f.solve()
+    print(f.text())

@@ -1,4 +1,4 @@
-"""钢筋混凝土受压构件正截面承载力计算
+"""钢管混凝土构件承载力
 GB 50936-2014 钢管混凝土结构技术规范 第5.3.1节
 """
 
@@ -30,7 +30,7 @@ class bearing_capacity(abacus):
         ('As',('<i>A</i><sub>s</sub>','mm<sup>2</sup>',0,'钢管面积')),
         ('Ac',('<i>A</i><sub>c</sub>','mm<sup>2</sup>',0,'混凝土面积')),
         ('Ah',('<i>A</i><sub>h</sub>','mm<sup>2</sup>',0,'空心部分面积')),
-        ('r0',('<i>r</i><sub>0</sub>','mm',0,'等效圆半径','圆形截面为半径，非圆形截面为按面积相等等效成圆形的半径')),
+        ('r0',('<i>r</i><sub>0</sub>','mm',800,'等效圆半径','圆形截面为半径，非圆形截面为按面积相等等效成圆形的半径')),
         ('rci',('<i>r</i><sub>ci</sub>','mm',0,'空心半径','对实心构件取0')),
         ('λ',('<i>λ</i>','',60,'构件长细比')),
         ('βm',('<i>β</i><sub>m</sub>','',1.0,'等效弯矩系数','按《钢结构设计规范》（GB 50017-2003）第5.2.2节的规定执行')),
@@ -113,6 +113,7 @@ class bearing_capacity(abacus):
         return (φ,λsc_,fsc,fsv,Esc,αsc,Nu,Mu,Tu,Vu,f)
     
     def solve(self):
+        self.positive_check('As','Ac','fc','r0')
         _kE = {'Q235':918.9,'Q345':719.6,'Q390':657.5,'Q420':626.9} # 表5.1.7
         self.kE = _kE[self.steel]
         (self.φ, self.λsc_, self.fsc, self.fsv, self.Esc, self.αsc,

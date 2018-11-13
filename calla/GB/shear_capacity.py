@@ -29,7 +29,8 @@ class shear_capacity(abacus):
         ('s',('<i>s</i>','mm',100,'箍筋间距','沿构件长度方向的箍筋间距')),
         ('Np0',('Np0','kN',0,'预加力','''计算截面上混凝土法向预应力等于零时的预加力，按本规范第10.1.13 条计算；当Np0大于0.3fcA0时，取O.3fcA0，此处，A0为构件的换算截面面积。''')),
         ))
-    def cal(self):
+    
+    def solve(self):
         self._v1 = V_6_3_1(self.b, self.hw, self.h0, self.fc)/1000
         if self.V > self._v1:
             return
@@ -43,22 +44,22 @@ class shear_capacity(abacus):
             else:
                 # todo:'不满足要求，需配置弯起钢筋')
                 pass
-    def generate_html(self, digits = 2):
+    def _html(self, digits = 2):
         yield '剪力设计值：V = {0} kN'.format(self.V)
         tmp = '按6.3.1条，V {0} αβcfcbh0 = {1} kN'
-        yield tmp.format('>' if self.V > self._v1 else '<', self._v1)
+        yield tmp.format('&gt;' if self.V > self._v1 else '&lt;', self._v1)
         if self.V > self._v1:
             yield ('不满足要求')
             return
         yield '满足受剪承载力计算条件。'
         tmp = '按6.3.3条，V {0} 0.7β<sub>h</sub>f<sub>t</sub>bh<sub>0</sub> = {1:.{2}f} kN'
-        yield tmp.format('>' if self.V > self._v3 else '<', self._v3,digits)
+        yield tmp.format('&gt;' if self.V > self._v3 else '&lt;', self._v3,digits)
         if self.V < self._v3:
             yield('满足要求，无需配置箍筋。')
         else:
             yield('不满足要求，需配置箍筋。')
             tmp = '按6.3.4条，V {0} 0.7β<sub>h</sub>f<sub>t</sub>bh<sub>0</sub>+fyv*Asv/s*h0 = {1:.{2}f} kN'
-            yield tmp.format('>' if self.V > self._v4 else '<', self._v4,digits)
+            yield tmp.format('&gt;' if self.V > self._v4 else '&lt;', self._v4,digits)
             if self.V < self._v4:
                 yield('满足要求，无需配置弯起钢筋。')
             else:

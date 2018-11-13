@@ -12,7 +12,7 @@ body{font:16px times new roman,宋体}
 table{border-collapse:collapse; font-size:14px;}
 '''
 
-def html2text(html, ignore_sub=True):
+def html2text(html, sub='', sup=''):
     """Convert html to plain text
 
     >>> html2text('<div><a>hello,</a><p>world</p></div><span>i miss you</span>')
@@ -49,7 +49,6 @@ def html2text(html, ignore_sub=True):
         return ('','','',html,'','')
     
     s = ''
-    start = 0
     while html != '':
         element,front,prefix,content,suffix,back = split_block(html)
         if element != '' and prefix != '' and suffix != '':
@@ -59,9 +58,9 @@ def html2text(html, ignore_sub=True):
                 or element == 'table' or element == 'tr':
                 suffix = '\n'
             elif element == 'sub':
-                prefix = '' if ignore_sub else '_'
+                prefix = sub
             elif element == 'sup':
-                prefix = '^'
+                prefix = sup
             elif element == 'head' or  element == 'style':
                 content = ''
             elif element == 'td' or element == 'th':
@@ -73,6 +72,10 @@ def html2text(html, ignore_sub=True):
         else:
             s += content
             break
+    # substitude special symbols
+    specials = {'&lt;':'<', '&le;':'<=', '&gt;':'>', '&ge;':'>='}
+    for key in specials:
+        s = s.replace(key, specials[key])
     return s
 
 def table2html(table, digits=2, reverse=False, attr_class='result'):

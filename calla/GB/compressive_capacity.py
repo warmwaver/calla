@@ -4,7 +4,7 @@
 
 __all__ = [
     'axial_compression',
-    'non_axial_compression',
+    'eccentric_compression',
     ]    
 
 from collections import OrderedDict
@@ -27,7 +27,7 @@ class axial_compression(abacus):
     __inputs__ = OrderedDict((
         ('N',('<i>N</i>','kN',1000,'轴力')),
         ('b',('<i>b</i>','mm',500,'矩形截面的短边尺寸')),
-        ('d',('<i>d</i>','mm',0,'为圆形截面的直径')),
+        ('d',('<i>d</i>','mm',0,'圆形截面的直径')),
         ('i',('<i>i</i>','mm',0,'截面的最小回转半径')),
         ('l0',('<i>l</i><sub>0</sub>','mm',1000,'构件的计算长度','对钢筋混凝土柱可按本规范第6.2.20 条的规定取用')),
         ('A',('<i>A</i>','mm<sup>2</sup>',500*500,'构件截面面积')),
@@ -92,7 +92,7 @@ class axial_compression(abacus):
         yield self.formatX('轴压比')
         yield self.formatX('φ')
         yield self.formatX('Nd')
-        yield '{} {} Nd, {}满足规范要求。'.format(self.formatX('N', sep=''),'<' if self.N<self.Nd else '>', '' if self.N<self.Nd else '不')
+        yield '{} {} Nd, {}满足规范要求。'.format(self.formatX('N', sep=''),'&lt;' if self.N<self.Nd else '&gt;', '' if self.N<self.Nd else '不')
         
 def query_beta1(fcuk):
     if fcuk<50:
@@ -101,19 +101,19 @@ def query_beta1(fcuk):
         return 0.74
     return 0.8+(fcuk-50)/(80-50)*(0.74-0.8)
     
-class non_axial_compression(abacus):
+class eccentric_compression(abacus):
     """
     钢筋混凝土矩形截面偏心受压构件正截面受压承载力计算
     《混凝土结构设计规范》(GB 50010-2010）第6.2.17节
 
-    >>> nac=non_axial_compression()
+    >>> nac=eccentric_compression()
     >>> nac.solve()
     >>> nac.As
     1000.0
     """
     __title__ = '矩形截面偏心受压承载力'
     __inputs__ = OrderedDict((
-        ('option',('选项','','1','','',{'0':'根据配筋计算承载力','1':'根据内力设计值计算配筋'})),
+        #('option',('选项','','1','','',{'0':'根据配筋计算承载力','1':'根据内力设计值计算配筋'})),
         ('option_m2',('考虑弯矩二阶效应','',True,'','',{True:'是',False:'否'})),
         ('symmetrical',('对称配筋','',False,'','',{True:'是',False:'否'})),
         ('Asp_known',('已知受压钢筋面积','',False,'','',{True:'是',False:'否'})),
@@ -147,9 +147,10 @@ class non_axial_compression(abacus):
         ('e0',('<i>e</i><sub>0</sub>','mm',0,'轴向压力对截面重心的偏心距','取为M/N')),
         ('ei',('<i>e</i><sub>i</sub>','mm',20,'初始偏心距')),
         ('e',('<i>e</i>','mm',0,'轴向压力作用点至纵向受拉普通钢筋和受拉预应力筋的合力点的距离')),
+        ('x',('<i>x</i>','mm',0,'截面受压区高度')),
         ))
     __toggles__ = {
-        'option':{'0':(),'1':('As')},
+        #'option':{'0':(),'1':('As')},
         'option_m2':{True:('M'),False:('M1','M2')},
         'Asp_known':{True:(),False:('As_')},
         }
@@ -159,25 +160,25 @@ class non_axial_compression(abacus):
     #symmetrical = False # True-对称配筋;False-不对称配筋
     #Asp_known = False # True-已知受压钢筋面积;False-受压钢筋面积未知
     
-    eval_Nd = lambda alpha1,fc,b,x,fy_,As_,sigma_s,As:\
+    f_Nd = lambda alpha1,fc,b,x,fy_,As_,sigma_s,As:\
         alpha1*fc*b*x+fy_*As_-sigma_s*As
-    eval_Md = lambda alpha1,fc,b,x,h0,fy_,As_,as_:\
+    f_Md = lambda alpha1,fc,b,x,h0,fy_,As_,as_:\
         alpha1*fc*b*x*(h0-x/2)+fy_*As_*(h0-as_)
-    #eval_e = lambda e0,ea,h,a: e0+ea+h/2-a
-    eval_σsi = lambda Es,epsilon_cu,beta1,h0i,x: Es*epsilon_cu*(beta1*h0i/x-1)
-    eval_εcu = lambda fcuk:0.0033-(fcuk-50)*1E-5
-    eval_ξb = lambda β1,fy,Es,εcu:β1/(1+fy/Es/εcu)
-    eval_Asp = lambda N,e,α1,fc,b,x,h0,fy_,as_: (N*e-α1*fc*b*x*(h0-x/2))/(fy_*(h0-as_))
-    eval_x = lambda N,e,alpha1,fc,b,x,h0,fy_,as_,Es,εcu,beta1:\
-        (N-(fy_-non_axial_compression.eval_σsi(Es,εcu,beta1,h0,x))*
-         non_axial_compression.eval_Asp(N,e,alpha1,fc,b,x,h0,fy_,as_))/(alpha1*fc*b)
-    eval_x_As_known = lambda N,e,alpha1,fc,b,x,h0,fy_,as_,Es,εcu,beta1,As:\
-                     (N-fy_*non_axial_compression.eval_Asp(N,e,alpha1,fc,b,x,h0,fy_,as_)\
-                      +non_axial_compression.eval_σsi(Es,εcu,beta1,h0,x)*As)/(alpha1*fc*b)
+    #f_e = lambda e0,ea,h,a: e0+ea+h/2-a
+    f_σsi = lambda Es,epsilon_cu,beta1,h0i,x: Es*epsilon_cu*(beta1*h0i/x-1)
+    f_εcu = lambda fcuk:0.0033-(fcuk-50)*1E-5
+    f_ξb = lambda β1,fy,Es,εcu:β1/(1+fy/Es/εcu)
+    f_As_ = lambda N,e,α1,fc,b,x,h0,fy_,as_: (N*e-α1*fc*b*x*(h0-x/2))/(fy_*(h0-as_))
+    f_x = lambda N,e,alpha1,fc,b,x,h0,fy_,as_,Es,εcu,beta1:\
+        (N-(fy_-eccentric_compression.f_σsi(Es,εcu,beta1,h0,x))*
+         eccentric_compression.f_As_(N,e,alpha1,fc,b,x,h0,fy_,as_))/(alpha1*fc*b)
+    f_x_As_known = lambda N,e,alpha1,fc,b,x,h0,fy_,as_,Es,εcu,beta1,As:\
+                     (N-fy_*eccentric_compression.f_As_(N,e,alpha1,fc,b,x,h0,fy_,as_)\
+                      +eccentric_compression.f_σsi(Es,εcu,beta1,h0,x)*As)/(alpha1*fc*b)
     f_ηns = lambda M2,N,ea,h,h0,lc,ζc:1+1/1300/(M2/N+ea)*h0*(lc/h)**2*ζc
     
     def solve_x(N,e,alpha1,fc,b,x,h0,fy_,as_,Es,εcu,beta1):
-        f = non_axial_compression.eval_x
+        f = eccentric_compression.f_x
         x0 = x
         x1 = f(N,e,alpha1,fc,b,x0,h0,fy_,as_,Es,εcu,beta1)
         count = 0
@@ -188,8 +189,10 @@ class non_axial_compression(abacus):
         if count > 99:
             raise Exception('No real solution.')
         return x1
+    
     def solve_x_As_known(N,e,alpha1,fc,b,x,h0,fy_,as_,Es,εcu,beta1,As):
-        f = non_axial_compression.eval_x_As_known
+        '''已知受拉钢筋面积As求x'''
+        f = eccentric_compression.f_x_As_known
         x0 = x
         x1 = f(N,e,alpha1,fc,b,x0,h0,fy_,as_,Es,εcu,beta1,As)
         count = 0
@@ -200,7 +203,9 @@ class non_axial_compression(abacus):
         if count > 99:
             raise Exception('No real solution.')
         return x1
+    
     def solve_x_Asp_known(α1,fc,b0,h0,N,e,fy_,As_,as_):
+        '''已知受压钢筋面积As_求x'''
         a = α1*fc*b0/2
         b = -α1*fc*b0*h0
         c = N*e-fy_*As_*(h0-as_)
@@ -223,13 +228,13 @@ class non_axial_compression(abacus):
             else:
                 raise Exception('No proper solution.')
             
-    def cal_As(self):
-        M = self.M*1E6
+    def solve_As(self):
+        '''根据内力设计值计算配筋'''
         N = self.N*1E3
-        nac = non_axial_compression
-        self.εcu = min(nac.eval_εcu(self.fcuk),0.0033)
+        nac = eccentric_compression
+        self.εcu = min(nac.f_εcu(self.fcuk),0.0033)
         self.β1 = query_beta1(self.fcuk)
-        self.ξb = nac.eval_ξb(self.β1,self.fy,self.Es,self.εcu)
+        self.ξb = nac.f_ξb(self.β1,self.fy,self.Es,self.εcu)
         self.xb = self.ξb*self.h0
         self.Asmin = self.ρmin*self.b*self.h
         if self.symmetrical == False:
@@ -240,13 +245,14 @@ class non_axial_compression(abacus):
                     # 大偏心
                     if self.Asp_known == False:
                         # 受压区钢筋未知
-                        self._Asp = nac.eval_Asp(N,self.e,self.α1,self.fc,self.b,self.xb,self.h0,self.fy_,self.as_)
-                        if self._Asp > self.Asmin:
-                            self.As_ = self._Asp
-                            self.As = (self.α1*self.fc*self.b*self.h0*self.ξb+self.fy_*self.As_-N)/self.fy
+                        self._As_ = nac.f_As_(N,self.e,self.α1,self.fc,self.b,self.xb,self.h0,self.fy_,self.as_)
+                        if self._As_ > self.Asmin:
+                            self.As_ = self._As_
+                            self.As = (self.α1*self.fc*self.b*self.xb+self.fy_*self.As_-N)/self.fy
                             if self.As < self.Asmin:
                                 self._As = self.As
-                                self.As = Asmin
+                                self.As = self.Asmin
+                            self.x = (self.fy*self.As-self.fy_*self.As_+N)/(self.α1*self.fc*self.b)
                         else:
                             self.As_ = self.Asmin
                             self.x = nac.solve_x_Asp_known(self.α1,self.fc,self.b,self.h0,N,self.e,self.fy_,self.As_,self.as_)
@@ -278,9 +284,9 @@ class non_axial_compression(abacus):
                         continue
                     if self.x > self.h:
                         self.x = self.h
-                    self._Asp = self.As_ = nac.eval_Asp(N,self.e,self.α1,self.fc,self.b,self.x,self.h0,self.fy,self.as_)
+                    self._As_ = self.As_ = nac.f_As_(N,self.e,self.α1,self.fc,self.b,self.x,self.h0,self.fy,self.as_)
                     if self.As_ < self.Asmin:
-                        self._Asp = self.As_
+                        self._As_ = self.As_
                         self.As_ = self.Asmin
                 break
         else:
@@ -290,28 +296,28 @@ class non_axial_compression(abacus):
                 # 大偏心
                 self.type = 0
                 if self.x >= 2*self.as_:
-                    self.As_ = self.As = nac.eval_Asp(N,self.e,self.α1,self.fc,self.b,self.x,self.h0,self.fy,self.as_)
+                    self.As_ = self.As = nac.f_As_(N,self.e,self.α1,self.fc,self.b,self.x,self.h0,self.fy,self.as_)
                 else:
                     self.x = 2*self.as_
-                    self.ep = self.ei-self.h/2+self.as_
-                    self.As_ = self.As = N*self.ep/(self.fy*(self.h0-self.as_))
+                    self.e_ = self.ei-self.h/2+self.as_
+                    self.As_ = self.As = N*self.e_/(self.fy*(self.h0-self.as_))
                 if self.As < self.Asmin:
-                    self._Asp = self._As = self.As
+                    self._As_ = self._As = self.As
                     self.As_ = self.As = self.Asmin
 ##                x0 = self.x
 ##                if x0 > self.h:
 ##                    x0 = self.xb
 ##                self.x = nac.solve_x(N,self.e,self.α1,self.fc,self.b,x0,self.h0,
 ##                                                self.fy_,self.as_,self.Es,self.εcu,self.beta1)
-##                self.As=nac.eval_As_(N,self.e,self.α1,self.fc,self.b,self.x,self.h0,self.fy_,self.as_)
-##                self.σs=nac.eval_σsi(self.Es,self.εcu,self.β1,self.h0,self.x)
+##                self.As=nac.f_As_(N,self.e,self.α1,self.fc,self.b,self.x,self.h0,self.fy_,self.as_)
+##                self.σs=nac.f_σsi(self.Es,self.εcu,self.β1,self.h0,self.x)
             else:
                 # 小偏心
                 self.type = 1
-                eval_ξ = lambda N,e,ξb,α1,fc,b,h0,β1,as_:\
+                f_ξ = lambda N,e,ξb,α1,fc,b,h0,β1,as_:\
                         (N-ξb*α1*fc*b*h0)/((N*e-0.43*α1*fc*b*h0**2)/(β1-ξb)/(h0-as_)+α1*fc*b*h0)+ξb
-                self.ξ = eval_ξ(N,self.e,self.ξb,self.α1,self.fc,self.b,self.h0,self.β1,self.as_)
-                self.As_ = self.As = nac.eval_Asp(N,self.e,self.α1,self.fc,self.b,self.ξ*self.h0,self.h0,self.fy,self.as_)
+                self.ξ = f_ξ(N,self.e,self.ξb,self.α1,self.fc,self.b,self.h0,self.β1,self.as_)
+                self.As_ = self.As = nac.f_As_(N,self.e,self.α1,self.fc,self.b,self.ξ*self.h0,self.h0,self.fy,self.as_)
             
     def solve(self):
         self.h0 = self.h - self.a_s
@@ -321,7 +327,7 @@ class non_axial_compression(abacus):
             self.ζc = 0.5*self.fc*self.A/(self.N*1e3)
             if self.ζc>1:
                 self.ζc=1
-            self.ηns = non_axial_compression.f_ηns(self.M2*1e6,self.N*1e3,self.ea,self.h,self.h0,self.lc,self.ζc)
+            self.ηns = eccentric_compression.f_ηns(self.M2*1e6,self.N*1e3,self.ea,self.h,self.h0,self.lc,self.ζc)
             self.Cm = 0.7+0.3*self.M1/self.M2
             _Cmηns = self.Cm*self.ηns
             self.M = _Cmηns*self.M2 if _Cmηns>1 else self.M2
@@ -330,22 +336,16 @@ class non_axial_compression(abacus):
         # strictly, a = (σs*As*a_s+σp*Ap*ap)/(σs*As+σp*Ap)
         self.a = self.a_s if self.Ap == 0 else (self.a_s+self.ap)/2
         self.e = self.ei+self.h/2-self.a # (6.2.17-3)
-        if self.option == '0':
-            # TODO: to be tested
-            non_axial_compression.eval_Nd(self.α1,self.fc,self.b,self.x,self.fy_,self.As_,self.sigma_s,self.As)
-        elif self.option == '1':
-            self.cal_As()
+        return self.solve_As()
         
     def _html(self, digits = 2):
-        yield '偏心受压承载力计算'
-        yield '截面尺寸: <i>b</i> = {} mm, <i>h</i> = {} mm, <i>h</i><sub>0</sub> = {} mm'.format(self.b,self.h,self.h0)
-        yield '设计内力: <i>N</i> = {} kN, <i>M</i> = {} kN·m'.format(self.N,self.M)
+        yield '截面尺寸:{}'.format(self.formatX('b','h','h0',digits=None,omit_name=True))
+        yield '设计内力:{}'.format(self.formatX('N','M',digits=None,omit_name=True))
         yield '材料特性:'
-        yield '''<i>f</i><sub>c</sub> = {} MPa, <i>f</i><sub>cu,k</sub> = {} MPa, 
-<i>f</i><sub>y</sub> = {} MPa, <i>f</i><sub>y</sub>\' = {} MPa'''.format(self.fc,self.fcuk,self.fy,self.fy_)
-        yield '<i>E</i><sub>s</sub> = {0} MPa'.format(self.Es)
-        yield '初始偏心距：<i>e</i><sub>i</sub> = M/N+<i>e</i><sub>a</sub> = {1:.{0}f} mm'.format(digits,self.ei)
-        yield '截面相对界限受压区高度：<i>x</i><sub>b</sub> = {0:.{1}f} mm'.format(self.xb, digits)
+        yield self.formatX('fc','fcuk','fy','fy_',omit_name=True)
+        yield self.format('Es',digits=None)
+        yield self.format('ei',digits=digits)
+        yield self.format('xb', digits)
         yield '按{}计算'.format('对称配筋' if self.symmetrical else '非对称配筋')
         yield '{}受压构件'.format('大偏心' if self.type == 0 else '小偏心')
         tmp1 = '<i>A</i><sub>s</sub>{4}={1:.{0}f} mm<sup>2</sup> {3} <i>A</i><sub>s,min</sub> = {2:.{0}f} mm<sup>2</sup>'
@@ -356,17 +356,17 @@ class non_axial_compression(abacus):
                 # 大偏心
                 if self.Asp_known == False:
                     # 受压区钢筋未知
-                    yield tmp1.format(digits,self._Asp, self.Asmin, '>' if self._Asp > self.Asmin else '<','\'')
-                    if self._Asp > self.Asmin:
+                    yield tmp1.format(digits,self._As_, self.Asmin, '&gt;' if self._As_ > self.Asmin else '&lt;','\'')
+                    if self._As_ > self.Asmin:
                         if self.As < self.Asmin:
-                            yield tmp1.format(digits, self._As, self.Asmin,'<','')
+                            yield tmp1.format(digits, self._As, self.Asmin,'&lt;','')
                             yield '故取 ' + tmp2.format(digits, self.As, '')
                         else:
-                            yield tmp1.format(digits, self.As, self.Asmin,'>','')
+                            yield tmp1.format(digits, self.As, self.Asmin,'&gt;','')
                     else:
                         yield '故取 ' + tmp2.format(digits, self.As_, '\'')
                         yield '截面受压区高度：<i>x</i>={0:.{1}f} mm'.format(self.x, digits)
-                        yield tmp1.format(digits, self._As, self.Asmin, '>' if self._As > self.Asmin else '<', '')
+                        yield tmp1.format(digits, self._As, self.Asmin, '&gt;' if self._As > self.Asmin else '&lt;', '')
                 else:
                     yield '已知受压区钢筋面积：As\'={} mm<sup>2</sup>'.format(self.As_)
                     yield '<i>x</i>={0:.{1}f} mm'.format(self.x, digits)
@@ -375,7 +375,7 @@ class non_axial_compression(abacus):
                     if self.x < 2*self.as_:
                         yield '给定的受压钢筋面积As\'过大，受压钢筋未屈服.'
                     else:
-                        yield tmp1.format(digits, self._As, self.Asmin,'>' if self._As > self.Asmin else '<', '')
+                        yield tmp1.format(digits, self._As, self.Asmin,'&gt;' if self._As > self.Asmin else '&lt;', '')
                     if self._As < self.Asmin:
                         yield '故取 ' + tmp2.format(digits, self.As, '')
             else:
@@ -385,8 +385,8 @@ class non_axial_compression(abacus):
                 if self.x < self.xb:
                     yield '受压区高度偏小，请按大偏心受压构件计算.'
                 else:
-                    yield tmp1.format(digits,self.As_, self.Asmin,'>' if self._Asp > self.Asmin else '<','\'')
-                    if self._Asp != self.As_:
+                    yield tmp1.format(digits,self.As_, self.Asmin,'&gt;' if self._As_ > self.Asmin else '&lt;','\'')
+                    if self._As_ != self.As_:
                         yield '故取 ' + tmp2.format(digits, self.As_, '\'')
         else:
             # 对称配筋
@@ -399,7 +399,7 @@ class non_axial_compression(abacus):
             else:
                 # 小偏心
                 yield 'ξ = (N-ξb*α1*fc*b*h0)/((N*e-0.43*α1*fc*b*h0<sup>2</sup>)/(β1-ξb)/(h0-as_)+α1*fc*b*h0)+ξb = {1:.{0}f}'.format(digits,self.ξ)
-                yield tmp1.format(digits, self.As, self.Asmin,'>' if self.As > self.Asmin else '<', '')
+                yield tmp1.format(digits, self.As, self.Asmin,'&gt;' if self.As > self.Asmin else '&lt;', '')
     
 if __name__ == '__main__':
     import doctest

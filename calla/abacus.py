@@ -80,7 +80,9 @@ class abacus:
         """ Set value for inputs """
         for key in values:
             if hasattr(self, key):
-                setattr(self, key, values[key])
+                t = type(getattr(self,key))
+                v = values[key]
+                setattr(self, key, v)
 
     def deriveds(self):
         """ Get a dictionary of derived parameters. """
@@ -146,8 +148,11 @@ class abacus:
         if not hasattr(self,'__toggles__'):
             return r
         for key in self.__toggles__:
+            choices = self.__toggles__[key]
             v = getattr(self,key)
-            items = self.__toggles__[key][v]
+            if v not in choices:
+                v = self.para_attrs(key).default_value
+            items = choices[v]
             if isinstance(items,tuple):
                 for item in items:
                     r.append(item)
@@ -155,7 +160,7 @@ class abacus:
                 r.append(items)
         return r
                         
-    def format(self, parameter, digits = 2, value=None, sep=' ', omit_name=False):
+    def format(self, parameter, digits = 2, value=None, sep=' ', omit_name=False, eq=None):
         """
         Format parameter as {name}{sep}{symbol} = {value} {unit}
         e.g. force N = 100 kN
@@ -163,6 +168,8 @@ class abacus:
         Arguments:
             sep: seperator between parameter's name and symbol
             sep_names: seperator between parameters' names
+            omit_name: format with parameter name or not
+            eq: equation (or expression) of parameter
         """
         info = None
         if parameter in self.__inputs__:
@@ -171,7 +178,7 @@ class abacus:
             info = self.__deriveds__[parameter]
         value = value or getattr(self,parameter)
         if info == None or len(info)<1:
-            return '{} = {}'.format(parameter,value)
+            return '{} = {}'.format(parameter,'{1:.{0}f}'.format(digits, value))
         # use choices' value to substitude parameter value
         if len(info)>5 and type(info[5]) is dict:
             value = info[5][value]
@@ -186,7 +193,11 @@ class abacus:
                 pass
         symbol = info[0]
         unit = info[1] if len(info)>2 else ''
-        s += '{} = {} {}'.format(symbol,value,unit)
+        if eq == None or eq == '':
+            s += '{} = {} {}'.format(symbol, value, unit)
+        else:
+            s += '{} = {} = {} {}'.format(
+                    symbol, self.replace_by_symbols(eq), value, unit)
         return s
     
     def formatX(self, *parameters, digits=2, sep='', sep_names=', ', omit_name=True, toggled=True):
@@ -221,11 +232,12 @@ class abacus:
         n = len(attrs)
         cls_para = type(
                 'para', (object,),
-                dict(symbol=attrs[0] if n>0 else None,
-                 unit=attrs[1] if n>1 else None,
+                dict(symbol=attrs[0] if n>0 else '',
+                 unit=attrs[1] if n>1 else '',
                  default_value=attrs[2] if n>2 else None,
-                 name=attrs[3] if n>3 else None,
-                 description=attrs[4] if n>4 else None
+                 name=attrs[3] if n>3 else '',
+                 description=attrs[4] if n>4 else '',
+                 choices=attrs[5] if n>5 else None
                  ))
         return cls_para()
         
@@ -319,8 +331,8 @@ class abacus:
         gen.close()
         return result
 
-    def text(self, digits = 2, ignore_sub=True):
-        return html2text(self.html(digits), ignore_sub)
+    def text(self, digits = 2, sub='', sup=''):
+        return html2text(self.html(digits), sub, sup)
 
     def none_zero_check(self, *inputs:str):
         for parameter in inputs:
@@ -333,7 +345,7 @@ class abacus:
                 value = getattr(self, parameter)
                 t = type(value)
                 if (t == int or t == float) and not value> 0:
-                    raise InputError(self, parameter, '必须>0')
+                    raise InputError(self, parameter, '应>0')
 
     def solve(self):
         """
@@ -347,8 +359,8 @@ class InputError(Exception):
     def __init__(self, calculator:abacus, parameter:str, message:str=None):
         self.calculator = calculator
         self.parameter = parameter
-        self.message = '{} = {} 错误{}'.format(parameter, getattr(calculator, parameter), '' if message == None else ' ({})'.format(message))
-        self.xmessage = '{} 错误{}'.format(calculator.format(parameter,digits=None), '' if message == None else ' ({})'.format(message))
+        self.message = '输入错误：{} = {} {}'.format(parameter, getattr(calculator, parameter), '' if message == None else ' ({})'.format(message))
+        self.xmessage = '输入错误：{} {}'.format(calculator.format(parameter,digits=None), '' if message == None else ' ({})'.format(message))
         Exception.__init__(self, self.message)
     def html(self):
         return self.xmessage

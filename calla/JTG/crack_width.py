@@ -22,10 +22,9 @@ class crack_width(abacus):
         # 0:计算裂缝宽度;
         # 1:根据裂缝宽度限值、内力反算钢筋面积;
         # 2:根据裂缝宽度限值、钢筋面积反算设计内力.(待实现)
-        ('option',('计算选项','','0','','',{'0':'计算裂缝宽度','1':'计算配筋'})),
+        ('option',('计算选项','','review','','',{'review':'计算裂缝宽度','design':'计算配筋'})),
         ('force_type',('受力类型','','0','','',{'0':'受弯构件','1':'偏心受压构件','2':'偏心受拉构件','3':'轴心受拉构件'})),
         ('Es',('<i>E</i><sub>s</sub>','MPa',2.0E5,'钢筋弹性模量')),
-        #('ftk',('f<sub>tk</sub>','MPa',2.2)),
         ('d',('<i>d</i>','mm',25,'纵向受拉钢筋直径','当用不同直径的钢筋时，d改用换算直径de')),
         # 矩形截面
         ('b',('<i>b</i>','mm',500,'矩形截面宽度')),
@@ -50,20 +49,21 @@ class crack_width(abacus):
         ('Ml',('<i>M</i><sub>l</sub>','kN·m',0,'作用长期效应组合弯矩','按荷载长期效应组合计算的弯矩值')),
         ('Ns',('<i>N</i><sub>s</sub>','kN',0,'作用短期效应组合轴力','按荷载短期效应组合计算的轴向力值')),
         ('Ms',('<i>M</i><sub>s</sub>','kN·m',0,'作用短期效应组合弯矩','按荷载短期效应组合计算的弯矩值')),
-        ('wlim',('w<sub>lim</sub>','mm',0.2,'裂缝宽度限值')),
+        ('wlim',('<i>w</i><sub>lim</sub>','mm',0.2,'裂缝宽度限值')),
         ('C1',('<i>C</i><sub>1</sub>','',1.0,'钢筋表面形状系数','对光面钢筋，C1=1.4；对带肋钢筋，C1=1.0')),
         ('C3',('<i>C</i><sub>3</sub>','',1.0,'与构件受力性质有关的系数','钢筋混凝土板式受弯构件C3=1.15，其它受弯构件C3=1.0，轴心受拉构件C3=1.2，偏心受拉构件C3=1.1，偏心受压构件C3=0.9')),
         ))
     __deriveds__ = OrderedDict((
         ('C2',('<i>C</i><sub>2</sub>','',1.0,'荷载长期效应影响系数')),
-        ('σss',('σ<sub>s</sub>','MPa','钢筋应力')),
+        ('σss',('<i>σ</i><sub>s</sub>','MPa',0,'钢筋应力')),
         ('ρ',('<i>ρ</i>','',0,'纵向受拉钢筋配筋率','''当ρ<O.006时，取ρ=0.006;当ρ>O.02时，取ρ=0.02;
               对于轴心受拉构件，ρ按全部受拉钢筋截面面积As的一半计算''')),
         ('es_',('<i>e</i><sub>s</sub><sup>\'</sup>','轴向拉力作用点至受压区或受拉较小边纵向钢筋合力点的距离')),
+        ('Wtk',('<i>W</i><sub>tk</sub>','mm',0,'最大裂缝宽度')),
         ))
     __toggles__ = {
-        'option':{'0':(),'1':('As')},
-        'force_type':{'0':('l0','Nl','Ns','ys','ys_'),'1':('ys_',),'2':('l0','ys'),'3':('Ml','Ms','l0','ys','ys_')},
+        'option':{'review':(),'design':('As')},
+        'force_type':{'0':('l','l0','Nl','Ns','ys','ys_','as_'),'1':('ys_',),'2':('l','l0','ys'),'3':('Ml','Ms','l','l0','ys','ys_','as_')},
         }
 
     f_Wtk=lambda C1,C2,C3,σss,Es,d,ρ:C1*C2*C3*σss/Es*(30+d)/(0.28+10*ρ)
@@ -97,6 +97,7 @@ class crack_width(abacus):
     
     def solve_Wtk(self):
         # 计算最大裂缝宽度
+        self.positive_check('As','Ms')
         self.f_σss()
         self.ρ=crack_width.f_ρ(self.As,self.Ap,self.b,self.h0,self.bf,self.hf)
         self.Wtk=crack_width.f_Wtk(self.C1,self.C2,self.C3,self.σss,self.Es,self.d,self.ρ)
@@ -104,6 +105,7 @@ class crack_width(abacus):
     
     def solve_As(self):
         # 根据裂缝宽度限值反算钢筋面积
+        self.positive_check('Ns')
         A1 = 1E-9
         A2 = 1E6
         self.As = A1
@@ -123,17 +125,17 @@ class crack_width(abacus):
     
     def solve(self):
         if self.force_type == '0':
+            self.positive_check('Ms')
             self.C2=1+0.5*self.Ml/self.Ms
         else:
+            self.positive_check('Ns')
             self.C2=1+0.5*self.Nl/self.Ns
-        return self.solve_Wtk() if self.option == '0' else self.solve_As()
+        return self.solve_Wtk() if self.option == 'review' else self.solve_As()
     
     def _html(self,digits=2):
-        return self._html_wmax(digits) if self.option == '0' else self._html_As(digits)
+        return self._html_wmax(digits) if self.option == 'review' else self._html_As(digits)
         
     def _html_wmax(self,digits=2):
-        yield '裂缝宽度验算'
-        yield '验算依据：《公路钢筋混凝土及预应力混凝土桥涵设计规范》（JTG D62-2004）第6.4节'
         yield '构件受力类型: '
         yield self.__inputs__['force_type'][5][self.force_type]
         yield '构件尺寸:'
@@ -145,23 +147,25 @@ class crack_width(abacus):
         yield '荷载短期效应组合的设计内力:'
         yield self.formatX('Ms','Ns',toggled=True)
         yield '材料参数:'
-        #yield '混凝土轴心抗拉强度标准值: ftk = {} MPa'.format(self.ftk)
-        yield '钢筋弹性模量: Es = {} MPa'.format(self.Es)
-        yield '钢筋表面形状系数: C<sub>1</sub> = {:.3f}'.format(self.C1)
-        yield '荷载长期效应影响系数: C<sub>2</sub> = {:.3f}'.format(self.C2)
-        yield '构件受力特征系数: C<sub>3</sub> = {}'.format(self.C3)
-        yield '纵向受拉钢筋配筋率: {} = {} = {:.3f}'.format('ρ',self.express('(As+Ap)/(b*h0+(bf-b)*hf)'),self.ρ)
-        yield '钢筋等效应力: σ<sub>ss</sub> = {:.2f} MPa'.format(self.σss)
-        yield '纵向受拉钢筋等效直径: d<sub>e</sub> = {} mm'.format(self.d)
-        yield '最大裂缝宽度: W<sub>tk</sub> = {1} = {2:.{0}f} mm'.format(digits,self.express('C1*C2*C3*σss/Es*(30+de)/(0.28+10*ρ)'), self.Wtk)
-        if self.Wtk<self.wlim or abs(self.Wtk-self.wlim)<0.001:
-            yield 'W<sub>tk</sub> <= w<sub>lim</sub> = {} mm，最大裂缝宽度满足规范要求。'.format(self.wlim)
-        else:
-            yield 'W<sub>tk</sub> > w<sub>lim</sub> = {} mm，最大裂缝宽度不满足规范要求。'.format(self.wlim)
+        yield self.format('Es',digits=None)
+        yield '系数:'
+        yield self.formatX('C1', 'C2', 'C3', digits=None)
+        ρ = self.para_attrs('ρ')
+        yield '{} {} = {} = {:.3f}'.format(
+            ρ.name, ρ.symbol,
+            self.replace_by_symbols('(As+Ap)/(b·h0+(bf-b)·hf)'),self.ρ)
+        yield self.format('σss')
+        wtk = self.para_attrs('Wtk')
+        yield '{1} {2} = {3} = {4:.{0}f} mm'.format(
+            digits, wtk.name, wtk.symbol,
+            self.replace_by_symbols('C1·C2·C3·σss/Es·(30+d)/(0.28+10·ρ)'),
+            self.Wtk)
+        ok = self.Wtk<self.wlim or abs(self.Wtk-self.wlim)<0.001
+        yield '{} {} {}，{}{}满足规范要求。'.format(
+            wtk.symbol, '<=' if ok else '>',
+            self.format('wlim', omit_name=True), wtk.name, '' if ok else '不')
             
     def _html_As(self,digits=2):
-        yield '根据裂缝宽度限值求解钢筋面积'
-        yield '验算依据：《公路钢筋混凝土及预应力混凝土桥涵设计规范》（JTG D62-2004）第6.4节'
         yield '构件受力类型: '
         yield self.__inputs__['force_type'][5][self.force_type]
         yield '构件尺寸:'
@@ -173,13 +177,15 @@ class crack_width(abacus):
         yield '荷载短期效应组合的设计内力:'
         yield self.formatX('Ms','Ns',toggled=True)
         yield '材料参数:'
-        #yield '混凝土轴心抗拉强度标准值: ftk = {} MPa'.format(self.ftk)
-        yield '钢筋弹性模量: Es = {} MPa'.format(self.Es)
+        yield self.format('Es',digits=None)
         yield '系数:'
         yield self.formatX('C1', 'C2', 'C3', digits=None)
-        yield '纵向受拉钢筋配筋率: {} = {} = {:.3f}'.format('ρ',self.express('(As+Ap)/(b*h0+(bf-b)*hf)'),self.ρ)
+        ρ = self.para_attrs('ρ')
+        yield '{} {} = {} = {:.3f}'.format(
+            ρ.name, ρ.symbol,
+            self.replace_by_symbols('(As+Ap)/(b·h0+(bf-b)·hf)'),self.ρ)
         yield self.format('σss')
-        yield '求解得：As = {1:.{0}f} mm<sup>2</sup>'.format(digits,self.As)
+        yield self.format('As',digits)
 
 class cw_round(abacus):
     """
@@ -188,7 +194,11 @@ class cw_round(abacus):
     """
     __title__ = '圆形截面裂缝宽度'
     __inputs__ = OrderedDict((
-        ('option',('计算选项','','0','','',{'0':'计算裂缝宽度','1':'计算配筋'})),
+        # option
+        # 0:计算裂缝宽度;
+        # 1:根据裂缝宽度限值、内力反算钢筋面积;
+        # 2:根据裂缝宽度限值、钢筋面积反算设计内力.(待实现)
+        ('option',('计算选项','','review','','',{'review':'计算裂缝宽度','design':'计算配筋'})),
         ('Es',('<i>E</i><sub>s</sub>','MPa',2.0E5,'钢筋弹性模量')),
         ('fcuk',('<i>f</i><sub>cu,k</sub>','MPa',40,'混凝土立方体抗压强度标准值','设计时取强度等级')),
         ('d',('<i>d</i>','mm',25,'纵向钢筋直径')),
@@ -211,17 +221,8 @@ class cw_round(abacus):
         ('C2',('<i>C</i><sub>2</sub>','',0,'荷载长期效应影响系数')),
         ('ηs',('<i>η</i><sub>s</sub>','',0,'使用阶段的偏心距增大系数')),
         ('e0',('<i>e</i><sub>0</sub>','mm',0,'轴向力Ns的偏心距')),
-        ))
-    
-    # option
-    # 0:计算裂缝宽度;
-    # 1:根据裂缝宽度限值、内力反算钢筋面积;
-    # 2:根据裂缝宽度限值、钢筋面积反算设计内力.(待实现)
-
-##    def none_zero_check(self, *parameters:str):
-##        for parameter in parameters:
-##            if hasattr(self, parameter) and getattr(self, parameter) == 0:
-##                raise ZeroValueError(self, parameter)
+        ('Wfk',('<i>W</i><sub>fk</sub>','mm',0,'最大裂缝宽度')),
+        ))    
     
     # 计算最大裂缝宽度
     f_Wfk = lambda C1,C2,σss,Es,d,ρ,C: C1*C2*(0.03+σss/Es*(0.004*d/ρ+1.52*C))
@@ -275,14 +276,12 @@ class cw_round(abacus):
         if self.Ms > 0:
             self.C2 = max(self.C2, 1+0.5*self.Ml/self.Ms)
         self.e0 = self.Ms/self.Ns*1e3
-        return self.solve_Wtk() if self.option == '0' else self.solve_As()
+        return self.solve_Wtk() if self.option == 'review' else self.solve_As()
     
     def _html(self,digits=2):
-        return self._html_wmax(digits) if self.option == '0' else self._html_As(digits)
+        return self._html_wmax(digits) if self.option == 'review' else self._html_As(digits)
         
     def _html_wmax(self,digits=2):
-        yield '裂缝宽度验算'
-        yield '验算依据：《公路钢筋混凝土及预应力混凝土桥涵设计规范》（JTG D62-2004）第6.4节'
         yield '构件尺寸:'
         yield self.formatX('r','rs','l0')
         yield self.format('d',digits=None)
@@ -297,18 +296,17 @@ class cw_round(abacus):
         yield self.formatX('C2',digits=digits)
         yield self.formatX('ηs',digits=digits)
         yield self.formatX('e0',digits=digits)
-        #yield '构件受力特征系数: C<sub>3</sub> = {}'.format(self.C3)
         yield '纵向受拉钢筋配筋率: {} = {} = {:.3f}'.format('ρ',self.express('As/π/r<sup>2</sup>'),self.ρ)
         yield '钢筋等效应力: σ<sub>ss</sub> = {:.2f} MPa'.format(self.σss)
-        yield '最大裂缝宽度: W<sub>tk</sub> = {1} = {2:.{0}f} mm'.format(digits,self.express('C1*C2*(0.03+σss/Es*(0.004*d/ρ+1.52*C))'), self.Wfk)
-        if self.Wfk<self.wlim or abs(self.Wfk-self.wlim)<0.001:
-            yield 'W<sub>tk</sub> <= w<sub>lim</sub> = {} mm，最大裂缝宽度满足规范要求。'.format(self.wlim)
-        else:
-            yield 'W<sub>tk</sub> > w<sub>lim</sub> = {} mm，最大裂缝宽度不满足规范要求。'.format(self.wlim)
+        #yield '最大裂缝宽度: W<sub>tk</sub> = {1} = {2:.{0}f} mm'.format(digits,self.express('C1*C2*(0.03+σss/Es*(0.004*d/ρ+1.52*C))'), self.Wfk)
+        yield self.format('Wfk',eq='C1*C2*(0.03+σss/Es*(0.004*d/ρ+1.52*C))',digits=digits)
+        wfk = self.para_attrs('Wfk')
+        ok = self.Wfk<self.wlim or abs(self.Wfk-self.wlim)<0.001
+        yield '{} {} {}，{}{}满足规范要求。'.format(
+            wfk.symbol, '<=' if ok else '>',
+            self.format('wlim', omit_name=True), wfk.name, '' if ok else '不')
             
     def _html_As(self,digits=2):
-        yield '根据裂缝宽度限值求解钢筋面积'
-        yield '验算依据：《公路钢筋混凝土及预应力混凝土桥涵设计规范》（JTG D62-2004）第6.4节'
         yield '构件尺寸:'
         yield self.formatX('r','rs','l0')
         yield self.format('d',digits=None)
@@ -321,7 +319,6 @@ class cw_round(abacus):
         yield '钢筋弹性模量: Es = {} MPa'.format(self.Es)
         yield '钢筋表面形状系数: C<sub>1</sub> = {:.3f}'.format(self.C1)
         yield '荷载长期效应影响系数: C<sub>2</sub> = {:.3f}'.format(self.C2)
-        #yield '构件受力特征系数: C<sub>3</sub> = {}'.format(self.C3)
         yield '纵向受拉钢筋配筋率: {} = {} = {:.3f}'.format('ρ',self.express('(As+Ap)/(b*h0+(bf-b)*hf)'),self.ρ)
         yield '钢筋等效应力: σ<sub>ss</sub> = {:.2f} MPa'.format(self.σss)
         yield '求解得：As = {1:.{0}f} mm<sup>2</sup>'.format(digits,self.As)

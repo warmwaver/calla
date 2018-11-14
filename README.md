@@ -9,9 +9,9 @@ Open implementation of formulas in specifications or codes for structural engine
 ### 如何开发一个新的计算类
 为了保证一致的输入及输出方式，方便使用，所有计算类应派生自抽象基类abacus。abacus主要的类成员如下：
 
-- **__title__**：计算类名称
-- **__inputs__**: 输入参数字典，采用OrderedDict。
-每个条目的格式为
+- **\_\_title\_\_**：计算类名称
+- **\_\_inputs\_\_**: 输入参数字典
+采用OrderedDict，每个条目的格式为
 
 ```python
 __inputs__ = OrderedDict((
@@ -20,9 +20,9 @@ __inputs__ = OrderedDict((
 	))
 ```
 
-- **__deriveds__**：结果参数字典，采用OrderedDict。
-格式与__inputs__相同。
-- **__toggles__**：参数开关字典。
+- **\_\_deriveds\_\_**：结果参数字典
+采用OrderedDict，格式与__inputs__相同。
+- **\_\_toggles\_\_**：参数开关字典。
 某个参数的取值对其它参数可用性有影响时，将其列入__toggles__字典可以实现简单的开关功能。格式为
 
 ```python

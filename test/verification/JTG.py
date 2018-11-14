@@ -4,12 +4,9 @@
 (1) 叶见曙, 结构设计原理，2版，人民交通出版社，2005.5（重印2007.7）[M]
 (2) 
 """
-import unittest
-from . import testtools
-from calla.JTG import bearing_capacity, crack_width
 
-TestCase = unittest.TestCase
-TestCase.assertApproxEqual = testtools.assertApproxEqual
+from .testtools import TestCase
+from calla.JTG import bearing_capacity, crack_width
 
 class test_bearing_capacity(TestCase):
     def test1(self):
@@ -17,14 +14,15 @@ class test_bearing_capacity(TestCase):
         圆形截面承载力
         叶见曙, 结构设计原理，2版，人民交通出版社，2005.5（重印2007.7）
         例7-7，P174
+        新规范JTG 3362-2018更新了计算方法，因此计算结果与原规范有所差别
         """
         f = bearing_capacity.bc_round(
-            option='1',γ0=1.0,fcd=9.2,fsd=195,fsd_=195,Es=200000.0,
-            r=600,rs=540,l0=7500,N=6450,M=1330.6,εcu=0.0033)        
+            option='design',γ0=1.0,fcd=9.2,fsd=195,fsd_=195,Es=200000.0,
+            r=600,rs=540,l0=7500,Nd=6450,Md=1330.6,εcu=0.0033)        
         f.solve() # (0.7190344361510966, 3769.155972852216)
-        self.assertAlmostEqual(f.ξ,0.72,2)
-        self.assertAlmostEqual(f.ρ,0.0033,3)
-        self.assertAlmostEqual(f.As,3769,0)
+        # self.assertAlmostEqual(f.ξ,0.72,2)
+        # self.assertAlmostEqual(f.ρ,0.0033,3)
+        self.assertApproxEqual(f, tolerance=0.05, As=0.0042*3.14*600**2)
     
     def test2(self):
         """

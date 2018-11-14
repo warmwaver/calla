@@ -15,52 +15,55 @@ class concrete:
     δf = {20:0.18, 25:0.16, 30:0.14, 35:0.13, 40:0.12,
              45:0.12, 50:0.11, 55:0.11, 60:0.1}
     @staticmethod
-    def fcuk(fcu_k):
-        if type(fcu_k) is str:
-            if fcu_k.startswith('C'):
-                fcu_k = fcu_k[1:]
-            fcu_k = int(fcu_k)
-        return fcu_k
+    def fcuk(concrete_type):
+        if type(concrete_type) is str:
+            if concrete_type.startswith('C'):
+                concrete_type = concrete_type[1:]
+            try:
+                concrete_type = int(concrete_type)
+            except:
+                raise Exception('无法识别的混凝土类型：{}'.format(concrete_type))
+        return concrete_type
     @staticmethod
-    def fck(fcu_k):
-        fcu_k = concrete.fcuk(fcu_k)
-        if fcu_k <= 0:
+    def fck(concrete_type):
+        concrete_type = concrete.fcuk(concrete_type)
+        if concrete_type <= 0:
             return 0
-        if fcu_k <= 50:
+        if concrete_type <= 50:
             α = 0.76
-        elif fcu_k <= 80:
-            α = 0.76+(fcu_k-50)/(80-50)*(0.82-0.76)
-        f = 0.88*α*fcu_k
-        if fcu_k > 40 and fcu_k <= 80:
-            f *= 1+(fcu_k-40)/(80-40)*(0.87-1)
+        elif concrete_type <= 80:
+            α = 0.76+(concrete_type-50)/(80-50)*(0.82-0.76)
+        f = 0.88*α*concrete_type
+        if concrete_type > 40 and concrete_type <= 80:
+            f *= 1+(concrete_type-40)/(80-40)*(0.87-1)
         f = round(f, 1)
         return f
     @staticmethod
-    def fcd(fcu_k):
-        return round(concrete.fck(fcu_k)/1.45,1)
+    def fcd(concrete_type):
+        return round(concrete.fck(concrete_type)/1.45,1)
     @staticmethod
-    def ftk(fcu_k):
-        fcu_k = concrete.fcuk(fcu_k)
-        if fcu_k <= 0:
+    def ftk(concrete_type):
+        concrete_type = concrete.fcuk(concrete_type)
+        if concrete_type <= 0:
             return 0
-        if fcu_k in concrete.δf:
-            δf150 = concrete.δf[fcu_k]
-        elif fcu_k < 60:
-            δf150 = 0.18+(fcu_k-20)/(60-20)*(0.1-0.18)
-        elif fcu_k >= 60:
+        if concrete_type in concrete.δf:
+            δf150 = concrete.δf[concrete_type]
+        elif concrete_type < 60:
+            δf150 = 0.18+(concrete_type-20)/(60-20)*(0.1-0.18)
+        elif concrete_type >= 60:
             δf150 = 0.1
-        f = 0.88*0.395*fcu_k**0.55*(1-1.645*δf150)**0.45
-        if fcu_k > 40 and fcu_k <= 80:
-            f *= 1+(fcu_k-40)/(80-40)*(0.87-1)
+        f = 0.88*0.395*concrete_type**0.55*(1-1.645*δf150)**0.45
+        if concrete_type > 40 and concrete_type <= 80:
+            f *= 1+(concrete_type-40)/(80-40)*(0.87-1)
         f = round(f, 2)
         return f
     @staticmethod
-    def ftd(fcu_k):
-        return round(concrete.ftk(fcu_k)/1.45,2)
+    def ftd(concrete_type):
+        return round(concrete.ftk(concrete_type)/1.45,2)
     @staticmethod
-    def Ec(fcu_k):
+    def Ec(concrete_type):
         ''' 混凝土弹性模量(MPa) '''
-        ec = 1e5/(2.2+34.74/concrete.fcuk(fcu_k))
+        ec = 1e5/(2.2+34.74/concrete.fcuk(concrete_type))
         ec = round(ec/1e4, 2)*1e4
         return ec
 
@@ -74,7 +77,10 @@ class rebar:
         if type(rebar_type) is str:
             if rebar_type.startswith('HPB') or rebar_type.startswith('HRB'):
                 rebar_type = rebar_type[3:]
-        return int(rebar_type)
+        try:
+            return int(rebar_type)
+        except:
+            raise Exception('无法识别的钢筋类型：{}'.format(rebar_type))
 
     @staticmethod
     def fsd(rebar_type):
@@ -125,7 +131,7 @@ class prestressed_steel:
         try:
             return round(v/1.47, 0)
         except:
-            return 0
+            raise Exception('无法识别的预应力筋类型：{}'.format(ps_type))
 
 ps = prestressed_steel
 

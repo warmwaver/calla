@@ -45,13 +45,32 @@ def f_ξb(fcuk, fsk):
             ξb = 0.40 if fcuk<=50 else (0.38 if fcuk<= 60 else (0.36 if fcuk<=70 else 0.35))
         return ξb
 
+
+def f_η(N, M, h, h0, l0):
+    '''
+    偏心距增大系数
+    5.3.9节
+    '''
+    e0=M/N
+    ea=max(h/30, 20)
+    if e0<ea:
+        e0=ea
+    ζ1 = 0.2+2.7*e0/h0 # (5.3.9-2)
+    if ζ1 > 1:
+        ζ1 = 1
+    ζ2 = 1.15-0.01*l0/h # (5.3.9-3)
+    if ζ2 > 1:
+        ζ2 = 1
+    η = 1+1/(1300*e0/h0)*(l0/h)**2*ζ1*ζ2 # (5.3.9-1)
+    return (e0, η)
+
 class material_base:
     concrete_types = ['C25','C30','C35','C40','C45','C50', 'C60','C65','C70','C75','C80','其它']
     concrete_item = ('concrete',('混凝土','','C40','','',concrete_types))
     rebar_types = ['HRB400','HPB300','其它']
     rebar_item = ('rebar',('钢筋','','HRB400','','',rebar_types))
     ps_types = ['ΦS1960','ΦS1860','ΦS1720','ΦT1080','ΦT930','ΦT785','其它','无']
-    ps_item = ('ps',('预应力筋','','ΦS1860','','',ps_types))
+    ps_item = ('ps',('预应力筋','','无','','',ps_types))
     
     material_toggles = {
         'concrete': { key:('fcuk','fcd', 'ftd') if key.startswith('C') else () for key in concrete_types },
@@ -71,9 +90,10 @@ class material_base:
     @concrete.setter
     def concrete(self, value):
         self._concrete = value
-        self.fcuk = material.concrete.fcuk(value)
-        self.fcd = material.concrete.fcd(value)
-        self.ftd = material.concrete.ftd(value)
+        if value != '其它':
+            self.fcuk = material.concrete.fcuk(value)
+            self.fcd = material.concrete.fcd(value)
+            self.ftd = material.concrete.ftd(value)
         
     @property
     def rebar(self):
@@ -82,8 +102,9 @@ class material_base:
     @rebar.setter
     def rebar(self, value):
         self._rebar = value
-        self.fsk = material.rebar.fsk(value)
-        self.fsd = material.rebar.fsd(value)
+        if value != '其它':
+            self.fsk = material.rebar.fsk(value)
+            self.fsd = material.rebar.fsd(value)
         
     @property
     def ps(self):
@@ -92,8 +113,9 @@ class material_base:
     @ps.setter
     def ps(self, value):
         self._ps = value
-        self.fpk = material.ps.fpk(value)
-        self.fpd = self.fpd_ = material.ps.fpd(value)
+        if value != '其它' and value != '无':
+            self.fpk = material.ps.fpk(value)
+            self.fpd = self.fpd_ = material.ps.fpd(value)
         
 
 class fc_rect(abacus, material_base):
@@ -415,17 +437,6 @@ class eccentric_compression(abacus, material_base):
     def f_x_As_known(cls,N,e,β, fc,b,x,h0,fsd_,as_,Es,εcu,As):
         return (N-fsd_*cls.f_As_(N,e,fc,b,x,h0,fsd_,as_)\
                       +cls.f_σsi(β,Es,εcu,h0,x)*As)/(fc*b)
-    @staticmethod
-    def f_η(e0,h,h0,l0):
-        '''偏心距增大系数'''
-        ζ1 = 0.2+2.7*e0/h0 # 5.3.9-1
-        if ζ1 > 1:
-            ζ1 = 1
-        ζ2 = 1.15-0.01*l0/h # 5.3.9-2
-        if ζ2 > 1:
-            ζ2 = 1
-        η = 1+1/(1300*e0/h0)*(l0/h)**2*ζ1*ζ2
-        return η
     
     @classmethod
     def solve_x(cls, N,e,fc,b,x,h0,fsd_,as_,Es,εcu):
@@ -635,15 +646,13 @@ class eccentric_compression(abacus, material_base):
         # strictly, a = (σs*As*a_s+σp*Ap*ap)/(σs*As+σp*Ap)
         self.a = self.a_s if self.Ap == 0 else (self.As*self.a_s+self.Ap*self.ap)/(self.As+self.Ap)
         self.h0 = self.h - self.a
-        self.e0 = self.Md/self.Nd*1e3 # mm
-        ea = max(20,self.h/30) # 5.3.9节
-        if self.e0 > ea:
-            self.e0 = ea
         # 计算偏心距增大系数
         self.A = self.b*self.h
         self.I = self.b*self.h**3/12
         self.i = sqrt(self.I/self.A)
-        self.η = self.f_η(self.e0,self.h,self.h0,self.l0) if self.l0/self.i > 17.5 else 1
+        self.e0, self.η = f_η(self.N*1e3, self.M*1e6,self.h,self.h0,self.l0)
+        if self.l0/self.i < 17.5:
+            self.η = 1
         ei = self.η*self.e0
         self.e = ei+self.h/2-self.a # (5.3.4-3)
         self.es = ei+self.h/2-self.a_s
@@ -740,10 +749,12 @@ class eccentric_compression(abacus, material_base):
 class bc_round(abacus, material_base):
     """
     圆形截面承载力计算
-    公路钢筋混凝土及预应力混凝土桥涵设计规范（JTG D62-2004）第5.3.9节及附录C
+    《公路钢筋混凝土及预应力混凝土桥涵设计规范》（JTG 3362-2018）第5.3.8节
 
-    >>> bc_round.solve_As(9.2,195,195,2e5,600,540, 7500,6450*1e3,1330.6*1e6,1.0,0.0033)
-    (230.11383820424973, 0.7190344361510966, 0.0033326655797987327, 3769.155972852216)
+    >>> bc_round.solve_As(14.3,360,800,700,pi/4*800**2,0,100*1e6)
+    (0.13546417236328123, 373.3362955499133)
+    >>> bc_round.solve_M(14.3,360,800,700,pi/4*800**2,20*615.8,1000*1e3)
+    (0.36192235669386447, 2792645006.937993)
     """
     __title__ = '圆形截面承载力'
     __inputs__ = OrderedDict((
@@ -753,205 +764,139 @@ class bc_round(abacus, material_base):
         ('fcd',('<i>f</i><sub>cd</sub>','N/mm<sup>2</sup>',22.4,'混凝土轴心抗压强度设计值')),
         material_base.rebar_item,
         ('fsd',('<i>f</i><sub>sd</sub>','N/mm<sup>2</sup>',330,'普通钢筋抗拉强度设计值')),
-        ('fsd_',('<i>f</i><sub>sd</sub><sup>\'</sup>','N/mm<sup>2</sup>',330,'普通钢筋抗压强度设计值')),
-        ('Es',('<i>E</i><sub>s</sub>','MPa',2.0E5,'钢筋弹性模量')),
+        #('fsd_',('<i>f</i><sub>sd</sub><sup>\'</sup>','N/mm<sup>2</sup>',330,'普通钢筋抗压强度设计值')),
+        #('Es',('<i>E</i><sub>s</sub>','MPa',2.0E5,'钢筋弹性模量')),
         ('r',('<i>r</i>','mm',800,'圆形截面的半径')),
         ('rs',('<i>r</i><sub>s</sub>','mm',700,'纵向普通钢筋重心所在圆周的半径')),
         ('l0',('<i>l</i><sub>0</sub>','mm',1000,'构件计算长度')),
-        #('A',('<i>A</i>','mm<sup>2</sup>',pi/4*800**2,'圆形截面面积')),
         ('Nd',('<i>N</i><sub>d</sub>','kN',1000.0,'轴力设计值')),
         ('Md',('<i>M</i><sub>d</sub>','kN·m',100.0,'弯矩设计值')),
-        ('εcu',('<i>ε</i><sub>cu</sub>','mm',0.0033,'混凝土极限压应变')),
+        #('εcu',('<i>ε</i><sub>cu</sub>','mm',0.0033,'混凝土极限压应变')),
         ('As',('<i>A</i><sub>s</sub>','mm<sup>2</sup>',0,'全截面钢筋面积')),
         ))
     __deriveds__ = OrderedDict((
         ('e0',('<i>e</i><sub>0</sub>','mm',0,'轴向压力对截面重心的偏心距')),
-        ('ξ',('<i>ξ</i>','',0,'截面实际受压区高度x0与圆形截面直径的比值','ξ=x0/2r')),
-        ('ρ',('<i>ρ</i>','',0,'纵向钢筋配筋率','ρ=As/πr^2')),
+        ('η',('<i>η</i>','',0,'偏心距增大系数')),
+        #('ρ',('<i>ρ</i>','',0,'纵向钢筋配筋率','ρ=As/πr^2')),
+        ('A',('<i>A</i>','mm<sup>2</sup>',0,'圆形截面面积')),
+        ('α',('<i>α</i>','',0,'受压区域圆心角与2π的比值')),
+        #('Nud',('<i>N</i><sub>ud</sub>','kN',0,'', '正截面抗压承载力设计值')),
+        ('Mud',('<i>M</i><sub>ud</sub>','kN·m',0,'', '正截面抗弯承载力设计值')),
+        ('Asmin',('<i>A</i><sub>s,min</sub>','mm<sup>2</sup>',0,'','全截面最小钢筋面积')),
         ))
     __toggles__ = {
         'option':{'review':(), 'design':('As',)},
         'concrete': material_base.material_toggles['concrete'],
         'rebar': material_base.material_toggles['rebar'],
         }
-    
-    def f_e0(r,rs,l0,Nd,Md):
-        e0=Md/Nd
-        h0 = r+rs
-        h = 2*r
-        ζ1 = 0.2+2.7*e0/h0 # (5.3.10-2)
-        ζ2 = 1.15-0.01*l0/h # (5.3.10-3)
-        η = 1+1/1400/e0*h0*(l0/h)**2*ζ1*ζ2 # (5.3.10-1)
-        return η*e0
-    
-    def solve_As(fcd,fsd,fsd_,Es,r,rs,l0,Nd,Md,γ0,εcu):
-        """
-        求解alpha和As,已知Nd和Md
-        """
-        def f_β(ξ):
-            if ξ <= 1: # 原文为ξ = 1，没给ξ < 1的情况如何计算，有漏洞
-                return 0.8
-            elif ξ <= 1.5: # ξ为何可以大于1（受压区面积大于截面面积）？
-                return 1.067-0.267*ξ
-            else:
-                raise Exception('ξ超出范围')
-        f_θc = lambda ξ:acos(1-2*f_β(ξ)*ξ) # (C.0.1-5)
-        f_θsc = lambda ξ,fsd_,Es,εcu,g:\
-                acos(2*ξ/g/εcu*fsd_/Es+(1-2*ξ)/g) # (C.0.1-6)
-        f_θst = lambda ξ,fsd,Es,εcu,g:\
-                acos(-2*ξ/g/εcu*fsd/Es+(1-2*ξ)/g) # (C.0.1-7)
-        f_A = lambda θc:(2*θc-sin(2*θc))/2 # (C.0.1-1)
-        f_B = lambda θc:2/3*sin(θc)**3 # (C.0.1-2)
-        # (C.0.1-3)
-        f_C = lambda θsc,θst,ξ,g:θsc-pi+θst+1/(g*cos(θsc)-(1-2*ξ))\
-                *(g*(sin(θst)-sin(θsc))-(1-2*ξ)*(θst-θsc))
-        # (C.0.1-4)
-        f_D = lambda θsc,θst,ξ,g:sin(θsc)+sin(θst)+1/(g*cos(θsc)-(1-2*ξ))\
-            *(g*((θst-θsc)/2+(sin(2*θst)-sin(2*θsc))/4)-(1-2*ξ)*(sin(θst)-sin(θsc)))
-        
-        def f_ρ(fcd,fsd_,r,g,e0,A,B,C,D):
-            return fcd/fsd_*(B*r-A*e0)/(C*e0-D*g*r) # (C.0.2-2)
 
-        def f(ξ,fcd,fsd,fsd_,Es,r,g,e0,Nd,γ0,εcu):
-            θc = f_θc(ξ)
-            θsc = f_θsc(ξ,fsd_,Es,εcu,g)
-            θst = f_θst(ξ,fsd,Es,εcu,g)
-            A = f_A(θc)
-            B = f_B(θc)
-            C = f_C(θsc,θst,ξ,g)
-            D = f_D(θsc,θst,ξ,g)
-            ρ = f_ρ(fcd,fsd_,r,g,e0,A,B,C,D)
-            #print('ξ, A, B, C, D = ', ξ, A, B, C, D)
-            return A*r**2*fcd+C*ρ*r**2*fsd_-γ0*Nd
-        
-        e0=Md/Nd
-        h0 = r+rs
-        h = 2*r
-        ζ1 = 0.2+2.7*e0/h0 # (5.3.10-2)
-        ζ2 = 1.15-0.01*l0/h # (5.3.10-3)
-        η = 1+1/1400/e0*h0*(l0/h)**2*ζ1*ζ2 # (5.3.10-1)
-        e0 = η*e0
-        g = rs/r
-        # 确定ξ有效值范围, 根据acos(x), abs(x)<1
-        ξc1=(g-1)/2/(fsd_/εcu/Es-1)
-        ξc2=-(g+1)/2/(fsd_/εcu/Es-1)
-        ξt1=-(g-1)/2/(fsd/εcu/Es+1)
-        ξt2=(g+1)/2/(fsd/εcu/Es+1)
-        ξmin=max(min(ξc1,ξc2), min(ξt1,ξt2))
-        ξmax=min(max(ξc1,ξc2), max(ξt1,ξt2))
-        # test
-##        ξ = ξmin
-##        delta = 0.01
-##        while ξ<=ξmax:
-##            try:
-##                _f = f(ξ,fcd,fsd,fsd_,Es,r,g,e0,Nd,γ0,εcu)
-##                print(ξ, _f)
-##            except ValueError as error:
-##                # acos(x), abs(x)<1
-##                if str(error) == 'math domain error':
-##                    break
-##            ξ += delta
-##        ξ = numeric.binary_search_solve(
-##            f, ξ0, ξ0+delta, fcd=fcd,fsd=fsd,fsd_=fsd_,Es=Es,r=r,g=g,e0=e0,
-##            Nd=Nd,γ0=γ0,εcu=εcu)
-        ξ = numeric.secant_method_solve(
-            f, ξmin, ξmax, fcd=fcd,fsd=fsd,fsd_=fsd_,Es=Es,r=r,g=g,e0=e0,
-            Nd=Nd,γ0=γ0,εcu=εcu)
-        θc = f_θc(ξ)
-        θsc = f_θsc(ξ,fsd_,Es,εcu,g)
-        θst = f_θst(ξ,fsd,Es,εcu,g)
-        A = f_A(θc)
-        B = f_B(θc)
-        C = f_C(θsc,θst,ξ,g)
-        D = f_D(θsc,θst,ξ,g)
-        ρ = f_ρ(fcd,fsd_,r,g,e0,A,B,C,D)
-        As = ρ*pi*r**2
-        return (e0,ξ,ρ,As)
+    # 最小配筋率
+    ρmin = 0.005
     
-    def solve_M(fcd,fsd,fsd_,Es,r,rs,l0,Nd,As,γ0,εcu):
+    @staticmethod
+    def f_αt(α):
+        return 1.25-2*α if α<0.625 else 0 # (5.3.8-3)
+    @classmethod
+    def f_As(cls, α,fc,fy,A,N):
+        return (N-α*fc*A*(1-sin(2*pi*α)/2/pi/α))/(α-cls.f_αt(α))/fy
+    @classmethod
+    def f_N(cls, α,fc,fy,A,As):
+        return α*fc*A*(1-sin(2*pi*α)/2/pi/α)+(α-cls.f_αt(α))*fy*As
+    @classmethod
+    def f_M(cls, α,fc,fy,r,rs,A,As):
+        return 2/3*fc*A*r*sin(pi*α)**3/pi\
+         +fy*As*rs*(sin(pi*α)+sin(pi*cls.f_αt(α)))/pi
+         
+    @classmethod
+    def solve_As(cls, fc,fy,r,rs,A,N,M):
         """
-        求解alpha和Mbc,已知Nd和As
+        求解α和As,已知N和M
         """
-        def f_β(ξ):
-            if ξ <= 1: # 原文为ξ = 1，没给ξ < 1的情况如何计算，有漏洞
-                return 0.8
-            elif ξ <= 1.5: # ξ为何可以大于1（受压区面积大于截面面积）？
-                return 1.067-0.267*ξ
+        def f(α,fc,fy,r,rs,A,N,M):
+            if α<0.625:
+                αt = 1.25-2*α
             else:
-                raise Exception('ξ超出范围')
-        f_θc = lambda ξ:acos(1-2*f_β(ξ)*ξ) # (C.0.1-5)
-        f_θsc = lambda ξ,fsd_,Es,εcu,g:\
-                acos(2*ξ/g/εcu*fsd_/Es+(1-2*ξ)/g) # (C.0.1-6)
-        f_θst = lambda ξ,fsd,Es,εcu,g:\
-                acos(-2*ξ/g/εcu*fsd/Es+(1-2*ξ)/g) # (C.0.1-7)
-        f_A = lambda θc:(2*θc-sin(2*θc))/2 # (C.0.1-1)
-        f_B = lambda θc:2/3*sin(θc)**3 # (C.0.1-2)
-        # (C.0.1-3)
-        f_C = lambda θsc,θst,ξ,g:θsc-pi+θst+1/(g*cos(θsc)-(1-2*ξ))\
-                *(g*(sin(θst)-sin(θsc))-(1-2*ξ)*(θst-θsc))
-        # (C.0.1-4)
-        f_D = lambda θsc,θst,ξ,g:sin(θsc)+sin(θst)+1/(g*cos(θsc)-(1-2*ξ))\
-            *(g*((θst-θsc)/2+(sin(2*θst)-sin(2*θsc))/4)-(1-2*ξ)*(sin(θst)-sin(θsc)))
-        
-        def f_ρ(fcd,fsd_,r,g,e0,A,B,C,D):
-            return fcd/fsd_*(B*r-A*e0)/(C*e0-D*g*r) # (C.0.2-2)
-
-        def f(ξ,fcd,fsd,fsd_,Es,r,g,Nd,ρ,γ0,εcu):
-            θc = f_θc(ξ)
-            θsc = f_θsc(ξ,fsd_,Es,εcu,g)
-            θst = f_θst(ξ,fsd,Es,εcu,g)
-            A = f_A(θc)
-            C = f_C(θsc,θst,ξ,g)
-            #print('ξ, A, B, C, D = ', ξ, A, B, C, D)
-            return A*r**2*fcd+C*ρ*r**2*fsd_-γ0*Nd
-        
-        g = rs/r
-        # 确定ξ有效值范围, 根据acos(x), abs(x)<1
-        ξc1=(g-1)/2/(fsd_/εcu/Es-1)
-        ξc2=-(g+1)/2/(fsd_/εcu/Es-1)
-        ξt1=-(g-1)/2/(fsd/εcu/Es+1)
-        ξt2=(g+1)/2/(fsd/εcu/Es+1)
-        ξmin=max(min(ξc1,ξc2), min(ξt1,ξt2))
-        ξmax=min(max(ξc1,ξc2), max(ξt1,ξt2))
-        ρ = As/(pi*r**2)
+                αt = 0
+            C1=2/3*sin(pi*α)**3/pi
+            C2=(sin(pi*α)+sin(pi*αt))/pi
+            fyAs=(N-fc*A*(α-sin(2*pi*α)/2/pi))/(α-αt)
+            f=fc*A*r*C1+fyAs*rs*C2-M
+            return f
+        # 以1.25/3为界查找有值区间
+        x0 = 0
+        x1 = 1.25/3*0.999
+        f0 = f(x0,fc,fy,r,rs,A,N,M)
+        f1 = f(x1,fc,fy,r,rs,A,N,M)
+        if f0*f1>0:
+            x0 = 1.25/3*1.001
+            x1 = 1
+            f0 = f(x0,fc,fy,r,rs,A,N,M)
+            f1 = f(x1,fc,fy,r,rs,A,N,M)
+            if f0*f1>0:
+                raise Exception('No real solution.')
+        α = numeric.binary_search_solve(
+                f, x0, x1, fc=fc,fy=fy,r=r,rs=rs,A=A,N=N,M=M)
+        As = cls.f_As(α,fc,fy,A,N)
+        return (α,As)
+    
+    @classmethod
+    def solve_M(cls, fc,fy,r,rs,A,As,N):
+        """
+        求解alpha和M,已知N和As
+        """
+        def f(α,fc,fy,r,rs,A,As,N):
+            if α<0.625:
+                return (N+fc*A*sin(2*pi*α)/2/pi+1.25*fy*As)/(fc*A+3*fy*As)
+            return (N+fc*A*sin(2*pi*α)/2/pi)/(fc*A+fy*As)
+        # 牛顿迭代法
+        α = None
         try:
-            ξ = numeric.secant_method_solve(
-                f, ξmin, ξmax, fcd=fcd,fsd=fsd,fsd_=fsd_,Es=Es,r=r,g=g,
-                Nd=Nd,ρ=ρ,γ0=γ0,εcu=εcu)
+            α = numeric.iteration_method_solve(
+                    f, 0.2, fc=fc,fy=fy,r=r,rs=rs,A=A,As=As,N=N)
         except:
-            raise Exception("无法求解方程组，请确保输入参数值在合理范围内。")
-        θc = f_θc(ξ)
-        θsc = f_θsc(ξ,fsd_,Es,εcu,g)
-        θst = f_θst(ξ,fsd,Es,εcu,g)
-        B = f_B(θc)
-        D = f_D(θsc,θst,ξ,g)
-        Mbc = B*r**3*fcd+D*ρ*g*r**3*fsd_
-        return (ξ,Mbc)
+            try:
+                α = numeric.iteration_method_solve(
+                    f, 0.65, fc=fc,fy=fy,r=r,rs=rs,A=A,As=As,N=N)
+            except:
+                pass
+        if α != None:
+            Mu = cls.f_M(α,fc,fy,r,rs,A,As)
+            return (α, Mu)
+        return None
             
     def solve(self):
-        self.positive_check('Nd','Md')
-        self.e0 = bc_round.f_e0(self.r, self.rs, self.l0, self.Nd*1e3, self.Md*1e6)
+        self.M = self.Md
+        if not (self.Nd == 0 or self.Md == 0):
+            self.e0, self.η = f_η(self.Nd*1e3, self.Md*1e6, 2*self.r, self.r+self.rs, self.l0)
+            self.M = self.Nd*self.η*self.e0*1e-3 # kNm
+        self.A = pi*self.r**2
         if self.option == 'review':
-            self._M = self.γ0*self.Nd*self.e0*1e-3
-            self.ξ,self.Mbc = bc_round.solve_M(
-                self.fcd,self.fsd,self.fsd_,self.Es,self.r,self.rs,self.l0,
-                self.Nd*1e3,self.As,self.γ0,self.εcu)
-            self.Mbc *= 1e-6
+            self.α,self.Mud = self.solve_M(
+                self.fcd,self.fsd,self.r,self.rs,self.A,self.As,self.γ0*self.Nd*1e3)
+            self.Mud *= 1e-6
         else:
-            self.e0,self.ξ,self.ρ,self.As = bc_round.solve_As(
-                self.fcd,self.fsd,self.fsd_,self.Es,self.r,self.rs,self.l0,
-                self.Nd*1e3,self.Md*1e6,self.γ0,self.εcu)
+            self.α,self.As = self.solve_As(
+                self.fcd,self.fsd,self.r,self.rs,self.A,self.γ0*self.Nd*1e3,self.γ0*self.M*1e6)
     
     def _html(self,digits=2):
-        yield '圆形截面偏心受压承载力计算'
-        for item in abacus._html(self, digits):
-            yield item
-        if self.option == 'review':
-            ok = self.Mbc > self._M
-            yield '抗弯承载力{1:.{0}f} kN·m {2} 偏心弯矩{3:.{0}f} kN·m，{4}满足规范要求。'.format(
-                digits, self.Mbc, '&gt;' if ok else '&lt;', self._M,'' if ok else '不')
-        else:
-            yield self.format('As')
+        return self._html_Mud() if self.option == 'review' else self._html_As()
+
+    def _html_Mud(self,digits=2):
+        for item in ('γ0', 'Md', 'Md', 'fcd', 'fsd', 'A', 'As', 'e0', 'η', 'α'):
+            yield self.format(item)
+        ok = self.Mud > self.M
+        yield '{1} {2} 偏心弯矩{3:.{0}f} kN·m，{4}满足规范要求。'.format(
+            digits, self.format('Mud'), '&gt;' if ok else '&lt;', self.M,'' if ok else '不')
+
+    def _html_As(self,digits=2):
+        for item in ('γ0', 'Md', 'Md', 'fcd', 'fsd', 'A', 'e0', 'η', 'α'):
+            yield self.format(item)
+        self.Asmin = self.ρmin*self.A
+        ok = self.As >= self.Asmin
+        yield '{} {} {}'.format(
+            self.format('As'), '≥' if ok else '&lt;', self.format('Asmin'))
+        if not ok:
+            yield '故取{}'.format(self.format('As', value=self.Asmin, omit_name=True))
 
 class shear_capacity(abacus, material_base):
     """斜截面承载力计算
@@ -1119,9 +1064,4 @@ class torsion(abacus, material_base):
 if __name__ == '__main__':
     import doctest
     doctest.testmod()
-
-    f = bc_round(option='design',γ0=1.0,concrete='C30',rebar='HRB400',r=800,rs=700,l0=4400,Nd=286,Md=600,εcu=0.0033)
-
-    f.solve()
-
-    print(f.text())
+    

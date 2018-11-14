@@ -3,12 +3,9 @@
 参考资料（Reference）：
 (1) 程文瀼, 王铁成《混凝土结构（上册 混凝土结构设计原理）》（第五版）,中国建筑工业出版社,2011.11
 """
-import unittest
-from . import testtools
-from calla.GB import crack_width, compressive_capacity
 
-TestCase = unittest.TestCase
-TestCase.assertApproxEqual = testtools.assertApproxEqual
+from .testtools import TestCase
+from calla.GB import crack_width, compressive_capacity
 
 class test_crack_width(TestCase):
     """裂缝宽度验算校核"""

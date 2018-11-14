@@ -178,7 +178,8 @@ class abacus:
             info = self.__deriveds__[parameter]
         value = value or getattr(self,parameter)
         if info == None or len(info)<1:
-            return '{} = {}'.format(parameter,'{1:.{0}f}'.format(digits, value))
+            value = '{1:.{0}f}'.format(digits, value) if digits != None and digits >= 0 else value
+            return '{} = {}'.format(parameter, value)
         # use choices' value to substitude parameter value
         if len(info)>5 and type(info[5]) is dict:
             value = info[5][value]

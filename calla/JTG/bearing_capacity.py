@@ -15,6 +15,8 @@ from math import pi, sin, cos, acos, sqrt
 from collections import OrderedDict
 from calla import abacus, numeric
 from calla.JTG import material
+
+material_base = material.material_base
         
 def f_εcu(fcuk):
     '''
@@ -63,59 +65,6 @@ def f_η(N, M, h, h0, l0):
         ζ2 = 1
     η = 1+1/(1300*e0/h0)*(l0/h)**2*ζ1*ζ2 # (5.3.9-1)
     return (e0, η)
-
-class material_base:
-    concrete_types = ['C25','C30','C35','C40','C45','C50', 'C60','C65','C70','C75','C80','其它']
-    concrete_item = ('concrete',('混凝土','','C40','','',concrete_types))
-    rebar_types = ['HRB400','HPB300','其它']
-    rebar_item = ('rebar',('钢筋','','HRB400','','',rebar_types))
-    ps_types = ['ΦS1960','ΦS1860','ΦS1720','ΦT1080','ΦT930','ΦT785','其它','无']
-    ps_item = ('ps',('预应力筋','','无','','',ps_types))
-    
-    material_toggles = {
-        'concrete': { key:('fcuk','fcd', 'ftd') if key.startswith('C') else () for key in concrete_types },
-        'rebar':{ key:() if key == '其它' else ('fsd','fsd_','Es') for key in rebar_types },
-        'ps':{ key:('fpd','fpd_','Ep') if key.startswith('Φ') else \
-               ('fpd','fpd_','Ep','σp0','Ap','ap','fpd_','σp0_','Ap_','ap_') if key == '无' else () for key in ps_types }
-        }
-    
-    _concrete = 'C40'
-    _rebar = 'HRB400'
-    _ps = 'ΦS1860'
-    
-    @property
-    def concrete(self):
-        return self._concrete
-
-    @concrete.setter
-    def concrete(self, value):
-        self._concrete = value
-        if value != '其它':
-            self.fcuk = material.concrete.fcuk(value)
-            self.fcd = material.concrete.fcd(value)
-            self.ftd = material.concrete.ftd(value)
-        
-    @property
-    def rebar(self):
-        return self._rebar
-
-    @rebar.setter
-    def rebar(self, value):
-        self._rebar = value
-        if value != '其它':
-            self.fsk = material.rebar.fsk(value)
-            self.fsd = material.rebar.fsd(value)
-        
-    @property
-    def ps(self):
-        return self._ps
-
-    @ps.setter
-    def ps(self, value):
-        self._ps = value
-        if value != '其它' and value != '无':
-            self.fpk = material.ps.fpk(value)
-            self.fpd = self.fpd_ = material.ps.fpd(value)
         
 
 class fc_rect(abacus, material_base):
@@ -370,6 +319,7 @@ class eccentric_compression(abacus, material_base):
         ('Ep',('<i>E</i><sub>p</sub>','MPa',1.95E5,'预应力钢筋弹性模量')),
         ))
     __deriveds__ = OrderedDict((
+        ('h0',('<i>h</i><sub>0</sub>','mm',0,'截面有效高度')),
         ('A',('<i>A</i>','mm<sup>2</sup>',0,'构件截面面积')),
         ('i',('<i>i</i>','mm',0,'截面回转半径')),
         ('ζc',('<i>ζ</i><sub>c</sub>','',1,'截面曲率修正系数','当计算值大于1.0时取1.O')),
@@ -382,7 +332,7 @@ class eccentric_compression(abacus, material_base):
         ('e',('<i>e</i>','mm',0,'轴向压力作用点至截面受拉边或受压较小边纵向钢筋As和Ap合力点的距离')),
         ('x',('<i>x</i>','mm',0,'截面受压区高度')),
         ('xb',('<i>x</i><sub>b</sub>','mm',0,'截面界限受压区高度')),
-        ('Nu',('<i>N</i><sub>d</sub>','kN',1000,'截面受压承载力')),
+        ('Nu',('<i>N</i><sub>u</sub>','kN',1000,'截面受压承载力')),
         ))
     __toggles__ = {
         'option':{'review':(),'design':('As')},
@@ -510,15 +460,17 @@ class eccentric_compression(abacus, material_base):
 
         def f_x(x, β, εcu, fcd, b, e, h0, Es, Ep, fsd_, As_, as_, es_, fpd_, σp0_, Ap_, ap_, ep_, As, es, σp0, Ap, ep):
             # 联立公式(5.3.4-1)和(5.3.4-2)构造关于x的方程，用于牛顿法求解x
-            # σs = self.f_σsi(β,Es,εcu,h0,x)
-            # σp = self.f_σpi(β,Ep,εcu,h0,x, σp0)
-            # C1 = fsd_*As_+(fpd_-σp0_)*Ap_-σs*As-σp*Ap
-            # C2 = fsd_*As_*(h0-as_)+(fpd_-σp0_)*Ap_*(h0-ap_)
-            # return (C2-C1*e)/(fcd*b*(x/2-h0+e))
-            C1 = e*(fsd_*As_+(fpd_-σp0_)*Ap_+εcu*Es*As+(εcu*Ep-σp0)*Ap)
-            C2 = fsd_*As_*(h0-as_)+(fpd_-σp0_)*Ap_*(h0-ap_)
-            C3 = e*εcu*β*h0*(Es+Ep)
-            return sqrt((C3-(C1-C2)*x)/(fcd*b*(x/2+e-h0)))
+            C1 = e*(fsd_*As_+(fpd_-σp0_)*Ap_)
+            C2 = e*(εcu*Es*As+(εcu*Ep-σp0)*Ap)
+            C3 = fsd_*As_*(h0-as_)+(fpd_-σp0_)*Ap_*(h0-ap_)
+            # f = Ax^3+Bx^2+Cx+D
+            A = fcd*b/2
+            B = fcd*b*(e-h0)
+            C = C1+C2-C3
+            D = -e*(Es*As+Ep*Ap)*εcu*β*h0
+            f = A*x**3 + B*x**2 + C*x + D
+            f_ = 3*A*x**2 + 2*B*x + C
+            return x-f/f_
 
         # 假设为大偏心
         self.x = solve_x(self.fcd, self.b, self.e, self.h0, self.fsd_, self.As_, self.es_, 
@@ -527,16 +479,17 @@ class eccentric_compression(abacus, material_base):
             raise Exception('截面受压区高度无正数解')
         self.ξ = self.x/self.h0
         self.ξb = f_ξb(self.fcd, self.fsd) #TODO: 增加预应力计算
+        self.xb = self.ξb*self.h0
         if self.ξ <= self.ξb: # 大偏心受压
             self.type = '大偏心'
-            if x >= 2*as_:
+            if self.x >= 2*self.as_:
                 self.Nu = self.f_Nu(self.fcd,self.b,self.x,self.fsd_,self.As_,self.fsd,self.As,
                 self.fpd_,self.σp0_,self.fpd,self.Ap_,self.Ap)
             else:
-                self.Mu = fsd*As*(h0-as_)
-                self.Nu = self.Mu/self.es_
+                self.Mu = self.fsd*self.As*(self.h0-self.as_) #N·mm
+                self.Nu = self.Mu/self.es_/1000 #kN
             return self.Nu
-        else: # 小偏心受压            
+        else: # 小偏心受压
             self.type = '小偏心'
             self.εcu = self.f_εcu(self.fcuk)
             self.xb = self.ξb*self.h0
@@ -547,7 +500,7 @@ class eccentric_compression(abacus, material_base):
             self.σs = self.f_σsi(self.β,self.Es,self.εcu,self.h0,self.x)
             self.σp = self.f_σpi(self.β,self.Ep,self.εcu,self.h0,self.x, self.σp0)
             self.Nu = self.f_Nu(self.fcd,self.b,self.x,self.fsd_,self.As_,self.σs,self.As,
-            self.fpd_,self.σp0_,self.σp,self.Ap_,self.Ap)
+            self.fpd_,self.σp0_,self.σp,self.Ap_,self.Ap)/1000 #kN
             return self.Nu
 
     def solve_As(self):
@@ -650,7 +603,7 @@ class eccentric_compression(abacus, material_base):
         self.A = self.b*self.h
         self.I = self.b*self.h**3/12
         self.i = sqrt(self.I/self.A)
-        self.e0, self.η = f_η(self.N*1e3, self.M*1e6,self.h,self.h0,self.l0)
+        self.e0, self.η = f_η(self.Nd*1e3, self.Md*1e6,self.h,self.h0,self.l0)
         if self.l0/self.i < 17.5:
             self.η = 1
         ei = self.η*self.e0
@@ -677,11 +630,13 @@ class eccentric_compression(abacus, material_base):
         if not ok:
             yield '超筋，需减小受拉钢筋面积。'
         ok = self.x > 2*self.as_
-        as_ = self.para_attrs('as_')
-        yield '{} {} {}'.format(self.format('x'), '&gt;' if ok else '&lt;', as_.symbol)
+        yield '{} {} {}'.format(self.format('x'), '&gt;' if ok else '&lt;', self.format('as_', omit_name = True))
         if not ok:
             yield '少筋，需增加受拉钢筋面积。'
-        yield self.format('Nu')
+        ok = self.Nu > self.Nd
+        yield '{} {} {}，{}满足规范要求'.format(
+            self.format('Nu'), '&gt;' if ok else '&lt;', self.para_attrs('Nd').symbol,
+            '' if ok else '不')
 
     def _html_As(self, digits = 2):
         yield '截面尺寸:{}'.format(self.formatX('b','h','h0',digits=None,omit_name=True))
@@ -882,15 +837,19 @@ class bc_round(abacus, material_base):
         return self._html_Mud() if self.option == 'review' else self._html_As()
 
     def _html_Mud(self,digits=2):
-        for item in ('γ0', 'Md', 'Md', 'fcd', 'fsd', 'A', 'As', 'e0', 'η', 'α'):
-            yield self.format(item)
+        for item in ('γ0', 'Nd', 'Md', 'fcd', 'fsd', 'As'):
+            yield self.format(item, digits=None)
+        for item in ('A', 'e0', 'η', 'α'):
+            yield self.format(item, digits=digits)
         ok = self.Mud > self.M
         yield '{1} {2} 偏心弯矩{3:.{0}f} kN·m，{4}满足规范要求。'.format(
             digits, self.format('Mud'), '&gt;' if ok else '&lt;', self.M,'' if ok else '不')
 
     def _html_As(self,digits=2):
-        for item in ('γ0', 'Md', 'Md', 'fcd', 'fsd', 'A', 'e0', 'η', 'α'):
-            yield self.format(item)
+        for item in ('γ0', 'Nd', 'Md', 'fcd', 'fsd'):
+            yield self.format(item, digits=None)
+        for item in ('A', 'e0', 'η', 'α'):
+            yield self.format(item, digits=digits)
         self.Asmin = self.ρmin*self.A
         ok = self.As >= self.Asmin
         yield '{} {} {}'.format(

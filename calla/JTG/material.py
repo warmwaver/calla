@@ -5,7 +5,7 @@ __all__ = [
     ]
 
 class concrete:
-    # 混凝土重力密度(kN/m)
+    # 混凝土重力密度(kN/m^3)
     density = 25
 
     # 强度等级
@@ -134,6 +134,63 @@ class prestressed_steel:
             raise Exception('无法识别的预应力筋类型：{}'.format(ps_type))
 
 ps = prestressed_steel
+
+class material_base:
+    """
+    材料基类
+    为abacus派生类提供混凝土、钢筋、预应力筋三种基材的__inputs__和__toggles__选项
+    """
+    concrete_types = ['C25','C30','C35','C40','C45','C50', 'C60','C65','C70','C75','C80','其它']
+    concrete_item = ('concrete',('混凝土','','C40','','',concrete_types))
+    rebar_types = ['HRB400','HPB300','其它']
+    rebar_item = ('rebar',('钢筋','','HRB400','','',rebar_types))
+    ps_types = ['ΦS1960','ΦS1860','ΦS1720','ΦT1080','ΦT930','ΦT785','其它','无']
+    ps_item = ('ps',('预应力筋','','无','','',ps_types))
+    
+    material_toggles = {
+        'concrete': { key:('fcuk','fcd', 'ftd') if key.startswith('C') else () for key in concrete_types },
+        'rebar':{ key:() if key == '其它' else ('fsd','fsd_','Es') for key in rebar_types },
+        'ps':{ key:('fpd','fpd_','Ep') if key.startswith('Φ') else \
+               ('fpd','fpd_','Ep','σp0','Ap','ap','fpd_','σp0_','Ap_','ap_') if key == '无' else () for key in ps_types }
+        }
+    
+    _concrete = 'C40'
+    _rebar = 'HRB400'
+    _ps = 'ΦS1860'
+    
+    @property
+    def concrete(self):
+        return self._concrete
+
+    @concrete.setter
+    def concrete(self, value):
+        self._concrete = value
+        if value != '其它':
+            self.fcuk = concrete.fcuk(value)
+            self.fcd = concrete.fcd(value)
+            self.ftd = concrete.ftd(value)
+        
+    @property
+    def rebar(self):
+        return self._rebar
+
+    @rebar.setter
+    def rebar(self, value):
+        self._rebar = value
+        if value != '其它':
+            self.fsk = rebar.fsk(value)
+            self.fsd = rebar.fsd(value)
+        
+    @property
+    def ps(self):
+        return self._ps
+
+    @ps.setter
+    def ps(self, value):
+        self._ps = value
+        if value != '其它' and value != '无':
+            self.fpk = ps.fpk(value)
+            self.fpd = self.fpd_ = ps.fpd(value)
 
 def _list_all():
     print('混凝土')

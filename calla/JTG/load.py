@@ -1,6 +1,7 @@
 """JTG/T D60-01-2004 公路桥梁抗风设计规范"""
 
 __all__ = [
+    'load_combination',
     'earth_pressure',
     'wind',
     ]
@@ -8,6 +9,37 @@ __all__ = [
 from calla import abacus
 from collections import OrderedDict
 from math import pi, sin, cos
+
+class load_combination:
+    # ULS
+    # 基本组合(fundamental combination)
+    uls_fu = {'dead':1.2, 'live':1.4, 'wind':0.75*1.1, 'temperature':0.75*1.4, 'accident':0, 'earthquake':0}
+    # 偶然组合(accidental combination)
+    uls_ac = {'dead':1.0, 'live':0.4, 'wind':0.75, 'temperature':0.8, 'accident':1.0, 'earthquake':0}
+    # 地震组合(earthquake combination)
+    uls_ea = {'dead':1.0, 'live':0.5, 'wind':1.0, 'temperature':1.0, 'accident':0, 'earthquake':1.0}
+    # SLS
+    # 标准组合(characteristic combination)
+    sls_ch = {'dead':1.0, 'live':1.0, 'wind':1.0, 'temperature':1.0, 'accident':0, 'earthquake':0}
+    # 频遇组合(frequent combination)
+    sls_fr = {'dead':1.0, 'live':0.7, 'wind':0.75, 'temperature':0.8, 'accident':0, 'earthquake':0}
+    # 准永久组合(quasi-permanent combination)
+    sls_qp = {'dead':1.0, 'live':0.4, 'wind':0.75, 'temperature':0.8, 'accident':0, 'earthquake':0}
+
+    @staticmethod
+    def combinate(forces, combination_factors):
+        """
+        荷载组合
+        forces: (type, (FX, FY, FZ, MX, MY, MZ))
+        type: dead, live, wind, temperature, 
+        坐标系：  X - 水平顺桥向, Y - 水平横桥向, Z - 竖直方向（重力）
+        """
+        result = [0,0,0,0,0,0]
+        for force in forces:
+            tp = force[0]
+            forces = force[1]
+            result = [v+combination_factors[tp]*force for v, force in zip(result, forces)]
+        return result
 
 class earth_pressure(abacus):
     """

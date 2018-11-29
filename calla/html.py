@@ -146,7 +146,9 @@ def save(content,path = 'calla-result.html',style=default_html_style):
     f.write('</body></html>')
     f.close()
 
-def save_and_open(content,path = 'calla-result.html',style=default_html_style):
+def save_and_open(content,path = 'calla-result',style=default_html_style):
+    if not (path.endswith('.html') or path.endswith('htm')):
+        path += '.html'
     save(content, path,style)
     import os
     if os.path.isfile(path):

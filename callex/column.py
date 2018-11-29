@@ -1,9 +1,11 @@
-from calla import abacus, html
+
+from collections import OrderedDict
+from math import pi
+
+from calla import abacus, html, material, InputError
 import calla.GB
 import calla.JTG
 import calla.TB
-from collections import OrderedDict
-from math import pi
 
 __all__ = [
     'Column',
@@ -13,19 +15,32 @@ class Column(abacus):
     '''柱计算
     柱截面承载力、裂缝宽度验算，支持GB，JTG及TB规范，支持矩形、T形及圆形截面。
     '''
+    _loads_sample_ = [
+        ('dead', -1, (0,0,500,0,0,0)),
+        ('live', -1, (10,0,500,0,0,0)),
+        ('wind', -1, (0,10,0,0,0,0)),
+        ('temperature', -1, (10,0,0,0,0,0)),
+        ('accident', 1.2, (200, 0, 0, 0, 0, 0))
+        ]
+
     __title__ = '柱计算'
     __inputs__ = OrderedDict([
         ('code',('规范','','JTG','','',{'GB':'国家标准(GB)','JTG':'交通行业规范(JTG)','TB':'铁路行业规范(TB)'})),
         ('section',('截面形状','','rectangle','','',{'rectangle':'矩形或倒T形','Tshape':'T形或I形','round':'圆形'})),
-        ('N',('<i>N</i>','kN',0,'轴力','轴力设计值，拉力为正，压力为负。TB规范下输入(主力，主力+附加力，主力+地震力)组合值')),
-        ('M',('<i>M</i>','kN·m',0,'弯矩','弯矩设计值。TB规范下输入(主力，主力+附加力，主力+地震力)组合值')),
+        ('loads', ('', 'kN,m', _loads_sample_, '节点荷载',
+        '''荷载定义: [(type, location, (FX, FY, FZ, MX, MY, MZ)), ...]
+        type: dead, live, wind, temperature, accident, earthquake
+        location：从柱底往上的位置，不大于柱高。正号表示绝对位置；负号表示相对位置，相对位置-1≤location<0
+        坐标系：  X - 水平顺桥向, Y - 水平横桥向, Z - 竖直方向（重力）''')),
+        # ('N',('<i>N</i>','kN',0,'轴力','轴力设计值，拉力为正，压力为负。TB规范下输入(主力，主力+附加力，主力+地震力)组合值')),
+        # ('M',('<i>M</i>','kN·m',0,'弯矩','弯矩设计值。TB规范下输入(主力，主力+附加力，主力+地震力)组合值')),
         ('α1',('<i>α</i><sub>1</sub>','',1,'系数')),
-        ('concrete',('混凝土等级','','C35')),
+        ('concrete',('混凝土','','C40','','',material.concrete_types)),
         #('fc',('<i>f</i>c','MPa',16.7)),
         #('fcuk',('<i>f</i><sub>cu,k</sub>','MPa',35)),
         # 矩形截面：
-        ('b',('<i>b</i>','mm',500,'矩形截面宽度')),
-        ('h',('<i>h</i>','mm',1000,'矩形截面高度')),
+        ('b',('<i>b</i>','mm',500,'矩形截面宽度', '沿顺桥向尺寸')),
+        ('h',('<i>h</i>','mm',1000,'矩形截面高度', '沿横桥向尺寸')),
         #('h0',('h<sub>0</sub>','mm')),
         # T形截面：
         ('bf',('<i>b</i><sub>f</sub>','mm',0,'受拉区翼缘计算宽度')),
@@ -34,8 +49,8 @@ class Column(abacus):
         ('hf_',('<i>h</i><sub>f</sub><sup>\'</sup>','mm',0,'受压区翼缘计算高度')),
         # 圆形截面
         ('d',('<i>d</i>','mm',500,'圆形截面直径')),
-        ('rebar',('钢筋','','HRB400')),
-        ('ps',('预应力筋','','φS1860')),
+        ('rebar',('钢筋','','HRB400','','',material.rebar_types)),
+        #material_base.ps_item,
         #('fy',('<i>f</i><sub>y</sub>','MPa',360)),
         #('fyp',('<i>f</i><sub>y</sub><sup>\'</sup>','MPa',360)),
         ('a_s',('<i>a</i><sub>s</sub>','mm',60,'受拉钢筋距边缘距离','受拉区纵向普通钢筋合力点至受拉边缘的距离')),
@@ -48,15 +63,16 @@ class Column(abacus):
         ('deq',('<i>d</i><sub>eq</sub>','mm',25,'钢筋等效直径')),
         ('l',('<i>l</i>','mm',0,'构件长度')),
         ('l0',('<i>l</i>0','mm',0,'构件计算长度')),
-        ('ys',('<i>y</i>s','mm',0,'截面重心至受拉钢筋距离','截面重心至纵向受拉钢筋合力点的距离')),
+        #('ys',('<i>y</i>s','mm',0,'截面重心至受拉钢筋距离','截面重心至纵向受拉钢筋合力点的距离')),
         ('As',('<i>A</i><sub>s</sub>','mm<sup>2</sup>',0,'纵向受拉钢筋面积')),
         ('Ap',('<i>A</i><sub>p</sub>','mm<sup>2</sup>',0,'纵向受拉预应力筋面积')),
         ('As_',('<i>A</i><sub>s</sub><sup>\'</sup>','mm<sup>2</sup>',0,'纵向受压钢筋面积')),
-        ('Nl',('<i>N</i><sub>l</sub>','kN',0,'作用长期效应组合轴力')),
-        ('Ml',('<i>M</i><sub>l</sub>','kN·m',0,'作用长期效应组合弯矩')),
-        ('Ns',('<i>N</i><sub>s</sub>','kN',0,'作用短期效应组合轴力')),
-        ('Ms',('<i>M</i><sub>s</sub>','kN·m',0,'作用短期效应组合弯矩')),
-        ('V',('<i>V</i>','kN',0,'剪力设计值')),
+        # JTG
+        # ('Nl',('<i>N</i><sub>l</sub>','kN',0,'作用长期效应组合轴力')),
+        # ('Ml',('<i>M</i><sub>l</sub>','kN·m',0,'作用长期效应组合弯矩')),
+        # ('Ns',('<i>N</i><sub>s</sub>','kN',0,'作用短期效应组合轴力')),
+        # ('Ms',('<i>M</i><sub>s</sub>','kN·m',0,'作用短期效应组合弯矩')),
+        # ('V',('<i>V</i>','kN',0,'剪力设计值')),
         # GB
         ('Nq',('<i>N</i><sub>q</sub>','kN',0,'轴力','按荷载准永久组合计算的轴向力值')),
         ('Mq',('<i>M</i><sub>q</sub>','kN·m',0,'弯矩','按荷载准永久组合计算的弯矩值')),
@@ -80,60 +96,126 @@ class Column(abacus):
             },
         }
 
+    @classmethod
+    def bottom_force(cls, load, H):
+        '''
+        计算柱底荷载
+        load:荷载
+        H：柱高
+        '''
+        tp = load[0]
+        h = load[1]
+        if h<0:
+            h = abs(h)
+            if h > 1:
+                raise InputError(cls, 'loads', '相对长度绝对值不能大于1')
+            h = h*H
+        forces = load[2]
+        MX = forces[3]+forces[1]*h
+        MY = forces[4]+forces[0]*h
+        return (tp, (forces[0], forces[1], forces[2], MX, MY, forces[5]))
+
     def solve_GB(self):
         paras = self.inputs
         # 承载力
         if self.section == 'rectangle':
-            nac = calla.GB.compressive_capacity.eccentric_compression(**paras)
+            bc = calla.GB.compressive_capacity.eccentric_compression(**paras)
         elif self.section == 'Tshape':
-            nac = calla.GB.flexural_capacity.fc_T(**paras)
+            bc = calla.GB.flexural_capacity.fc_T(**paras)
         elif self.section == 'round':
-            nac = calla.GB.flexural_capacity.fc_round(**paras)
+            bc = calla.GB.flexural_capacity.fc_round(**paras)
         else:
             raise NameError('section type {} is not defined'.format(self.section))
-        nac.fcuk = calla.JTG.concrete.fcuk(self.concrete)
-        nac.fc = calla.JTG.concrete.fcd(self.concrete)
-        nac.fy=nac.fyp=calla.JTG.rebar.fsd(self.rebar)
-        nac.solve()
+        bc.fcuk = calla.JTG.concrete.fcuk(self.concrete)
+        bc.fc = calla.JTG.concrete.fcd(self.concrete)
+        bc.fy=bc.fyp=calla.JTG.rebar.fsd(self.rebar)
+        bc.solve()
         # 裂缝宽度
         cw = calla.GB.crack_width.crack_width(**paras)
         cw.force_type='1'
         cw.h0 = self.h-self.a_s
         cw.As = self.As
-        cw.ys = cw.h/2-50
+        cw.d = self.deq
+        cw.ys = self.h/2-self.a_s
         cw.C1 = 1.4 if self.concrete.startswith('HPB') else 1.0
         cw.C3 = 0.9
         cw.solve()
         # 保存计算器
-        self.nac = nac
+        self.bc = bc
         self.cw = cw
 
     def solve_JTG(self):
         paras = self.inputs
         # 承载力
         if self.section == 'rectangle':
-            nac = calla.JTG.bearing_capacity.eccentric_compression(**paras)
+            self.A = self.b*self.h #mm2
+            bc = calla.JTG.bearing_capacity.eccentric_compression(**paras)
         elif self.section == 'Tshape':
-            nac = calla.JTG.bearing_capacity.fc_T(**paras)
+            self.A = self.b*(self.h - self.hf)+self.bf*self.hf
+            bc = calla.JTG.bearing_capacity.fc_T(**paras)
         elif self.section == 'round':
-            nac = calla.JTG.bearing_capacity.bc_round(**paras)
+            self.A = pi/4*self.d**2
+            bc = calla.JTG.bearing_capacity.bc_round(**paras)
+            bc.r = self.d/2
+            bc.rs = self.d/2 - self.a_s
         else:
             raise NameError('section type {} is not defined'.format(self.section))
-        nac.fcuk = calla.JTG.concrete.fcuk(self.concrete)
-        nac.fc = calla.JTG.concrete.fcd(self.concrete)
-        nac.fy=nac.fyp=calla.JTG.rebar.fsd(self.rebar)
-        nac.solve()
+        bc.fcuk = calla.JTG.concrete.fcuk(self.concrete)
+        bc.fc = calla.JTG.concrete.fcd(self.concrete)
+        bc.fy=bc.fyp=calla.JTG.rebar.fsd(self.rebar)
+        bc.option = 'review'
+
+        # 计算柱底内力
+        bottom_forces = [self.bottom_force(load, self.l/1000) for load in self.loads]
+        weight = self.A*self.l*1e-9*calla.JTG.material.concrete.density
+        # 荷载基本组合或偶然组合
+        lc = calla.JTG.load.load_combination
+        forces_fu = lc.combinate(bottom_forces, lc.uls_fu)
+        forces_ac = lc.combinate(bottom_forces, lc.uls_ac)
+        forces_uls = [max(f1,f2) for f1,f2 in zip(forces_fu, forces_ac)]
+        bc.Nd = forces_uls[2] + lc.uls_fu['dead']*weight # FZ
+        choseX = forces_uls[0] > forces_uls[1]
+        if choseX:
+            bc.Md = forces_uls[4] # MY
+            bc.b = self.h
+            bc.h0 = self.b - self.as_
+        else:
+            bc.Md = forces_uls[3] # MX
+            bc.b = self.b
+            bc.h0 = self.h - self.as_
+        bc.solve()
+
         # 裂缝宽度
-        cw = calla.JTG.crack_width.crack_width(**paras)
-        cw.force_type='1'
-        cw.h0 = self.h-self.a_s
+        if self.section == 'round':
+            cw = calla.JTG.crack_width.cw_round(**paras)
+            cw.r = self.d/2
+        else:
+            cw = calla.JTG.crack_width.crack_width(**paras)
+            cw.h0 = self.h-self.a_s
+            cw.ys = self.h/2-self.a_s
+            cw.force_type='1'
+            cw.C3 = 0.9
         cw.As = self.As
-        cw.ys = cw.h/2-50
-        cw.C1 = 1.4 if self.concrete.startswith('HPB') else 1.0
-        cw.C3 = 0.9
+        cw.d = self.deq
+        cw.C1 = 1.4 if self.rebar.startswith('HPB') else 1.0
+        # 内力计算
+        # 长期作用(准永久组合)
+        forces_l = lc.combinate(bottom_forces, lc.sls_qp)
+        cw.Nl = forces_l[2] + lc.sls_qp['dead']*weight
+        if choseX:
+            cw.Ml = forces_l[4] # MY
+        else:
+            cw.Ml = forces_l[3] # MX
+        # 短期作用(频遇组合)
+        forces_s = lc.combinate(bottom_forces, lc.sls_fr)
+        cw.Ns = forces_s[2] + lc.sls_fr['dead']*weight
+        if choseX:
+            cw.Ms = forces_s[4]
+        else:
+            cw.Ms = forces_s[3] # MX
         cw.solve()
         # 保存计算器
-        self.nac = nac
+        self.bc = bc
         self.cw = cw
 
     def solve_TB(self):
@@ -141,7 +223,7 @@ class Column(abacus):
 #        Ecs = [3.0E4,3.2E4,3.3E4,3.4E4,3.45E4,3.55E4,3.6E4,3.65E4]
         paras = self.inputs
         Ec = calla.JTG.concrete.Ec(paras['concrete']) # temporarily using JTG
-        Es = calla.JTG.rebar.Es
+        Es = calla.JTG.rebar.Es(paras['rebar'])
         Ms = paras['M']
         if not (type(Ms) is tuple or type(Ms) is list):
             Ms = (Ms,)
@@ -159,7 +241,7 @@ class Column(abacus):
         σcs = [];σss = [];σs_s = [];τs = [];wfs = []
         for case,M,N,K,V in zip(loadcase,Ms,Ns,Ks,Vs):
             # 强度计算
-            rs = calla.TB.RC_strength.column_strength(paras['b'],paras['h'],paras['l0'],a,a_,Ec,\
+            rs = calla.TB.RC_strength.column_strength.solve_stress(paras['b'],paras['h'],paras['l0'],a,a_,Ec,\
                                  As,paras['As_'],paras['n'],M,N,V,K)
             σcs.append(rs[0])
             σss.append(rs[1])
@@ -168,7 +250,7 @@ class Column(abacus):
             # 裂缝宽度计算
             σs = abs(rs[1])
             n1 = As/(pi/4*d**2)
-            wf = calla.TB.RC_strength.crack_width(paras['M1'],paras['M2'],M,σs,Es,d,a,paras['b'],n1)
+            wf = calla.TB.RC_strength.crack_width.solve_wf(paras['M1'],paras['M2'],M,σs,Es,d,a,paras['b'],n1)
             wfs.append(wf)
         # write result
         ic = int(calla.JTG.concrete.fcuk(paras['concrete'])/5)-5
@@ -251,9 +333,13 @@ class Column(abacus):
 
     def html(self,digits=2):
         if self.code == 'GB':
-            return self.nac.html(digits)+'<br>'+self.cw.html(digits)
+            return self.bc.html(digits)+'<br>'+self.cw.html(digits)
         elif self.code == 'JTG':
-            return self.nac.html(digits)+'<br>'+self.cw.html(digits)
+            doc = '<h4>偏心受压承载力计算</h4>'
+            doc += self.bc.html(digits)
+            doc += '<h4>裂缝宽度计算</h4>'
+            doc += self.cw.html(digits)
+            return doc
         elif self.code == 'TB':
             return super().html(digits)
 
@@ -293,10 +379,28 @@ def _test3():
     column.solve()
     print(column.text())
 
-##result = '{}<br>{}'.format(nac.html(),cw.html(3))
+##result = '{}<br>{}'.format(bc.html(),cw.html(3))
 ##f = open_html(result)
 
+def _test4():
+    f = Column(
+        code='JTG',section='rectangle',
+        loads=[
+            ('dead', -1, (0, 0, 710+445, 0, 0, 0)),
+            ('live', -1, (0, 0, 448-177, 0, 0, 0)),
+            ('wind', -1, (40, 20, 0, 0, 0, 0)),
+            ('accident', 1.2, (500, 1000, 0, 0, 0, 0))],
+        N=6306.5,M=1150,α1=1,concrete='C40',b=500,h=1000,
+        rebar='HRB400',a_s=60,as_=60,deq=25,l=7200,l0=8640.0,As=9818.0,
+        Ap=0,As_=0,Nl=0,Ml=0,Ns=0,Ms=0,V=500,wlim=0.2
+        )
+
+    f.solve()
+
+    print(f.text())
+
 if __name__ == '__main__':
-    _test1()
-    _test2()
-    _test3()
+    # _test1()
+    # _test2()
+    # _test3()
+    _test4()

@@ -1,6 +1,6 @@
 import unittest
 class TestCase(unittest.TestCase):
-    def assertApproxEquals(self, v, t, tolerance=0.01):
+    def assertApproxEqual(self, v, t, tolerance=0.01):
         """
         判断值是否与目标值近似相等(Approximately Equal)
         采用差值与目标值的比值判定
@@ -14,8 +14,8 @@ class TestCase(unittest.TestCase):
         # self.assertLessEqual(abs((v-t)/t), tolerance)
         if abs((v-t)/t) > tolerance:
             raise AssertionError(
-                '{} is not approxmately equals to {} within {:.1f} % tolerance'.format(v, t, tolerance*100))
+                '{} is not approxmately equal to {} within {:.1f} % tolerance'.format(v, t, tolerance*100))
 
-    def assertApproxEqual(self, obj, tolerance=0.01, **kwargs):
+    def assertApproxEqualX(self, obj, tolerance=0.01, **kwargs):
         for key in kwargs:
-            self.assertApproxEquals(getattr(obj, key), kwargs[key], tolerance)
+            self.assertApproxEqual(getattr(obj, key), kwargs[key], tolerance)

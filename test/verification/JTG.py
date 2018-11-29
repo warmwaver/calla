@@ -5,7 +5,9 @@
 (2) 
 """
 
-from .testtools import TestCase
+import unittest
+import testtools
+TestCase = testtools.TestCase
 from calla.JTG import bearing_capacity, crack_width
 
 class test_bearing_capacity(TestCase):
@@ -22,19 +24,24 @@ class test_bearing_capacity(TestCase):
         f.solve() # (0.7190344361510966, 3769.155972852216)
         # self.assertAlmostEqual(f.ξ,0.72,2)
         # self.assertAlmostEqual(f.ρ,0.0033,3)
-        self.assertApproxEqual(f, tolerance=0.05, As=0.0042*3.14*600**2)
+        self.assertApproxEqualX(f, tolerance=0.05, As=0.0042*3.14*600**2)
     
     def test2(self):
         """
         偏心受压承载力
         叶见曙, 结构设计原理，2版，人民交通出版社，2005.5（重印2007.7）
-        例7-1，P163
+        例7-1，P153
         """
         f = bearing_capacity.eccentric_compression(
-            option='design',symmetrical='True',Asp_known='True',γ0=1.0,Nd=188,Md=120,fcd=16.7,fcuk=35,b=300,h=400,l0=4000,fsd=360,As=2454.5,a_s=60,fsd_=360,As_=60,as_=60,fpd=1320,σp0=1320,Ap=0,ap=60,fpd_=1320,σp0_=1320,Ap_=0,ap_=200,Es=200000.0,Ep=195000.0
+            option='design',symmetrical='True',Asp_known='True',γ0=1.0,Nd=188,Md=120,fcd=16.7,fcuk=35,b=300,h=400,l0=4000,
+            fsd=360,As=2454.5,a_s=60,fsd_=360,As_=60,as_=60,
+            fpd=1320,σp0=1320,Ap=0,ap=60,fpd_=1320,σp0_=1320,Ap_=0,ap_=200,Es=200000.0,Ep=195000.0
         )
         f.solve()
-        print(f.text())
+        self.assertApproxEqualX(f, x=162, As=1264)
+        f.option = 'review'
+        f.solve()
+        self.assertApproxEqualX(f, Nu = 204.76)
 
 ##class test_crack_width(TestCase):
 ##    def test_crack_width_example1(self):

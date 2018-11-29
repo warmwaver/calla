@@ -80,8 +80,10 @@ class abacus:
         """ Set value for inputs """
         for key in values:
             if hasattr(self, key):
-                t = type(getattr(self,key))
                 v = values[key]
+                t = type(getattr(self,key))
+                if t is bool and not isinstance(v, bool):
+                    v = True if str(v) == 'True' else False 
                 setattr(self, key, v)
 
     def deriveds(self):
@@ -335,12 +337,30 @@ class abacus:
     def text(self, digits = 2, sub='', sup=''):
         return html2text(self.html(digits), sub, sup)
 
+    def inputs_check(self, requirement:str, *inputs:str):
+        for parameter in inputs:
+            if hasattr(self, parameter):
+                value = getattr(self, parameter)
+                t = type(value)
+                if (t == int or t == float):
+                    if requirement == 'positive':
+                        if value <= 0:
+                            raise InputError(self, parameter, '>0')
+                    elif requirement == 'non-negative':
+                        if value < 0:
+                            raise InputError(self, parameter, '≥0')
+                    elif requirement == 'non-zero':
+                        if value == 0:
+                            raise InputError(self, parameter, '≠0')
+
     def none_zero_check(self, *inputs:str):
+        # obselete
         for parameter in inputs:
             if hasattr(self, parameter) and getattr(self, parameter) == 0:
                 raise InputError(self, parameter, '不能=0')
 
     def positive_check(self, *inputs:str):
+        # obselete
         for parameter in inputs:
             if hasattr(self, parameter):
                 value = getattr(self, parameter)

@@ -221,6 +221,7 @@ class cw_round(abacus):
         ('C2',('<i>C</i><sub>2</sub>','',0,'荷载长期效应影响系数')),
         ('ηs',('<i>η</i><sub>s</sub>','',0,'使用阶段的偏心距增大系数')),
         ('e0',('<i>e</i><sub>0</sub>','mm',0,'轴向力Ns的偏心距')),
+        ('σss',('<i>σ</i><sub>s</sub>','MPa',0,'钢筋应力')),
         ('Wfk',('<i>W</i><sub>fk</sub>','mm',0,'最大裂缝宽度')),
         ))    
     
@@ -296,8 +297,8 @@ class cw_round(abacus):
         yield self.formatX('C2',digits=digits)
         yield self.formatX('ηs',digits=digits)
         yield self.formatX('e0',digits=digits)
-        yield '纵向受拉钢筋配筋率: {} = {} = {:.3f}'.format('ρ',self.express('As/π/r<sup>2</sup>'),self.ρ)
-        yield '钢筋等效应力: σ<sub>ss</sub> = {:.2f} MPa'.format(self.σss)
+        yield self.format('ρ',eq='As/π/r<sup>2</sup>', digits = 3)
+        yield self.format('σss')
         #yield '最大裂缝宽度: W<sub>tk</sub> = {1} = {2:.{0}f} mm'.format(digits,self.express('C1*C2*(0.03+σss/Es*(0.004*d/ρ+1.52*C))'), self.Wfk)
         yield self.format('Wfk',eq='C1*C2*(0.03+σss/Es*(0.004*d/ρ+1.52*C))',digits=digits)
         wfk = self.para_attrs('Wfk')

@@ -4,7 +4,9 @@
 (1) 程文瀼, 王铁成《混凝土结构（上册 混凝土结构设计原理）》（第五版）,中国建筑工业出版社,2011.11
 """
 
-from .testtools import TestCase
+import unittest
+import calla.unittest
+TestCase = calla.unittest.TestCase
 from calla.GB import crack_width, compressive_capacity
 
 class test_crack_width(TestCase):

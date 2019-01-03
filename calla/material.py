@@ -1,14 +1,19 @@
 from math import pi, sqrt
 
 class rebar:
+    # 钢筋重力密度(kN/m^3)
+    density = 7850
 
-    density = 7850 #kg/m^3
+    # 钢筋类型
+    types = ('HPB300','HRB400','HRB500','HRBF400','RRB400')
 
+    @staticmethod
     def area(diameter: 'mm'):
         '''area of rebar
         '''
         return pi/4*pow(diameter,2)
 
+    @staticmethod
     def weight(diameter, length = 1, number = 1):
         """
         计算钢筋重量
@@ -25,6 +30,7 @@ class rebar:
             r = 2
         return round(weight_per_meter,r)*length*number
 
+    @staticmethod
     def spiral_length(D, H, space):
         """
         计算螺旋筋长度
@@ -38,6 +44,6 @@ class rebar:
         return H/space*sqrt(space**2+(pi*D)**2)
 
 
-concrete_types = ['C25','C30','C35','C40','C45','C50', 'C60','C65','C70','C75','C80']
-rebar_types = ['HRB400','HPB300']
+concrete_types = ['C25','C30','C35','C40','C45','C50','C55', 'C60','C65','C70','C75','C80']
+
 ps_types = ['ΦS1960','ΦS1860','ΦS1720','ΦT1080','ΦT930','ΦT785']

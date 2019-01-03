@@ -138,15 +138,16 @@ def table2text(table, digits=2):
     gen.close()
     return result
 
-def save(content,path = 'calla-result.html',style=default_html_style):
+def save(content,path = 'calla-result.html',style=''):
     """Save and open html file in default browser"""
+    style = default_html_style + style
     f = open(path, 'w')
     f.write('<html><head><style>{}</style></head><body>'.format(style))
     f.write(content)
     f.write('</body></html>')
     f.close()
 
-def save_and_open(content,path = 'calla-result',style=default_html_style):
+def save_and_open(content,path = 'calla-result',style=''):
     if not (path.endswith('.html') or path.endswith('htm')):
         path += '.html'
     save(content, path,style)

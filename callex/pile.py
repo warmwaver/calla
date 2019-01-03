@@ -5,8 +5,8 @@ __all__ = [
 from collections import OrderedDict
 from math import pi
 
-from calla import abacus
-from calla.JTG import material
+from calla import abacus,InputError
+from calla.JTG import material, load
 from calla.JTG.bearing_capacity import bc_round
 from calla.JTG.crack_width import cw_round
 from calla.JTG.pile_capacity import friction_pile_capacity, end_bearing_pile_capacity, pile_effects
@@ -21,23 +21,23 @@ class Pile(abacus, material_base):
     方法一：直接输入基本组合、准永久组合及频遇组合下的轴力、弯矩、剪力值。此种情况共有9个输入值。
     方法二：输入恒载、活载、温度作用、制动力等作用下的内力值，由程序来进行组合。此种情况有超过9个输入值。
     方法三：输入荷载，同时标记荷载类型，由程序来计算内力及进行荷载组合。此种情况下，输入比较灵活。
-    经比较，方法三为最佳。
-    荷载定义: (type, location, (FX, FY, FZ, MX, MY, MZ))
-    type: dead, live, wind, temperature, 
-    location：从柱底往上的绝对位置，不大于柱高
-    坐标系：  X - 水平顺桥向, Y - 水平横桥向, Z - 竖直方向（重力）
     """
     _loads_sample_ = [
-        ('dead', (0,0,500,0,0,0)),
-        ('live', (10,0,500,0,0,0)),
-        ('wind', (0,10,0,0,0,0)),
-        ('temperature', (10,0,0,0,0,0)),
+        ('dead', -1, (0,0,500,0,0,0)),
+        ('live', -1, (10,0,500,0,0,0)),
+        ('wind', -1, (0,10,0,0,0,0)),
+        ('temperature', -1, (10,0,0,0,0,0)),
+        ('accident', 1.2, (200, 0, 0, 0, 0, 0))
         ]
 
     __title__ = '弹性桩验算'
     __inputs__ = OrderedDict((
         ('γ0',('<i>γ</i><sub>0</sub>','',1.0,'重要性系数')),
-        ('loads', ('', 'kN,m', _loads_sample_, '柱顶荷载')),
+        ('loads', ('', 'kN,m', _loads_sample_, '柱顶荷载',
+        '''荷载定义: [(type, location, (FX, FY, FZ, MX, MY, MZ)), ...]
+        type: dead, live, wind, temperature, accident, earthquake
+        location：从柱底往上的位置，不大于柱高。正号表示绝对位置；负号表示相对位置，相对位置-1≤location<0
+        坐标系：  X - 水平顺桥向, Y - 水平横桥向, Z - 竖直方向（重力）''')),
         material_base.concrete_item,
         material_base.rebar_item,
         ('L1',('<i>L</i><sub>1</sub>','m',2,'平行于水平力作用方向的桩间净距')),
@@ -45,7 +45,7 @@ class Pile(abacus, material_base):
         ('h',('<i>h</i>','m',20,'桩长')),
         ('h1',('<i>h</i><sub>1</sub>','m',1.0,'桩顶高出地面或局部冲刷线的长度')),
         ('h2',('<i>h</i><sub>2</sub>','m',10,'柱高')),
-        ('A2',('<i>A</i><sub>2</sub>','m<sup>2</sup>',10,'柱横截面面积')),
+        ('A2',('<i>A</i><sub>2</sub>','m<sup>2</sup>',0,'柱横截面面积')),
         ('b2',('<i>b</i><sub>2</sub>','',1.0,'系数',
         '与平行于水平力作用方向的一排桩的桩数n有关的系数, n=1时取1.0；n=2时取0.6；n=3时取0.5；n=4时取0.45')),
         ('kf',('<i>k</i><sub>f</sub>','',0.9,'桩形状换算系数','圆形或圆端形取0.9；矩形取1.0')),
@@ -89,104 +89,124 @@ class Pile(abacus, material_base):
         }
     __toggles__.update(material_base.material_toggles)
 
-    # ULS
-    # 基本组合(fundamental combination)
-    uls_fu = {'dead':1.2, 'live':1.4, 'wind':0.75*1.1, 'temperature':0.75*1.4, 'accident':0, 'earthquake':0}
-    # 偶然组合(accidental combination)
-    uls_ac = {'dead':1.0, 'live':0.4, 'wind':0.75, 'temperature':0.8, 'accident':1.0, 'earthquake':0}
-    # 地震组合(earthquake combination)
-    uls_ea = {'dead':1.0, 'live':0.5, 'wind':1.0, 'temperature':1.0, 'accident':0, 'earthquake':1.0}
-    # SLS
-    # 标准组合(characteristic combination)
-    sls_ch = {'dead':1.0, 'live':1.0, 'wind':1.0, 'temperature':1.0, 'accident':0, 'earthquake':0}
-    # 频遇组合(frequent combination)
-    sls_fr = {'dead':1.0, 'live':0.7, 'wind':0.75, 'temperature':0.8, 'accident':0, 'earthquake':0}
-    # 准永久组合(quasi-permanent combination)
-    sls_qp = {'dead':1.0, 'live':0.4, 'wind':0.75, 'temperature':0.8, 'accident':0, 'earthquake':0}
-
-    @staticmethod
-    def combinate(loads, combination_factors):
-        """计算内力"""
-        result = [0,0,0,0,0,0]
-        for load in loads:
-            tp = load[0]
-            forces = load[1]
-            result = [v+combination_factors[tp]*force for v, force in zip(result, forces)]
-        return result
+    @classmethod
+    def bottom_force(cls, load, H):
+        '''
+        计算柱底荷载
+        load:荷载
+        H：柱高
+        '''
+        tp = load[0]
+        h = load[1]
+        if h<0:
+            h = abs(h)
+            if h > 1:
+                raise InputError(cls, 'loads', '相对长度绝对值不能大于1')
+            h = h*H
+        forces = load[2]
+        MX = forces[3]+forces[1]*h
+        MY = forces[4]+forces[0]*h
+        return (tp, (forces[0], forces[1], forces[2], MX, MY, forces[5]))
 
     def solve(self):
         #self.positive_check('As')
         params = self.inputs
-        # 验算承载力，基本组合或偶然组合
+        # 计算柱底内力
+        bottom_forces = [self.bottom_force(load, self.h1+self.h2) for load in self.loads]
+        weight = self.h2*self.A2*material.concrete.density
+        # 基本组合
         p = pile_effects(**params)
-        forces_fu = self.combinate(self.loads, self.uls_fu)
-        forces_ac = self.combinate(self.loads, self.uls_ac)
-        forces_uls = [max(f1,f2) for f1,f2 in zip(forces_fu, forces_ac)]
-        choseX = forces_uls[0] > forces_uls[1]
+        lc = load.load_combination
+        forces_fu = lc.combinate(bottom_forces, lc.uls_fu)
+        choseX = forces_fu[0] > forces_fu[1]
         if choseX:
-            p.H = forces_uls[0] # FX
-            p.M = forces_uls[4] # MY
+            p.H0 = forces_fu[0] # FX
+            p.M0 = forces_fu[4] # MY
         else:
-            p.H = forces_uls[1] # FY
-            p.M = forces_uls[3] # MX
+            p.H0 = forces_fu[1] # FY
+            p.M0 = forces_fu[3] # MX
         p.solve()
         M = p.Mmax
+        z = p.z_Mmax
+
+        # 偏心受压承载力
+        r=1000*self.d/2 # mm
+        bc = bc_round(
+            option='review',r=r,rs=r-60,l0=0, Md=M,
+            Nd = forces_fu[2]+ lc.uls_fu['dead']*(weight + z*pi/4*self.d**2*material.concrete.density),
+            **params)
+        bc.As=self.As
+        bc.solve()
+        self.bc = bc
+
+        # 偶然组合
+        forces_ac = lc.combinate(bottom_forces, lc.uls_ac)
+        if forces_ac[0] > forces_ac[1]:
+            p.H0 = forces_ac[0] # FX
+            p.M0 = forces_ac[4] # MY
+        else:
+            p.H0 = forces_ac[1] # FY
+            p.M0 = forces_ac[3] # MX
+        p.solve()
+        M = p.Mmax
+        z = p.z_Mmax
+
+        # 偏心受压承载力
+        r=1000*self.d/2 # mm
+        bc = bc_round(
+            option='review',r=r,rs=r-60,l0=0, Md=M,
+            Nd = forces_ac[2]+ lc.uls_ac['dead']*(weight + z*pi/4*self.d**2*material.concrete.density),
+            **params)
+        bc.As=self.As
+        bc.solve()
+        if self.bc.Mud < bc.Mud:
+            self.bc = bc
 
         # 长期作用(准永久组合)
-        forces_l = self.combinate(self.loads, self.sls_qp)
+        forces_l = lc.combinate(bottom_forces, lc.sls_qp)
         if choseX:
-            p.H = forces_l[0]
-            p.M = forces_l[4]
+            p.H0 = forces_l[0]
+            p.M0 = forces_l[4]
         else:
-            p.H = forces_l[1] # FY
-            p.M = forces_l[3] # MX
+            p.H0 = forces_l[1] # FY
+            p.M0 = forces_l[3] # MX
         
         p.solve()
         Ml = p.Mmax
 
         # 短期作用(频遇组合)
-        forces_s = self.combinate(self.loads, self.sls_fr)
+        forces_s = lc.combinate(bottom_forces, lc.sls_fr)
         if choseX:
-            p.H = forces_s[0]
-            p.M = forces_s[4]
+            p.H0 = forces_s[0]
+            p.M0 = forces_s[4]
         else:
-            p.H = forces_s[1] # FY
-            p.M = forces_s[3] # MX
+            p.H0 = forces_s[1] # FY
+            p.M0 = forces_s[3] # MX
         p.solve()
         Ms = p.Mmax
 
-        # 偏心受压承载力
-        r=1000*self.d/2 # mm
-        bc = bc_round(
-            option='review',r=r,rs=r-60,l0=0, Md=M,**params)
-        bc.Nd = forces_uls[2]+self.h2*self.A2*material.concrete.density
-        bc.As=self.As
-
-        bc.solve()
-
         # 裂缝宽度计算
-        from calla.JTG.crack_width import cw_round
-
         cw = cw_round(
             option='review',Es=material.rebar.Es(self.rebar),
             fcuk=material.concrete.fcuk(self.concrete),
             d=28,C=30,r=r,rs=r-60,l=1000,l0=1000,
             As=self.As,
-            Nl=forces_l[2],
+            Nl=forces_l[2]+lc.sls_qp['dead']*weight,
             Ml=Ml,
-            Ns=forces_s[2],
+            Ns=forces_s[2]+lc.sls_fr['dead']*weight,
             Ms=Ms,
             wlim=0.2,C1=1.0)
         cw.solve()
 
         # 桩基竖向承载力计算
-        pc = end_bearing_pile_capacity(**params)
+        pc = end_bearing_pile_capacity(**params) if self.桩底嵌固\
+        else friction_pile_capacity(**params)
         pc.u = pi*self.d
         pc.Ap = pi/4*self.d**2
         pc.L = self.h
         # 标准组合
-        forces = self.combinate(self.loads, self.sls_ch)
-        pc.Rt = forces[2]+self.h2*self.A2*material.concrete.density
+        forces = lc.combinate(bottom_forces, lc.sls_ch)
+        pc.Rt = forces[2]+lc.sls_ch['dead']*weight
         pc.solve()
         
         self.bc = bc
@@ -211,48 +231,24 @@ def _test2():
     f = Pile(
         γ0=1.1,
         loads=[
-            ('dead', (0, 0, 1310, 0, 0, 0)),
-            ('live', (0, 0, 1070, 0, 0, 0)),
-            ('wind', (93, 0, 0, 0, 0, 0)),
-            ('temperature', (24, 0, 0, 0, 0, 0)),
-            ('accident', (1000*1.2/6, 1000*1.2/6, 0, 0, 0, 0))
+            ('dead', -1, (0, 0, 2*469, 0, 0, 0)),
+            ('live', -1, (0, 0, 2*378, 0, 0, 0)),
+            ('wind', -1, (2*14, 2*22, 0, 0, 0, 0)),
+            ('accident', 1.2, (500, 1000, 0, 0, 0, 0))
             ],
         concrete='C30',rebar='HRB400',
-        L1=2,d=1.0,h=12,h1=1.0,h2=10,b2=1.0,
+        L1=3,d=1.3,h=23,h1=0,h2=5.6,A2=0.8*1,b2=1.0,
         kf=0.9,Ec=30000.0,m=5000,C0=300000,桩底嵌固='True',
-        As=20*615.8,
+        As=28*490.9,
         soil=('粉质粘土', '强风化片麻岩', '中风化片麻岩'),
-        li=(7.5, 1.4, 6.3),
+        li=(18, 1.4, 6),
         qik=(70, 110, 220),
         fa0=(370, 400, 1100),
         frk=(0,0,17.5e3),
-        γ2=18,status=(-1, -1, 0),Rt=0
-        )
-    f.solve()
-    print(f.text())
-
-def _test3():
-    f = Pile(
-        γ0=1.1,
-        loads=[
-            ('dead', (0, 0, 710+445, 0, 0, 0)),
-            ('live', (0, 0, 448-177, 0, 0, 0)),
-            ('wind', (40, 20, 0, 0, 0, 0)),
-            ('accident', (500*1.2/5.6, 1000*1.2/5.6, 0, 0, 0, 0))
-            ],
-        concrete='C30',rebar='HRB400',
-        L1=3,d=1.3,h=12,h1=0,h2=5.6,b2=1.0,
-        kf=0.9,Ec=30000.0,m=5000,C0=300000,桩底嵌固='True',
-        As=20*615.8,
-        soil=('粉质粘土', '强风化片麻岩', '中风化片麻岩'),
-        li=(7.5, 1.4, 6.3),
-        qik=(70, 110, 220),
-        fa0=(370, 400, 1100),
-        frk=(0,0,17.5e3),
-        γ2=18,status=(-1, -1, 0),Rt=0
+        γ2=18,status=(-1, -1, 1)
         )
     f.solve()
     print(f.text())
 
 if __name__ == '__main__':
-    _test3()
+    _test2()

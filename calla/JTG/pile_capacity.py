@@ -226,8 +226,10 @@ class pile_effects(abacus):
         ('m',('<i>m</i>','kN/m<sup>4</sup>',5000,'非岩石地基水平向抗力系数的比例系数')),
         ('C0',('<i>C</i><sub>0</sub>','kN/m<sup>3</sup>',300000,'桩端地基竖向抗力系数',
         '非岩石地基C0=m0*h, h≥10；岩石地基查表P.0.2-2')),
-        ('M',('<i>M</i>','kN·m',0,'柱顶弯矩')),
-        ('H',('<i>H</i>','kN',0,'柱顶剪力')),
+        #('M',('<i>M</i>','kN·m',0,'柱顶弯矩')),
+        #('H',('<i>H</i>','kN',0,'柱顶剪力')),
+        ('M0',('<i>M</i><sub>0</sub>','kN·m',0,'地面或局部冲刷线处弯矩')),
+        ('H0',('<i>H</i><sub>0</sub>','kN',0,'地面或局部冲刷线处剪力')),
         ('桩底嵌固',('桩底嵌固','',False,'', '', {True:'是',False:'否'})),
         ('z',('<i>z</i>','m',1,'计算内力处桩深','从地面或局部冲刷线起算')),
         ))
@@ -238,8 +240,6 @@ class pile_effects(abacus):
         ('kh',('<i>k</i><sub>h</sub>','',1.0,'土抗力对变形的影响系数')),
         ('x0',('<i>x</i><sub>0</sub>','m',0,'水平位移')),
         ('φ0',('<i>φ</i><sub>0</sub>','rad',0,'转角')),
-        ('M0',('<i>M</i><sub>0</sub>','kN·m',0,'地面或局部冲刷线处剪力弯矩')),
-        ('H0',('<i>H</i><sub>0</sub>','kN',0,'地面或局部冲刷线处剪力')),
         ('Mmax',('<i>M</i><sub>max</sub>','kN·m',0,'桩身最大弯矩')),
         ('z_Mmax',('<i>z</i><sub>Mmax</sub>','m',0,'最大弯矩处桩身深度')),
         ('Qmax',('<i>Q</i><sub>max</sub>','kN',0,'桩身最大剪力')),
@@ -373,8 +373,8 @@ class pile_effects(abacus):
         self.inputs_check('non-negative', 'h1')
         self.I = pi*self.d**4/64
         self.I0 = self.I
-        self.M0 = self.M+self.H*(self.h2+self.h1)
-        self.H0 = self.H
+        # self.M0 = self.M+self.H*(self.h2+self.h1)
+        # self.H0 = self.H
         self.b1, self.α, self.kh, self.x0, self.φ0, self._Mz, self._Qz = self._solve(
             self.L1, self.d, self.h, self.h1, self.b2, self.kf, self.Ec*1e3, self.I, self.I0, 
             self.m, self.C0, self.M0, self.H0, self.桩底嵌固)
@@ -434,7 +434,9 @@ def _test2():
 def _test3():
     # 易建国, 桥梁计算示例集 混凝土简支梁(板)桥, 1991
     # 桩的内力计算（m法） P104
-    f = pile_effects(d=1.2,h2=3,h1=1,kf=0.9,m=5000,Ec=2.6e4, M=112, H=47.01,z=0.28)
+    M=112
+    H=47.01
+    f = pile_effects(d=1.2,h2=3,h1=1,kf=0.9,m=5000,Ec=2.6e4, M0=M+H*4, H0=H,z=0.28)
     f.solve()
     Mz = 313.19
     assert abs((f.Mz - Mz)/Mz) < 0.01

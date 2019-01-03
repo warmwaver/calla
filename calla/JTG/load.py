@@ -1,4 +1,4 @@
-"""JTG/T D60-01-2004 公路桥梁抗风设计规范"""
+"""JTG D60-2015 公路桥涵设计通用规范"""
 
 __all__ = [
     'load_combination',
@@ -13,18 +13,24 @@ from math import pi, sin, cos
 class load_combination:
     # ULS
     # 基本组合(fundamental combination)
-    uls_fu = {'dead':1.2, 'live':1.4, 'wind':0.75*1.1, 'temperature':0.75*1.4, 'accident':0, 'earthquake':0}
+    uls_fu = {'dead':1.2, 'live':1.4, 'braking':0.75*1.4, 'settlement':1.0, 'wind':0.75*1.1, 
+    'temperature':0.75*1.4, 'accident':0, 'earthquake':0}
     # 偶然组合(accidental combination)
-    uls_ac = {'dead':1.0, 'live':0.4, 'wind':0.75, 'temperature':0.8, 'accident':1.0, 'earthquake':0}
+    uls_ac = {'dead':1.0, 'live':0.4, 'braking':0.7, 'settlement':1.0, 'wind':0.75, 
+    'temperature':0.8, 'accident':1.0, 'earthquake':0}
     # 地震组合(earthquake combination)
-    uls_ea = {'dead':1.0, 'live':0.5, 'wind':1.0, 'temperature':1.0, 'accident':0, 'earthquake':1.0}
+    uls_ea = {'dead':1.0, 'live':0.5, 'braking':0.0, 'settlement':1.0, 'wind':1.0, 
+    'temperature':1.0, 'accident':0, 'earthquake':1.0}
     # SLS
     # 标准组合(characteristic combination)
-    sls_ch = {'dead':1.0, 'live':1.0, 'wind':1.0, 'temperature':1.0, 'accident':0, 'earthquake':0}
+    sls_ch = {'dead':1.0, 'live':1.0, 'braking':1.0, 'settlement':1.0, 'wind':1.0, 
+    'temperature':1.0, 'accident':0, 'earthquake':0}
     # 频遇组合(frequent combination)
-    sls_fr = {'dead':1.0, 'live':0.7, 'wind':0.75, 'temperature':0.8, 'accident':0, 'earthquake':0}
+    sls_fr = {'dead':1.0, 'live':0.7, 'braking':1.0, 'settlement':1.0, 'wind':0.75, 
+    'temperature':0.8, 'accident':0, 'earthquake':0}
     # 准永久组合(quasi-permanent combination)
-    sls_qp = {'dead':1.0, 'live':0.4, 'wind':0.75, 'temperature':0.8, 'accident':0, 'earthquake':0}
+    sls_qp = {'dead':1.0, 'live':0.4, 'braking':1.0, 'settlement':1.0, 'wind':0.75, 
+    'temperature':0.8, 'accident':0, 'earthquake':0}
 
     @staticmethod
     def combinate(forces, combination_factors):

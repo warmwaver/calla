@@ -1,6 +1,7 @@
 
 from collections import OrderedDict
 from math import pi
+import copy
 
 from calla import abacus, html, material, InputError
 import calla.GB
@@ -12,7 +13,7 @@ __all__ = [
     ]
 
 class Column(abacus):
-    '''柱计算
+    '''上端自由独柱计算
     柱截面承载力、裂缝宽度验算，支持GB，JTG及TB规范，支持矩形、T形及圆形截面。
     '''
     _loads_sample_ = [
@@ -23,7 +24,7 @@ class Column(abacus):
         ('accident', 1.2, (200, 0, 0, 0, 0, 0))
         ]
 
-    __title__ = '柱计算'
+    __title__ = '上端自由独柱'
     __inputs__ = OrderedDict([
         ('code',('规范','','JTG','','',{'GB':'国家标准(GB)','JTG':'交通行业规范(JTG)','TB':'铁路行业规范(TB)'})),
         ('section',('截面形状','','rectangle','','',{'rectangle':'矩形或倒T形','Tshape':'T形或I形','round':'圆形'})),
@@ -34,8 +35,9 @@ class Column(abacus):
         坐标系：  X - 水平顺桥向, Y - 水平横桥向, Z - 竖直方向（重力）''')),
         # ('N',('<i>N</i>','kN',0,'轴力','轴力设计值，拉力为正，压力为负。TB规范下输入(主力，主力+附加力，主力+地震力)组合值')),
         # ('M',('<i>M</i>','kN·m',0,'弯矩','弯矩设计值。TB规范下输入(主力，主力+附加力，主力+地震力)组合值')),
+        ('γ0',('<i>γ</i><sub>0</sub>','',1.0,'重要性系数')),
         ('α1',('<i>α</i><sub>1</sub>','',1,'系数')),
-        ('concrete',('混凝土','','C40','','',material.concrete_types)),
+        ('concrete',('混凝土','','C40','','',list(material.concrete_types))),
         #('fc',('<i>f</i>c','MPa',16.7)),
         #('fcuk',('<i>f</i><sub>cu,k</sub>','MPa',35)),
         # 矩形截面：
@@ -49,7 +51,7 @@ class Column(abacus):
         ('hf_',('<i>h</i><sub>f</sub><sup>\'</sup>','mm',0,'受压区翼缘计算高度')),
         # 圆形截面
         ('d',('<i>d</i>','mm',500,'圆形截面直径')),
-        ('rebar',('钢筋','','HRB400','','',material.rebar_types)),
+        ('rebar',('钢筋','','HRB400','','',material.rebar.types)),
         #material_base.ps_item,
         #('fy',('<i>f</i><sub>y</sub>','MPa',360)),
         #('fyp',('<i>f</i><sub>y</sub><sup>\'</sup>','MPa',360)),
@@ -61,8 +63,8 @@ class Column(abacus):
         #('ftk',('f<sub>tk</sub>','MPa',2.2)),
         ('cs',('<i>c</i><sub>s</sub>','mm',20,'钢筋外边距','最外层纵向受拉钢筋外边缘至受拉区底边的距离，当cs<20时，取cs=20；当cs>65时，取cs=65。')),
         ('deq',('<i>d</i><sub>eq</sub>','mm',25,'钢筋等效直径')),
-        ('l',('<i>l</i>','mm',0,'构件长度')),
-        ('l0',('<i>l</i>0','mm',0,'构件计算长度')),
+        ('l',('<i>l</i>','mm',5000,'构件长度')),
+        #('l0',('<i>l</i>0','mm',0,'构件计算长度')),
         #('ys',('<i>y</i>s','mm',0,'截面重心至受拉钢筋距离','截面重心至纵向受拉钢筋合力点的距离')),
         ('As',('<i>A</i><sub>s</sub>','mm<sup>2</sup>',0,'纵向受拉钢筋面积')),
         ('Ap',('<i>A</i><sub>p</sub>','mm<sup>2</sup>',0,'纵向受拉预应力筋面积')),
@@ -86,8 +88,8 @@ class Column(abacus):
     __toggles__ = {
         'code':{
             'GB':('n','M1','M2','Nl','Ml','Ns','Ms'),
-            'JTG':('Nq','Mq','bear_repeated_load','n','M1','M2','cs'),
-            'TB':('Nq','Mq','bear_repeated_load','Nl','Ml','Ns','Ms','cs')
+            'JTG':('α1','Nq','Mq','bear_repeated_load','n','M1','M2','cs'),
+            'TB':('γ0','α1','Nq','Mq','bear_repeated_load','Nl','Ml','Ns','Ms','cs')
             },
         'section':{
             'rectangle':('d','bf','hf','bf_','hf_'),
@@ -161,8 +163,8 @@ class Column(abacus):
         else:
             raise NameError('section type {} is not defined'.format(self.section))
         bc.fcuk = calla.JTG.concrete.fcuk(self.concrete)
-        bc.fc = calla.JTG.concrete.fcd(self.concrete)
-        bc.fy=bc.fyp=calla.JTG.rebar.fsd(self.rebar)
+        # bc.fcd = calla.JTG.concrete.fcd(self.concrete)
+        # bc.fsd=bc.fsd_=calla.JTG.rebar.fsd(self.rebar)
         bc.option = 'review'
 
         # 计算柱底内力
@@ -174,27 +176,37 @@ class Column(abacus):
         forces_ac = lc.combinate(bottom_forces, lc.uls_ac)
         forces_uls = [max(f1,f2) for f1,f2 in zip(forces_fu, forces_ac)]
         bc.Nd = forces_uls[2] + lc.uls_fu['dead']*weight # FZ
-        choseX = forces_uls[0] > forces_uls[1]
-        if choseX:
-            bc.Md = forces_uls[4] # MY
-            bc.b = self.h
-            bc.h0 = self.b - self.as_
-        else:
-            bc.Md = forces_uls[3] # MX
-            bc.b = self.b
-            bc.h0 = self.h - self.as_
+        #choseX = forces_uls[0] > forces_uls[1]
+        bcs = []
+        # x方向验算
+        bc.Md = forces_uls[4] # MY
+        bc.b = self.h
+        bc.h = self.b
+        bc.h0 = self.b - self.as_
         bc.solve()
+        bcs.append(bc)
+        # y方向验算
+        bcy = copy.copy(bc)
+        bcy.Md = forces_uls[3] # MX
+        bcy.b = self.b
+        bcy.h = self.h
+        bcy.h0 = self.h - self.as_
+        bcy.solve()
+        bcs.append(bcy)
 
         # 裂缝宽度
         if self.section == 'round':
             cw = calla.JTG.crack_width.cw_round(**paras)
             cw.r = self.d/2
+            cw.rs = self.d/2 - self.a_s
         else:
             cw = calla.JTG.crack_width.crack_width(**paras)
-            cw.h0 = self.h-self.a_s
-            cw.ys = self.h/2-self.a_s
-            cw.force_type='1'
+            cw.b = self.h
+            cw.h = self.b
+            cw.h0 = cw.h-self.a_s
+            cw.ys = cw.h/2-self.a_s
             cw.C3 = 0.9
+        cw.l0 = 2.1*self.l
         cw.As = self.As
         cw.d = self.deq
         cw.C1 = 1.4 if self.rebar.startswith('HPB') else 1.0
@@ -202,21 +214,34 @@ class Column(abacus):
         # 长期作用(准永久组合)
         forces_l = lc.combinate(bottom_forces, lc.sls_qp)
         cw.Nl = forces_l[2] + lc.sls_qp['dead']*weight
-        if choseX:
-            cw.Ml = forces_l[4] # MY
-        else:
-            cw.Ml = forces_l[3] # MX
         # 短期作用(频遇组合)
         forces_s = lc.combinate(bottom_forces, lc.sls_fr)
         cw.Ns = forces_s[2] + lc.sls_fr['dead']*weight
-        if choseX:
-            cw.Ms = forces_s[4]
-        else:
-            cw.Ms = forces_s[3] # MX
-        cw.solve()
+        # x方向验算
+        cw.Ml = forces_l[4] # MY
+        cw.Ms = forces_s[4]
+        # y方向验算
+        cws = []
+        cws.append(cw)
+        cws.append(copy.copy(cw))
+        cws[1].b = self.b
+        cws[1].h = self.h
+        cws[1].h0 = cws[1].h-cws[1].a_s
+        cws[1].ys = cws[1].h/2-cws[1].a_s
+        cws[1].Ml = forces_l[3] # MX
+        cws[1].Ms = forces_s[3] # MX
+        for f in cws:
+            if f.Ns == 0:
+                f.force_type = 'BD'
+            else:
+                if f.Ms == 0:
+                    f.force_type = 'AT'
+                else:
+                    f.force_type = 'EC' if f.Ns > 0 else 'ET'
+            f.solve()
         # 保存计算器
-        self.bc = bc
-        self.cw = cw
+        self.bcs = bcs
+        self.cws = cws
 
     def solve_TB(self):
         loadcase=['主力','主力+附加力','主力+地震力']
@@ -335,10 +360,16 @@ class Column(abacus):
         if self.code == 'GB':
             return self.bc.html(digits)+'<br>'+self.cw.html(digits)
         elif self.code == 'JTG':
-            doc = '<h4>偏心受压承载力计算</h4>'
-            doc += self.bc.html(digits)
-            doc += '<h4>裂缝宽度计算</h4>'
-            doc += self.cw.html(digits)
+            doc = '<h3>偏心受压承载力计算</h3>'
+            doc += '<h4>X方向</h4>'
+            doc += self.bcs[0].html(digits)
+            doc += '<h4>Y方向</h4>'
+            doc += self.bcs[1].html(digits)
+            doc += '<h3>裂缝宽度计算</h3>'
+            doc += '<h4>X方向</h4>'
+            doc += self.cws[0].html(digits)
+            doc += '<h4>Y方向</h4>'
+            doc += self.cws[1].html(digits)
             return doc
         elif self.code == 'TB':
             return super().html(digits)
@@ -386,13 +417,13 @@ def _test4():
     f = Column(
         code='JTG',section='rectangle',
         loads=[
-            ('dead', -1, (0, 0, 710+445, 0, 0, 0)),
-            ('live', -1, (0, 0, 448-177, 0, 0, 0)),
-            ('wind', -1, (40, 20, 0, 0, 0, 0)),
-            ('accident', 1.2, (500, 1000, 0, 0, 0, 0))],
-        N=6306.5,M=1150,α1=1,concrete='C40',b=500,h=1000,
-        rebar='HRB400',a_s=60,as_=60,deq=25,l=7200,l0=8640.0,As=9818.0,
-        Ap=0,As_=0,Nl=0,Ml=0,Ns=0,Ms=0,V=500,wlim=0.2
+            ('dead', -1, (0, 0, 5000, 0, 0, 0)),
+            ('live', -1, (0, 0, -1400, 0, 0, 0)), #3674+5443
+            #('wind', -1, (0, 0, 0, 0, 0, 0)),
+            ('temperature', -1, (150, 0, 0, 0, 0, 0))],
+        γ0=1.1,concrete='C40',b=2500,h=4000,
+        rebar='HRB400',a_s=60,as_=60,deq=32,l=12500,l0=2.1*12500,As=2*40*804.2,
+        Ap=0,As_=0,wlim=0.2
         )
 
     f.solve()

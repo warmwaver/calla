@@ -1,8 +1,14 @@
 __all__ = [
+    'NumericError',
     'binary_search_solve',
     'iteration_method_solve',
     'secant_method_solve',
     ]
+
+class NumericError(Exception):
+    def __init__(self, message:str):
+        self.message = message
+        Exception.__init__(self, self.message)
 
 def binary_search_solve(function, start, end, **kwargs):
     """
@@ -14,7 +20,7 @@ def binary_search_solve(function, start, end, **kwargs):
     f0 = function(x0,**kwargs)
     f1 = function(x1,**kwargs)
     if f0*f1>0:
-        raise Exception('No real solution.')
+        raise NumericError('No real solution.')
     while True:
         x = (x0+x1)/2
         f = function(x,**kwargs)
@@ -39,7 +45,7 @@ def iteration_method_solve(function, start, **kwargs):
         if abs((x1-x0)/x0)<1e-3:
             return x1
         if count>100:
-            raise Exception('No real solution.')
+            raise NumericError('No real solution.')
         x0 = x1
         count += 1
 
@@ -62,7 +68,7 @@ def secant_method_solve(function, start, end, **kwargs):
         if abs(f)<1e-3 and x2>start and x2<end:
             return x2
         if count>100:
-            raise Exception('No real solution.')
+            raise NumericError('No real solution.')
         x0 = x1
         x1 = x2
         count += 1

@@ -1,8 +1,8 @@
 import unittest
+import calla.unittest
+TestCase = calla.unittest.TestCase
 from math import pi
 from calla.TB.RC_strength import *
-
-TestCase = unittest.TestCase
 
 class test(TestCase):
     def test1(self):

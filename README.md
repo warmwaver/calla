@@ -44,6 +44,13 @@ def solve(self):
 
 ```python
 def html(self, digits=2):
+	return '<p>Write some outputs here.</p>'
+```
+
+- **\_html\_**：一般情况下，推荐改写\_html()函数而不是html()函数。html()会自动调用\_html()函数生成html格式的输出
+
+```python
+def _html(self, digits=2):
 	yield 'Write some outputs here.'
 ```
 

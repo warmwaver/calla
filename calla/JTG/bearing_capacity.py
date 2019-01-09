@@ -623,6 +623,7 @@ class eccentric_compression(abacus, material_base):
         yield '设计内力:{}'.format(self.formatX('Nd','Md',digits=digits,omit_name=True))
         yield '材料特性:'
         yield self.formatX('fcd','fcuk','fsd','fsd_',omit_name=True, toggled = False)
+        yield self.format('As',digits=digits)
         yield self.format('Es',digits=None)
         yield self.format('e0',digits=digits)
         yield self.format('e',digits=digits)

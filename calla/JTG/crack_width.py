@@ -238,7 +238,7 @@ class crack_width(abacus):
             if self.force_type == 'EC' and self.section_type=='rect':
                 yield self.format('ys',digits=digits,omit_name=True)
                 yield self.format('γf_',eq='(bf_-b)*hf_/b/h0',digits=digits,omit_name=True)
-                yield self.format('z',eq='(0.87-0.12*(1-γf_)*(h0/es)**2)*h0',digits=digits,omit_name=True)
+                yield self.format('z',eq='(0.87-0.12*(1-γf_)*(h0/es)<sup>2</sup>)*h0',digits=digits,omit_name=True)
             if self.section_type == 'rect':
                 yield self.format('es',eq='ηs*e0+ys',digits=digits,omit_name=True)
             elif self.section_type == 'ps':

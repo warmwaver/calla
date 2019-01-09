@@ -20,7 +20,7 @@ def eval_x(b,h0,As,n):
 
 class beam_strength(abacus):
     '''受弯构件强度验算
-    《铁路桥涵混凝土结构设计规范》(TB 10092-2017）第6.2.4节
+    《铁路桥涵混凝土结构设计规范》（TB 10092-2017）第6.2.4节
     '''
     __title__ = '受弯构件强度验算'
     __inputs__ = OrderedDict([
@@ -147,7 +147,7 @@ class beam_strength(abacus):
 class column_strength(abacus):
     """
     偏心受压构件强度验算
-    《铁路桥涵混凝土结构设计规范》(TB 10092-2017）第6.2.5节
+    《铁路桥涵混凝土结构设计规范》（TB 10092-2017）第6.2.5节
     """
     __title__ = '偏心受压构件强度验算'
     __inputs__ = OrderedDict([
@@ -239,7 +239,7 @@ class column_strength(abacus):
 class crack_width(abacus):
     """
     矩形、T形及工字形截面受弯及偏心受压构件裂缝宽度计算
-    《铁路桥涵混凝土结构设计规范》(TB 10092-2017）第6.2.7节
+    《铁路桥涵混凝土结构设计规范》（TB 10092-2017）第6.2.7节
     """
     __title__ = '矩形截面裂缝宽度'
     __inputs__ = OrderedDict([

@@ -66,8 +66,8 @@ class Column(abacus):
         ('l',('<i>l</i>','mm',5000,'构件长度')),
         #('l0',('<i>l</i>0','mm',0,'构件计算长度')),
         #('ys',('<i>y</i>s','mm',0,'截面重心至受拉钢筋距离','截面重心至纵向受拉钢筋合力点的距离')),
-        ('As',('<i>A</i><sub>s</sub>','mm<sup>2</sup>',0,'纵向受拉钢筋面积')),
-        ('Ap',('<i>A</i><sub>p</sub>','mm<sup>2</sup>',0,'纵向受拉预应力筋面积')),
+        ('As',('<i>A</i><sub>s</sub>','mm<sup>2</sup>',(0,0),'纵向受拉钢筋面积','两侧钢筋若不同，分别输入(Asx,Asy)')),
+        ('Ap',('<i>A</i><sub>p</sub>','mm<sup>2</sup>',(0,0),'纵向受拉预应力筋面积','两侧预应力若不同，分别输入(Apx,Apy)')),
         ('As_',('<i>A</i><sub>s</sub><sup>\'</sup>','mm<sup>2</sup>',0,'纵向受压钢筋面积')),
         # JTG
         ('c',('<i>c</i>','mm',30,'最外排纵向受拉钢筋的混凝土保护层厚度','当c > 50mm 时，取50mm')),
@@ -178,12 +178,27 @@ class Column(abacus):
         forces_uls = [max(f1,f2) for f1,f2 in zip(forces_fu, forces_ac)]
         bc.Nd = forces_uls[2] + lc.uls_fu['dead']*weight # FZ
         #choseX = forces_uls[0] > forces_uls[1]
+        # 确定两个方向的钢筋面积
+        if isinstance(self.As, float) or isinstance(self.As, int):
+            Asx = Asy = self.As
+        elif isinstance(self.As, tuple) or isinstance(self.As, list):
+            n = len(self.As)
+            if n >0 and n < 1:
+                Asx = Asy = self.As
+            elif n > 1:
+                Asx = self.As[0]
+                Asy = self.As[1]
+            else:
+                raise InputError(self,'As','无法识别的输入')
+        else:
+            raise InputError(self,'As','无法识别的输入')
         bcs = []
         # x方向验算
         bc.Md = forces_uls[4] # MY
         bc.b = self.h
         bc.h = self.b
         bc.h0 = self.b - self.as_
+        bc.As = Asx
         bc.solve()
         bcs.append(bc)
         # y方向验算
@@ -192,6 +207,7 @@ class Column(abacus):
         bcy.b = self.b
         bcy.h = self.h
         bcy.h0 = self.h - self.as_
+        bcy.As = Asy
         bcy.solve()
         bcs.append(bcy)
 
@@ -208,7 +224,6 @@ class Column(abacus):
             cw.ys = cw.h/2-self.a_s
             cw.C3 = 0.9
         cw.l0 = 2.1*self.l
-        cw.As = self.As
         cw.d = self.deq
         cw.C1 = 1.4 if self.rebar.startswith('HPB') else 1.0
         # 内力计算
@@ -219,6 +234,7 @@ class Column(abacus):
         forces_s = lc.combinate(bottom_forces, lc.sls_fr)
         cw.Ns = forces_s[2] + lc.sls_fr['dead']*weight
         # x方向验算
+        cw.As = Asx
         cw.Ml = forces_l[4] # MY
         cw.Ms = forces_s[4]
         # y方向验算
@@ -228,6 +244,7 @@ class Column(abacus):
         cws[1].b = self.b
         cws[1].h = self.h
         cws[1].h0 = cws[1].h-cws[1].a_s
+        cws[1].As = Asy
         cws[1].ys = cws[1].h/2-cws[1].a_s
         cws[1].Ml = forces_l[3] # MX
         cws[1].Ms = forces_s[3] # MX

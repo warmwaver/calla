@@ -195,12 +195,14 @@ class abacus:
             except: # v is not decimal or numbers
                 pass
         symbol = info[0]
+        if symbol != '' and symbol != None:
+            s += '{} = '.format(symbol)
         unit = info[1] if len(info)>2 else ''
         if eq == None or eq == '':
-            s += '{} = {} {}'.format(symbol, value, unit)
+            s += '{} {}'.format(value, unit)
         else:
-            s += '{} = {} = {} {}'.format(
-                    symbol, self.replace_by_symbols(eq), value, unit)
+            s += '{} = {} {}'.format(
+                    self.replace_by_symbols(eq), value, unit)
         return s
     
     def formatX(self, *parameters, digits=2, sep='', sep_names=', ', omit_name=True, toggled=True):

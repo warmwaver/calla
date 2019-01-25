@@ -3,7 +3,7 @@ Open implementation of formulas in specifications or codes for structural engine
 
 结构工程标准或规范中计算公式的开放实现。
 
-访问项目主页 https://callapy.org 获取更多信息。
+访问项目主页 https://callapy.xyz 获取更多信息。
 
 ## 开发者注意事项
 ### 如何开发一个新的计算类

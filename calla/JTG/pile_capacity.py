@@ -20,7 +20,7 @@ class friction_pile_capacity(abacus):
     """
     __title__ = '摩擦桩轴向受压承载力'
     __inputs__ = OrderedDict((
-        #('option',('计算选项','','0','','',{'0':'计算竖向承载力','1':'计算桩长'})),
+        ('option',('考虑负摩阻力','',False,'','',{False:'否',True:'是'})),
         ('L',('<i>L</i>','m',20,'桩长')),
         ('h',('<i>h</i>','m',1,'桩端埋置深度','大于40m时按40m计算')),
         ('u',('<i>u</i>','m',0,'桩身周长')),
@@ -33,13 +33,21 @@ class friction_pile_capacity(abacus):
         ('m0',('<i>m</i><sub>0</sub>','',0.7,'清底系数','清底系数(0.7~1.0)')),
         ('λ',('<i>λ</i>','',0.65,'修正系数','按表5.3.3-2选用')),
         ('k2',('<i>k</i><sub>2</sub>','',1.0,'修正系数','容许承载力随深度的修正系数，按表3.3.4选用')),
-        ('Rt',('<i>R</i><sub>t</sub>','kN',0,'桩顶反力标准值')),
+        ('R0',('<i>R</i><sub>0</sub>','kN',0,'桩顶反力标准值')),
+        # 考虑负摩阻力的选项
+        ('ln',('<i>l</i><sub>n</sub>','m',10,'中性点深度','参照表5-2确定')),
+        ('β',('<i>β</i>','',0.2,'负摩阻力系数')),
+        ('p',('<i>p</i>','kPa',8,'地面均布荷载')),
         ))
     __deriveds__ = OrderedDict((
         ('qr',('<i>q</i><sub>r</sub>','kPa',0,'桩端土承载力容许值')),
         ('Ra',('[<i>R</i><sub>a</sub>]','kN',0,'桩基竖向承载力')),
         ('R',('<i>R</i>','kN',0,'桩底竖向力')),
+        ('Nn',('<i>N</i><sub>n</sub>','kN',0,'单桩负摩阻力')),
         ))
+    __toggles__ = {
+        'option':{True:(),False:('ln','p','β')},
+        }
     
     # 混凝土重度
     γc = 25
@@ -48,30 +56,79 @@ class friction_pile_capacity(abacus):
         self.positive_check('L', 'u', 'Ap', 'm0', 'λ', 'k2', 'γ2')
         if self.L > sum(self.li):
             raise InputError(self, 'L', '桩长不能大于土层厚度之和')
-        ls = self.L
-        ra = 0
-        γ_total = 0
         typeγ = type(self.γ2)
         bl = typeγ is list or typeγ is tuple
+        ra = 0 # 竖向承载力(kN)
+        γl = 0 # 土层重度*土层厚度之和
+        Nn = 0 # 负摩阻力(kN)
+        # 负摩阻力计算，条文说明5.3.2节
+        ls = 0
+        if self.option:
+            for i in range(len(self.li)):
+                if ls < self.ln:
+                    if ls+self.li[i] < self.ln:
+                        if bl:
+                            γl += self.li[i]*self.γ2[i]
+                            γi_ = γl/(ls+self.li[i])
+                        else:
+                            γi_ = self.γ2 - 10
+                    else:
+                        if bl:
+                            γl += (self.ln-ls)*self.γ2[i]
+                            γi_ = γl/self.ln
+                        else:
+                            γi_ = self.γ2 - 10
+                    zi = ls + self.li[i]/2 # 第i层土中点深度
+                    σvi_ = self.p + γi_*zi
+                    qni = self.β*σvi_
+                    Nn += self.u*qni*self.li[i]
+                else:
+                    break
+                ls += self.li[i]
+        # 承载力计算
+        # ls = self.L
+        # lstop = self.ln if self.option else 0
+        # for i in range(len(self.li)):
+        #     if ls > self.li[i]:
+        #         ra += 0.5*self.u*self.qik[i]*self.li[i]
+        #         if bl:
+        #             γ_total += self.li[i]*self.γ2[i]
+        #     elif ls > 0:
+        #         if bl:
+        #             γ_total += self.li[i]*ls
+        #         self.γ2 = γ_total / self.L if bl else self.γ2
+        #         self.positive_check('γ2')
+        #         self.h = self.L if self.L < 40 else 40
+        #         self.qr = self.m0*self.λ*(self.fa0[i]+self.k2*self.γ2*(self.h-3))
+        #         ra += 0.5*self.u*self.qik[i]*ls + self.Ap*self.qr
+        #         break
+        #     else:
+        #         break
+        #     ls -= self.li[i]
+        ls = 0
         for i in range(len(self.li)):
-            if ls > self.li[i]:
+            if self.option and ls+self.li[i] <= self.ln:
+                ls += self.li[i]
+                continue
+            if ls+self.li[i] < self.L:
+                if bl:
+                    γl += self.li[i]*self.γ2[i]
                 ra += 0.5*self.u*self.qik[i]*self.li[i]
+            elif ls < self.L:
                 if bl:
-                    γ_total += self.li[i]*self.γ2[i]
-            elif ls > 0:
-                if bl:
-                    γ_total += self.li[i]*ls
-                self.γ2 = γ_total / self.L if bl else self.γ2
+                    γl += (self.ln-ls)*self.γ2[i]
+                self.γ2 = γl / self.L if bl else self.γ2
                 self.positive_check('γ2')
                 self.h = self.L if self.L < 40 else 40
                 self.qr = self.m0*self.λ*(self.fa0[i]+self.k2*self.γ2*(self.h-3))
-                ra += 0.5*self.u*self.qik[i]*ls + self.Ap*self.qr
+                ra += 0.5*self.u*self.qik[i]*(self.L-ls) + self.Ap*self.qr
                 break
             else:
                 break
-            ls -= self.li[i]
-        self.Ra = ra
-        self.R = self.Rt + (self.γc-self.γ2)*self.L*self.Ap
+            ls += self.li[i]
+        self.Ra = ra - Nn
+        self.Nn = Nn
+        self.R = self.R0 + (self.γc-self.γ2)*self.L*self.Ap
         self.K = self.Ra/self.R
         return ra
     
@@ -79,7 +136,7 @@ class friction_pile_capacity(abacus):
         return self.solve_Ra()
     
     def _html(self, precision = 2):
-        yield '桩基竖向承载力计算'
+        yield '按摩擦桩计算桩基竖向承载力'
         yield self.formatX('L',digits=precision)
         yield self.formatX('u',digits=precision)
         yield self.formatX('Ap',digits=precision)
@@ -98,7 +155,12 @@ class friction_pile_capacity(abacus):
         yield self.format('γ2', digits=None)
         yield self.format('h', precision)
         yield self.format('qr',digits=precision, eq='m0·λ·(fa0+k2·γ2·(h-3))')
-        yield self.format('Ra',eq='0.5·u·∑qik·li+Ap·qr',digits=precision)
+        eq = '0.5·u·∑qik·li+Ap·qr'
+        if self.option:
+            yield self.format('Nn', eq='u·∑<i>q</i><sub>ni</sub>·li', digits=precision)
+            eq += ' - Nn'
+        yield self.format('Ra',eq=eq,digits=precision)
+        yield self.format('R0', digits=precision)
         yield self.format('R', digits=precision)
         ra = self.para_attrs('Ra')
         R = self.para_attrs('R')
@@ -114,24 +176,32 @@ class end_bearing_pile_capacity(abacus):
     """
     __title__ = '端承桩轴向受压承载力'
     __inputs__ = OrderedDict((
-        #('option',('计算选项','','0','','',{'0':'计算竖向承载力','1':'计算桩长'})),
+        ('option',('考虑负摩阻力','',False,'','',{False:'否',True:'是'})),
         ('L',('<i>L</i>','m',20,'桩长')),
         ('u',('<i>u</i>','m',0,'桩身周长')),
         ('Ap',('<i>A</i><sub>p</sub>','m<sup>2</sup>',0,'桩端截面面积')),
         ('soil',('地层名称','',('填土','粘土','中风化砂岩'),'','输入各地层名称，示例：(填土,淤泥,粘土,强风化砂岩)')),
         ('li',('<i>l</i><sub>i</sub>','m',(3,5,6),'土层厚度','输入各地层厚度，之间用逗号隔开')),
         ('qik',('<i>q</i><sub>ik</sub>','kPa',(50,60,120),'侧摩阻力标准值','输入各地层侧摩阻力标准值，之间用逗号隔开')),
-        ('fa0',('[<i>f</i><sub>a0</sub>]','kPa',(220,250,800),'承载力基本容许值','输入各地层承载力基本容许值，之间用逗号隔开')),
         ('frk',('<i>f</i><sub>rk</sub>','kPa',(0,0,20000),'岩石饱和单轴抗压强度标准值','输入各地层承载力标准值，之间用逗号隔开')),
         ('γ2',('<i>γ</i><sub>2</sub>','kN/m<sup>3</sup>',18,'土层重度','可直接输入桩端以上各土层的加权平均重度，也可输入各层土的重度，之间用逗号隔开')),
         ('status',('岩石层情况','',(-1,-1,1),'','土=-1,完整=0,较破碎=1,破碎=2')),
-        ('Rt',('<i>R</i><sub>t</sub>','kN',0,'桩顶反力标准值')),
+        ('R0',('<i>R</i><sub>t</sub>','kN',0,'桩顶反力标准值')),
+        # 考虑负摩阻力的选项
+        ('ln',('<i>l</i><sub>n</sub>','m',10,'中性点深度','参照表5-2确定')),
+        ('β',('<i>β</i>','',0.2,'负摩阻力系数')),
+        ('p',('<i>p</i>','kPa',8,'地面均布荷载')),
         ))
     __deriveds__ = OrderedDict((
+        ('c1',('<i>c</i><sub>1</sub>','',0,'端阻发挥系数','按表5.3.4采用')),
         ('ζs',('<i>ζ</i><sub>s</sub>','',0,'覆盖层土的侧阻力发挥系数')),
         ('Ra',('[<i>R</i><sub>a</sub>]','kN',0,'桩基竖向承载力')),
         ('R',('<i>R</i>','kN',0,'桩底竖向力')),
+        ('Nn',('<i>N</i><sub>n</sub>','kN',0,'单桩负摩阻力')),
         ))
+    __toggles__ = {
+        'option':{True:(),False:('ln','p','β')},
+        }
     
     # 混凝土重度
     γc = 25
@@ -150,62 +220,98 @@ class end_bearing_pile_capacity(abacus):
                 endlayer = i
                 break
         frk = self.frk[endlayer]
-        if frk > 2 and frk < 15:
+        if frk > 2000 and frk < 15000:
             self.ζs = 0.8
-        elif frk <30:
+        elif frk <30000:
             self.ζs = 0.5
-        elif frk > 30:
+        elif frk > 30000:
             self.ζs = 0.2
         else:
             self.ζs = 1
-        ls = self.L
-        ra = 0
-        γ_total = 0
         typeγ = type(self.γ2)
         bl = typeγ is list or typeγ is tuple
+        ls = 0
+        ra = 0 # 竖向承载力(kN)
+        γl = 0 # 土层重度*土层厚度之和
+        Nn = 0 # 负摩阻力(kN)
+        # 负摩阻力计算，条文说明5.3.2节
+        if self.option:
+            for i in range(len(self.li)):
+                if ls < self.ln:
+                    if ls+self.li[i] < self.ln:
+                        if bl:
+                            γl += self.li[i]*self.γ2[i]
+                            γi_ = γl/(ls+self.li[i])
+                        else:
+                            γi_ = self.γ2 - 10
+                    else:
+                        if bl:
+                            γl += (self.ln-ls)*self.γ2[i]
+                            γi_ = γl/self.ln
+                        else:
+                            γi_ = self.γ2 - 10
+                    zi = ls + self.li[i]/2 # 第i层土中点深度
+                    σvi_ = self.p + γi_*zi
+                    qni = self.β*σvi_
+                    Nn += self.u*qni*self.li[i]
+                else:
+                    break
+                ls += self.li[i]
+        # 承载力计算
+        ls = 0
         for i in range(len(self.li)):
-            if ls > self.li[i]:
+            if self.option and ls+self.li[i] <= self.ln:
+                ls += self.li[i]
+                continue
+            if ls+self.li[i] < self.L:
+                if bl:
+                    γl += self.li[i]*self.γ2[i]
                 if self.status[i] == -1:
                     ra += 0.5*self.ζs*self.u*self.qik[i]*self.li[i]
                 else:
                     ra += self.u*c2[self.status[i]]*self.frk[i]*self.li[i]
+            elif ls < self.L:
                 if bl:
-                    γ_total += self.li[i]*self.γ2[i]
-            elif ls > 0:
-                if bl:
-                    γ_total += self.li[i]*ls
-                self.γ2 = γ_total / self.L if bl else self.γ2
-                ra += self.u*c2[self.status[i]]*self.frk[i]*ls
-                ra += c1[self.status[i]]*self.Ap*self.frk[i]
+                    γl += (self.ln-ls)*self.γ2[i]
+                self.γ2 = γl / self.L if bl else self.γ2
+                ra += self.u*c2[self.status[i]]*self.frk[i]*(self.L - ls)
+                self.c1 = c1[self.status[i]]
+                ra += self.c1*self.Ap*self.frk[i]
                 break
             else:
                 break
-            ls -= self.li[i]
-        self.Ra = ra
-        self.R = self.Rt + (self.γc-self.γ2)*self.L*self.Ap
+            ls += self.li[i]
+        self.Ra = ra - Nn
+        self.Nn = Nn
+        self.R = self.R0 + (self.γc-self.γ2)*self.L*self.Ap
         self.K = self.Ra/self.R
-        return ra
+        return self.Ra
     
     def solve(self):
         return self.solve_Ra()
     
     def _html(self, precision = 2):
-        yield '桩基竖向承载力计算'
+        yield '按嵌岩桩计算桩基竖向承载力'
         yield self.format('L',digits=None)
         yield self.format('u',digits=precision)
         yield self.format('Ap',digits=precision)
         yield '地质资料:'
         t = []
-        t.append(('地层编号','地层名称(m)','地层厚度(m)','q<sub>ik</sub>(kPa)','f<sub>ak</sub>(kPa)','f<sub>rk</sub>(kPa)'))
+        t.append(('地层编号','地层名称(m)','地层厚度(m)','q<sub>ik</sub>(kPa)','f<sub>rk</sub>(kPa)'))
         for i in range(len(self.li)):
-            t.append((i, self.soil[i], self.li[i], self.qik[i], self.fa0[i], self.frk[i]))
+            t.append((i, self.soil[i], self.li[i], self.qik[i], self.frk[i]))
         yield html.table2html(t)
+        yield self.format('c1', precision)
         yield self.format('ζs', precision)
-        yield self.format('Ra',eq='c1·Ap·frk+u·∑c2i·hi·frki+0.5·ζs·u·∑qik·li',digits=precision)
-        #yield self.format('R', digits=precision)
+        eq = 'c1·Ap·frk+u·∑<i>c</i><sub>2i</sub>·<i>h</i><sub>i</sub>·<i>f</i><sub>rki</sub>+0.5·ζs·u·∑qik·li'
+        if self.option:
+            yield self.format('Nn', eq='u·∑<i>q</i><sub>ni</sub>·li', digits=precision)
+            eq += ' - Nn'
+        yield self.format('Ra',eq=eq,digits=precision)
+        yield self.format('R0', digits=None)
         ra = self.para_attrs('Ra')
         ok = self.Ra > self.R
-        yield '{} {} {}， {}满足规范要求'.format(self.format('R', digits=precision), '&le;' if ok else '&gt;', ra.symbol, '' if ok else '不')
+        yield '{} {} {}， {}满足规范要求。'.format(self.format('R', digits=precision), '&le;' if ok else '&gt;', ra.symbol, '' if ok else '不')
 
 class pile_effects(abacus):
     """
@@ -449,4 +555,15 @@ def _test3():
         print(h, f.z, Mz, Qz)
     
 if __name__ == '__main__':
-    _test3()
+    # _test2()
+    f = end_bearing_pile_capacity(
+        option=True,L=70,u=3.14*1.8,Ap=3.14/4*1.8**2,
+        soil=('杂填土', '粉质粘土夹粉土', '粉质粘土夹粉土、粉砂', '卵石', '强风化砂砾岩', '中风化砂砾岩'),
+        li=(8, 4.1, 4.2, 47.9, 1.7, 12),qik=(0, 43, 56, 180, 220, 0),
+        frk=(0, 0, 0, 0, 0, 8500),
+        γ2=18,status=(-1, -1, -1, -1, -1, 0),R0=3642.03,
+        ln=8,β=0.2,p=5)
+
+    f.solve()
+
+    print(f.text())

@@ -5,7 +5,10 @@
 __all__ = [
     'fc_rect',
     'fc_T',
+    'axial_compression',
     'eccentric_compression',
+    'biaxial_eccentric',
+    'axial_tension',
     'bc_round',
     'shear_capacity',
     'torsion',
@@ -103,7 +106,8 @@ class fc_rect(abacus, material_base):
         ('x',('<i>x</i>','mm',0,'截面受压区高度')),
         ('xb',('<i>x</i><sub>b</sub>','mm',0,'界限受压区高度')),
         ('ξb',('<i>ξ</i><sub>b</sub>','',0,'相对界限受压区高度')),
-        ('Mu',('<i>γ</i><sub>0</sub><i>M</i><sub>d</sub>','kN·m',600,'正截面抗弯承载力设计值')),
+        ('eql',('<i>γ</i><sub>0</sub><i>M</i><sub>d</sub>','kN·m',600,'正截面抗弯承载力设计值')),
+        ('Mu',('<i>M</i><sub>u</sub>','kN·m',600,'正截面抗弯承载力设计值')),
         ))
     __toggles__ = {
         'option':{'review':(), 'design':('As', 'fsd_','As_','as_','ps','fpd','Ap','ap','fpd_','Ap_','ap_','σp0_')},
@@ -126,7 +130,7 @@ class fc_rect(abacus, material_base):
         self.Mu = fc_rect.f_M(
             self.fcd,self.b,self.x,self.h0,self.fsd_,self.As_,self.as_,
             self.σp0_,self.fpd_,self.Ap_,self.ap_)
-        self.Mu=self.Mu/self.γ0/1E6
+        self.Mu=self.Mu/1E6
         return self.Mu
     
     def solve_As(self):
@@ -151,7 +155,8 @@ class fc_rect(abacus, material_base):
     def solve(self):
         self.ξb = f_ξb(self.fcuk, self.fsd)
         self.xb=self.ξb*self.h0
-        return self.solve_Mu() if self.option == 'review' else self.solve_As()
+        self.solve_Mu() if self.option == 'review' else self.solve_As()
+        self.eql = self.γ0*self.Md
     
     def _html(self,digits=2):
         return self._html_M(digits) if self.option == 'review' else self._html_As(digits)
@@ -175,10 +180,10 @@ class fc_rect(abacus, material_base):
             self.format('as_', omit_name = True))
         if not ok:
             yield '少筋，需增加受拉钢筋面积。'
-        ok = self.Mu > self.Md
+        ok = self.eql <= self.Mu
         yield '{} {} {}'.format(
-            self.format('Mu'), '&ge;' if ok else '&lt;', 
-            self.format('Md', omit_name=True))
+            self.format('eql'), '≤' if ok else '&gt;', 
+            self.format('Mu', omit_name=True))
         yield '{}满足规范要求。'.format('' if ok else '不')
         
     def _html_As(self, digits=2):
@@ -275,6 +280,94 @@ class fc_T(fc_rect, material_base):
             yield '正截面受弯承载力弯矩值：'
             yield '<i>M</i><sub>d</sub> = {:.2f} kN·m'.format(self.Mu)
 
+class axial_compression(abacus):
+    """
+    钢筋混凝土轴心受压构件正截面受压承载力计算
+    《公路钢筋混凝土及预应力混凝土桥涵设计规范》（JTG 3362-2018）第5.3.1节
+    """
+    __title__ = '轴心受压承载力'
+    __inputs__ = OrderedDict((
+        ('γ0',('<i>γ</i><sub>0</sub>','',1.0,'重要性系数')),
+        ('Nd',('<i>N</i><sub>d</sub>','kN',1000,'轴力设计值')),
+        ('b',('<i>b</i>','mm',500,'矩形截面的短边尺寸')),
+        ('r',('<i>r</i>','mm',0,'圆形截面的半径')),
+        ('i',('<i>i</i>','mm',0,'截面的最小回转半径')),
+        ('l0',('<i>l</i><sub>0</sub>','mm',1000,'构件的计算长度','对钢筋混凝土柱可按本规范第6.2.20 条的规定取用')),
+        ('A',('<i>A</i>','mm<sup>2</sup>',500*500,'构件截面面积')),
+        ('fcd',('<i>f</i><sub>cd</sub>','MPa',18.4,'混凝土轴心抗压强度设计值')),
+        ('fsd_',('<i>f</i><sub>sd</sub><sup>\'</sup>','MPa',330,'受压区普通钢筋抗压强度设计值')),
+        ('As_',('<i>A</i><sub>s</sub><sup>\'</sup>','mm<sup>2</sup>',60,'受压区钢筋面积', '受压区纵向普通钢筋的截面面积')),
+        ))
+    __deriveds__ = OrderedDict((
+        ('φ',('<i>φ</i>','',0,'稳定系数')),
+        ('Nu',('','kN',0,'抗压承载力')),
+        ('轴压比',('轴压比','',0)),
+        ('eql',('','kN',0,'')),
+        ))
+    
+    def index(array, value):
+        for i in range(len(array)):
+            if value <= array[i]:
+                return i
+            elif value > array[i] and value <= array[i+1]:
+                return i+1
+    @staticmethod
+    def fNu(phi, fc, A, fy_=300, As_=0):
+        """
+        Args:
+            phi: 稳定系数
+            fc: 混凝土设计轴心抗压强度
+            A: 混凝土截面面积
+            fy_: 受压区钢筋设计强度
+            As_: 受压区钢筋面积
+        Returns:
+            设计抗压强度
+        """
+        return 0.9*phi*(fc*A+fy_*As_)
+    def _phi(l0, b=0,d=0,i=0):
+        if b<=0 and d<=0 and i<=0:
+            raise Exception('输入值必须大于0')
+        n = 22
+        _b = (8,10,12,14,16,18,20,22,24,26,28,30,32,34,36,38,40,42,44,46,48,50)
+        _d = (7,8.5,10.5,12,14,15.5,17,19,21,22.5,24,26,28,29.5,31,33,34.5,36.5,38,40,41.5,43)
+        _i = (28,35,42,48,55,62,69,76,83,90,97,104,111,118,125,132,139,146,153,160,167,174)
+        _phi = (1,0.98,0.95,0.92,0.87,0.81,0.75,0.7,0.65,0.6,0.56,0.52,0.48,0.44,0.36,0.32,0.29,0.26,0.23,0.21,0.19)
+        phis = [1,1,1]
+        if b > 0:
+            phis[0] = _phi[axial_compression.index(_b, l0/b)]
+        if d > 0:
+            phis[1] = _phi[axial_compression.index(_d, l0/d)]
+        if i > 0:
+            phis[2] = _phi[axial_compression.index(_i, l0/i)]
+        return min(phis)
+    """
+    轴压比
+    Args:
+        N: 计算轴力
+        A: 面积
+        fc: 混凝土强度设计值
+    """
+    compression_ratio = lambda N, A, fc:N/(A*fc)
+    
+    def solve(self):
+        self.φ = axial_compression._phi(self.l0, self.b,2*self.r,self.i)
+        self.Nu = self.fNu(self.φ, self.fcd, self.A, self.fsd_, self.As_)*1e-3
+        #self.轴压比 = axial_compression.compression_ratio(self.Nd, self.A, self.fcd)*1e3
+        self.eql = self.γ0*self.Nd
+
+    def _html(self,digits=2):
+        #yield self.formatX('轴压比')
+        for para in ('γ0','fcd','fsd_','As_'):
+            yield self.format(para, digits=None)
+        for para in ('φ'):
+            yield self.format(para, digits)
+        ok = self.eql <= self.Nu
+        eq = 'γ0·Nd'
+        yield '{} {} {}，{}满足规范要求。'.format(
+            self.format('eql', digits,eq=eq), '≤' if ok else '>', 
+            self.format('Nu', digits=digits, eq='0.9 φ (fcd A+fsd_ As_)', omit_name=True),
+            '' if ok else '不')     
+
 class eccentric_compression(abacus, material_base):
     """
     矩形截面偏心受压构件正截面抗压承载力计算
@@ -298,7 +391,7 @@ class eccentric_compression(abacus, material_base):
         ('fcuk',('<i>f</i><sub>cu,k</sub>','MPa',35,'混凝土立方体抗压强度标准值','取混凝土标号')),
         ('b',('<i>b</i>','mm',500,'矩形截面宽度')),
         ('h',('<i>h</i>','mm',1000,'矩形截面高度')),
-        ('l0',('<i>l</i><sub>0</sub>','mm',3000,'构件的计算长度','可近似取偏心受压构件相应主轴方向上下支撑点之间的距离')),
+        ('l0',('<i>l</i><sub>0</sub>','mm',0,'构件的计算长度','可近似取偏心受压构件相应主轴方向上下支撑点之间的距离')),
         material_base.rebar_item,
         ('fsk',('<i>f</i><sub>sk</sub>','MPa',400,'钢筋抗拉强度标准值')),
         ('fsd',('<i>f</i><sub>sd</sub>','MPa',360,'钢筋抗拉强度设计值')),
@@ -333,7 +426,8 @@ class eccentric_compression(abacus, material_base):
         ('e',('<i>e</i>','mm',0,'轴向压力作用点至截面受拉边或受压较小边纵向钢筋As和Ap合力点的距离')),
         ('x',('<i>x</i>','mm',0,'截面受压区高度')),
         ('xb',('<i>x</i><sub>b</sub>','mm',0,'截面界限受压区高度')),
-        ('Nu',('<i>N</i><sub>u</sub>','kN',1000,'截面受压承载力')),
+        ('Nu',('<i>N</i><sub>u</sub>','kN',0,'截面受压承载力')),
+        ('Mu',('<i>M</i><sub>u</sub>','kN',0,'截面受压承载力')),
         ))
     __toggles__ = {
         'option':{'review':(),'design':('As')},
@@ -620,6 +714,7 @@ class eccentric_compression(abacus, material_base):
     
     def _html_Nu(self, digits = 2):
         yield '截面尺寸:{}'.format(self.formatX('b','h','h0',digits=None,omit_name=True))
+        yield self.format('l0')
         yield '设计内力:{}'.format(self.formatX('Nd','Md',digits=digits,omit_name=True))
         yield '材料特性:'
         yield self.formatX('fcd','fcuk','fsd','fsd_',omit_name=True, toggled = False)
@@ -702,6 +797,71 @@ class eccentric_compression(abacus, material_base):
                 # 小偏心
                 yield 'ξ = (N-ξb*fc*b*h0)/((N*e-0.43*fc*b*h0<sup>2</sup>)/(β1-ξb)/(h0-as_)+fc*b*h0)+ξb = {1:.{0}f}'.format(digits,self.ξ)
                 yield tmp1.format(digits, self.As, self.Asmin,'&gt;' if self.As > self.Asmin else '&lt;', '')
+
+class biaxial_eccentric(abacus):
+    """
+    钢筋混凝土双向偏心受压构件正截面受压承载力计算
+    《公路钢筋混凝土及预应力混凝土桥涵设计规范》（JTG 3362-2018）第5.3.11节
+    """
+    __title__ = '双向偏心受压承载力'
+    __inputs__ = OrderedDict((
+        ('γ0',('<i>γ</i><sub>0</sub>','',1.0,'重要性系数')),
+        ('Nd',('<i>N</i><sub>d</sub>','kN',1000,'轴力设计值')),
+        ('Nu0',('<i>N</i><sub>u0</sub>','kN',1000,'轴心抗压承载力设计值')),
+        ('Nux',('<i>N</i><sub>ux</sub>','kN',1000,'偏心抗压承载力设计值')),
+        ('Nuy',('<i>N</i><sub>uy</sub>','kN',1000,'偏心抗压承载力设计值')),
+        ))
+    __deriveds__ = OrderedDict((
+        ('Nu',('','kN',0,'抗压承载力')),
+        ('eql',('','kN',0,'')),
+        ))
+    
+    def solve(self):
+        fNu = lambda Nux,Nuy,Nu0:1/(1/Nux+1/Nuy-1/Nu0)
+        self.Nu = fNu(self.Nux,self.Nuy,self.Nu0)
+        self.eql = self.γ0*self.Nd
+
+    def _html(self,digits=2):
+        for para in ('γ0','Nd','Nu0','Nux','Nuy'):
+            yield self.format(para, digits=None)
+        ok = self.eql <= self.Nu
+        yield '{} {} {}，{}满足规范要求。'.format(
+            self.format('eql', digits,eq='γ0·Nd'), '≤' if ok else '>', 
+            self.format('Nu', digits=digits, eq='1/(1/Nux+1/Nuy-1/Nu0)', omit_name=True),
+            '' if ok else '不')
+    
+class axial_tension(abacus):
+    """
+    钢筋混凝土轴心受拉构件正截面受拉承载力计算
+    《公路钢筋混凝土及预应力混凝土桥涵设计规范》（JTG 3362-2018）第5.4.1节
+    """
+    __title__ = '轴心受拉承载力'
+    __inputs__ = OrderedDict((
+        ('γ0',('<i>γ</i><sub>0</sub>','',1.0,'重要性系数')),
+        ('Nd',('<i>N</i><sub>d</sub>','kN',1000,'轴力设计值')),
+        #('A',('<i>A</i>','mm<sup>2</sup>',500*500,'构件截面面积')),
+        ('fsd',('<i>f</i><sub>sd</sub>','MPa',330,'受压区普通钢筋抗压强度设计值')),
+        ('As',('<i>A</i><sub>s</sub>','mm<sup>2</sup>',60,'受压区钢筋面积', '受压区纵向普通钢筋的截面面积')),
+        ))
+    __deriveds__ = OrderedDict((
+        ('φ',('<i>φ</i>','',0,'稳定系数')),
+        ('Nud',('','kN',0,'抗压承载力')),
+        ('eql',('','kN',0,'')),
+        ))
+    
+    def solve(self):
+        self.Nu = self.fsd*self.As*1e-3
+        self.eql = self.γ0*self.Nd
+
+    def _html(self,digits=2):
+        for para in ('γ0','Nd','fsd','As'):
+            yield self.format(para, digits=None)
+        ok = self.eql <= self.Nu
+        eq = 'γ0·Nd'
+        yield '{} {} {}，{}满足规范要求。'.format(
+            self.format('eql', digits,eq=eq), '≤' if ok else '>', 
+            self.format('Nu', digits=digits, eq='fsd As', omit_name=True),
+            '' if ok else '不')
 
 class bc_round(abacus, material_base):
     """

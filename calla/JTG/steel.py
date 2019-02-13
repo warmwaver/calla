@@ -10,6 +10,7 @@ __all__ = [
     'stability',
     'web_rib',
     'support_rib',
+    'diaphragm'
     ]
 
 from collections import OrderedDict
@@ -99,13 +100,13 @@ class compressed_rib(abacus):
         γl = E*Il/b/D
         γt = E*It/b/D
         n = nl+1
-        α0 = (1+n*γl)**(1/4)
+        α0 = (1+n*γl)**(1/4) # (5.1.6-5)
         α = a/b
         δl = Asl/b/t
         γl_ = 1/n*(4*n**2*(1+n*δl)*α**2-(α**2+1)**2) if α<=α0 \
-        else 1/n*((2*n**2*(1+n*δl)-1)**2-1)
-        Asl_min = b*t/10/n
-        γt_min = (1+n*γl_)/4/(at/b)**3
+        else 1/n*((2*n**2*(1+n*δl)-1)**2-1) # (5.1.6-4)
+        Asl_min = b*t/10/n # (5.1.6-2)
+        γt_min = (1+n*γl_)/4/(at/b)**3 # (5.1.6-3)
         return (Il,It,D,γl,γt,n,α0,α,Asl,δl,γl_,Asl_min,γt_min)
     
     @staticmethod
@@ -174,8 +175,8 @@ class effective_section(abacus):
         ('bi',('<i>b</i><sub>i</sub>','mm',1800,'第i块受压板段或板元的宽度')),
         ('l',('<i>l</i>','mm',90,'等效跨径')),
         ('option',('适用公式','','A','','',{'A':'(5.1.8-3)','B':'(5.1.8-4)'})),
-        ('case',('适用情况','','3','','',['1','2','3','4'])),
-        ('rigid',('刚性','',False,'','',{True:'是',False:'否'})),
+        #('case',('适用情况','','3','','附录B.0.1列出的四种情况',['1','2','3','4'])),
+        #('rigid',('刚性','',False,'','',{True:'是',False:'否'})),
         ))
     __deriveds__ = OrderedDict((
         ('λp',('<span style="text-decoration:overline;"><i>λ</i></span><sub>p</sub>','',0,'相对宽厚比')),
@@ -245,7 +246,7 @@ class stability(abacus):
         ('Mcrz',('<i>M</i><sub>cr,z</sub>','kN·m',0,'整体弯扭弹性屈曲弯矩','Mz作用平面内的弯矩单独作用下')),
         ('βmy',('<i>β</i><sub>m,y</sub>','',1,'等效弯矩系数')),
         ('βmz',('<i>β</i><sub>m,z</sub>','',1,'等效弯矩系数')),
-        ('α',('<i>α</i>','',0.35,'参数')),
+        ('α',('<i>α</i>','',0.35,'参数','根据附录A表A.0.1-1取值')),
         ))
     __deriveds__ = OrderedDict((
         ('MRdy',('<i>M</i><sub>Rd,y</sub>','kN·m',0,'')),
@@ -462,6 +463,150 @@ class support_rib(abacus):
             self.format('eql2', digits,eq=eq), '≤' if ok else '>', 
             self.format('fd', digits=digits, omit_name=True),
             '' if ok else '不')
+
+class diaphragm(abacus):
+    """
+    横隔板验算
+    《JTG D64-2015 公路钢结构桥梁设计规范》 第8.5.2节及条文说明
+    """
+    __title__ = '横隔板验算'
+    __inputs__ = OrderedDict((
+        ('E',('<i>E</i>','MPa',2.06E5,'钢材弹性模量')),
+        ('G',('<i>G</i>','MPa',0.79E5,'钢材剪切模量')),
+        ('tu',('<i>t</i><sub>u</sub>','mm',12,'顶板厚度')),
+        ('tl',('<i>t</i><sub>l</sub>','mm',12,'底板厚度')),
+        ('Ac',('<i>A</i><sub>c</sub>','mm<sup>2</sup>',0,'箱梁板壁形心围成的面积')),
+        ('tD',('<i>t</i><sub>D</sub>','mm',20,'横隔板的板厚')),
+        ('Ld',('<i>L</i><sub>d</sub>','mm',2000,'横隔板间距')),
+        ('Bu',('<i>B</i><sub>u</sub>','mm',1000,'横隔板顶部宽度')),
+        ('Bl',('<i>B</i><sub>l</sub>','mm',1000,'横隔板底部宽度')),
+        ('Fu',('<i>F</i><sub>u</sub>','mm<sup>2</sup>',0,'箱梁上顶板截面积','包括加劲肋')),
+        ('Fl',('<i>F</i><sub>l</sub>','mm<sup>2</sup>',0,'箱梁下底板截面积','包括加劲肋')),
+        ('Fh',('<i>F</i><sub>h</sub>','mm<sup>2</sup>',0,'一个腹板的截面积')),
+        ('H',('<i>H</i>','mm',1000,'腹板长度')),
+        ('b1',('<i>b</i><sub>1</sub>','mm',100,'上翼缘宽度')),
+        ('b2',('<i>b</i><sub>2</sub>','mm',100,'下翼缘宽度')),
+        ('option',('横隔板类型','mm','1','','',{'1':'实腹式','2':'桁架式','3':'框架式'})),
+        # 实腹式
+        # 桁架式
+        # 框架式
+        # 应力验算
+        ('Td',('<i>T</i><sub>d</sub>','kN·m',0,'箱梁扭矩设计值')),
+        ('fvd',('<i>f</i><sub>vd</sub>','MPa',160,'钢材的抗剪强度设计值')),
+        ('A',('<i>A</i>','mm<sup>2</sup>',0,'横隔板面积')),
+        ))
+    __deriveds__ = OrderedDict((
+        ('Ifu',('<i>I</i><sub>fu</sub>','mm<sup>4</sup>',0,'顶板对箱梁对称轴的惯性矩')),
+        ('Ifl',('<i>I</i><sub>fl</sub>','mm<sup>4</sup>',0,'底板对箱梁对称轴的惯性矩')),
+        ('e',('<i>e</i>','mm<sup>3</sup>',0,'')),
+        ('f',('<i>f</i>','mm<sup>3</sup>',0,'')),
+        ('α1',('<i>α</i><sub>1</sub>','mm<sup>2</sup>',0,'')),
+        ('α2',('<i>α</i><sub>2</sub>','mm<sup>2</sup>',0,'')),
+        ('Idw',('<i>I</i><sub>dw</sub>','mm<sup>4</sup>',0,'箱梁截面主扇形惯矩')),
+        ('K',('<i>K</i>','kN/m',0,'横隔板刚度')),
+        ('Kmin',('','kN/m',0,'横隔板最小刚度')),
+        ('τu',('<i>τ</i><sub>u</sub>','MPa',0,'')),
+        ('τh',('<i>τ</i><sub>h</sub>','MPa',0,'')),
+        ('τl',('<i>τ</i><sub>l</sub>','MPa',0,'')),
+        ))
+    __toggles__ = {
+        'option':{'1':('Ab','Lb'),'2':('tD'),'3':('Ac','tD')},
+        }
+    @staticmethod
+    def fKmin(E,Ld,Ifu,Ifl,Bu,Bl,Fu,Fl,Fh,H,b1,b2):
+        # 原公式(8-3)、(8-5)有误
+        e = Ifl/Bl+(Bu+2*Bl)/12*Fh # (8-5)
+        f = Ifu/Bu+(2*Bu+Bl)/12*Fh
+        α1 = e/(e+f)*(Bu+Bl)/4*H
+        α2 = f/(e+f)*(Bu+Bl)/4*H
+        Idw = (α1**2*Fu*(1+2*b1/Bu)**2+α1**2*Fl*(1+2*b2/Bl)**2+2*Fh*(α1**2-α1*α2+α2**2))/3 # (8-3)
+        Kmin = 20*E*Idw/Ld**3 # (8-2)
+        return (e,f,α1,α2,Idw,Kmin)
+
+    @staticmethod
+    def fK1(G,Ac,tD):
+        return 4*G*Ac*tD # (8-6)
+
+    @staticmethod
+    def fK2(E,Ac,Ab,Lb, shape='X'):
+        return (8 if shape == 'X' else 2)*E*Ac**2*Ab/Lb**3
+
+    @staticmethod
+    def fK3(β, E,b,h,Iu,Il,Ih):
+        K_ = 48*E*(b/Iu+b/Il+6*h/Ih)/(b**2/Iu/Il+2*b*h/Iu/Ih+2*b*h/Il/Ih+3*h**2/Ih**2)
+        return β*K_
+
+    @staticmethod
+    def fτ1(Bu,Bl,tD,A,Td):
+        # (8-11), 原公式有误
+        τu = Bl/Bu*Td/2/A/tD
+        τh = Td/2/A/tD
+        τl = Bu/Bl*Td/2/A/tD
+        return (τu,τh,τl)
+
+    @staticmethod
+    def fτ2(Lb,A,Td, shape='X'):
+        Nb = Lb/A/Td/(4 if shape == 'X' else 2)
+        return Nb
+
+    @staticmethod
+    def fτ3(Bu,Bl,Td,tD,A):
+        raise Exception('not implemented')
+
+    def solve(self):
+        self.Ifu = self.tu*(self.Bu+2*self.b1)**3/12
+        self.Ifl = self.tl*(self.Bl+2*self.b2)**3/12
+        self.e,self.f,self.α1,self.α2,self.Idw,self.Kmin = self.fKmin(
+            self.E,self.Ld,self.Ifu,self.Ifl,self.Bu,self.Bl,self.Fu,self.Fl,self.Fh,self.H,self.b1,self.b2)
+        if self.option == '1':
+            self.K = self.fK1(self.G,self.Ac,self.tD)
+            self.τu,self.τh,self.τl = self.fτ1(self.Bu,self.Bl,self.tD,self.A,self.Td*1e6)
+        elif self.option == '2':
+            self.K = self.fK2(self.E,self.Ac,self.Ab,self.Lb, self.shape)
+            self.τ = self.fτ2(self.Lb,self.A,Td, shape)
+        elif self.option == '3':
+            self.K = self.fK2(self.β, self.E,self.b,self.h,self.Iu,self.Il,self.Ih)
+            self.τ = self.fτ3(Bu,Bl,Td,tD,A)
+
+    def _html(self, digits=2):
+        disableds = self.disableds()
+        for attr in self.__inputs__:
+            if hasattr(self, attr) and (not attr in disableds):
+                yield self.format(attr, digits = None)
+        yield self.format('e',digits,eq='Ifl/Bl+(Bu+2 Bl)/12 Fh')
+        yield self.format('f',digits,eq='Ifu/Bu+(2 Bu+Bl)/12 Fh')
+        yield self.format('α1',digits,eq='e/(e+f) (Bu+Bl)/4 H')
+        yield self.format('α2',digits,eq='f/(e+f) (Bu+Bl)/4 H')
+        yield self.format('Idw',digits,eq='(α1<sup>2</sup> Fu (1+2 b1/Bu)<sup>2</sup>+α1<sup>2</sup> Fl (1+2 b2/Bl)<sup>2</sup>+2 Fh (α1<sup>2</sup>-α1 α2+α2<sup>2</sup>))/3')
+        ok = self.K >= self.Kmin
+        if self.option == '1':
+            eq = '4 G Ac tD'
+        elif self.option == '2':
+            eq = '{}·E·Ac<sup>2</sup>·Ab/Lb<sup>3</sup>'.format(8 if self.shape == 'X' else 2)
+        elif self.option == '3':
+            eq = 'β·48·E·(b/Iu+b/Il+6·h/Ih)/(b<sup>2</sup>/Iu/Il+2·b·h/Iu/Ih+2·b·h/Il/Ih+3·h<sup>2</sup>/Ih<sup>2</sup>)'
+        yield '{} {} {}，{}满足规范要求。'.format(
+            self.format('K', digits,eq=eq), '≥' if ok else '&lt;', 
+            self.format('Kmin', digits=digits,eq='20 E Idw/Ld<sup>3</sup>', omit_name=True),
+            '' if ok else '不')
+        yield '横隔板应力验算'
+        yield self.format('Td')
+        ok = self.τu <= self.fvd
+        yield '{} {} {}，{}满足规范要求。'.format(
+            self.format('τu', digits,eq='Bl/Bu Td/2/A/tD'), '≤' if ok else '&gt;', 
+            self.format('fvd', digits=digits, omit_name=True),
+            '' if ok else '不')
+        ok = self.τh <= self.fvd
+        yield '{} {} {}，{}满足规范要求。'.format(
+            self.format('τh', digits,eq='Td/2/A/tD'), '≤' if ok else '&gt;', 
+            self.format('fvd', digits=digits, omit_name=True),
+            '' if ok else '不')
+        ok = self.τl <= self.fvd
+        yield '{} {} {}，{}满足规范要求。'.format(
+            self.format('τl', digits,eq='Bu/Bl Td/2/A/tD'), '≤' if ok else '&gt;', 
+            self.format('fvd', digits=digits, omit_name=True),
+            '' if ok else '不')
+
 
 if __name__ == '__main__':
     f = stability(γ0=1.1,fy=345,fd=275,My=7071.2,Mz=884.6,Wyeff=0.03365,Wzeff=0.2761,Mcry=6.3*7071.2,Mcrz=6.3*884.6)

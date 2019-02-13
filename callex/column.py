@@ -71,6 +71,7 @@ class Column(abacus):
         ('As_',('<i>A</i><sub>s</sub><sup>\'</sup>','mm<sup>2</sup>',0,'纵向受压钢筋面积')),
         # JTG
         ('c',('<i>c</i>','mm',30,'最外排纵向受拉钢筋的混凝土保护层厚度','当c > 50mm 时，取50mm')),
+        ('k',('<i>k</i>','',2,'构件计算长度系数')),
         # ('Nl',('<i>N</i><sub>l</sub>','kN',0,'作用长期效应组合轴力')),
         # ('Ml',('<i>M</i><sub>l</sub>','kN·m',0,'作用长期效应组合弯矩')),
         # ('Ns',('<i>N</i><sub>s</sub>','kN',0,'作用短期效应组合轴力')),
@@ -198,6 +199,7 @@ class Column(abacus):
         bc.b = self.h
         bc.h = self.b
         bc.h0 = self.b - self.as_
+        bc.l0 = self.k*self.l
         bc.As = Asx
         bc.solve()
         bcs.append(bc)

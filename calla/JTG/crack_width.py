@@ -62,6 +62,7 @@ class crack_width(abacus):
         ('γf_',('<i>γ</i><sub>f</sub><sup>\'</sup>','',0,'受压翼缘截面面积与腹板有效截面面积的比值')),
         ('z',('<i>z</i>','mm',0,'纵向受拉钢筋合力点至截面受压区合力点的距离','不大于0.87h0')),
         ('σss',('<i>σ</i><sub>ss</sub>','MPa',0,'钢筋应力')),
+        ('β',('<i>β</i>','',0,'构件纵向受拉钢筋对裂缝贡献的系数')),
         ('ρte',('<i>ρ</i><sub>te</sub>','',0,'纵向受拉钢筋的有效配筋率')),
         ('Ate',('<i>A</i><sub>te</sub>','mm<sup>2</sup>',0,'有效受拉混凝土截面面积')),
         ('es_',('<i>e</i><sub>s</sub><sup>\'</sup>','轴向拉力作用点至受压区或受拉较小边纵向钢筋合力点的距离')),
@@ -85,7 +86,7 @@ class crack_width(abacus):
         β = (0.4+2.5*ρ)*(1+0.353*(ηs*e0/r)**-2)
         r1 = r-2*a_s
         ρte = β*As/pi/(r**2-r1**2)
-        return ρte
+        return (ρte,r1,β,ρ)
 
     @staticmethod
     def f_σss_BD(Ms,As,h0):
@@ -176,6 +177,7 @@ class crack_width(abacus):
             self.e0 = self.Ms/self.Ns*1e3 # mm
         # 计算有效配筋率和钢筋应力
         if self.section_type == 'round':
+            # 圆形截面偏心受压构件钢筋应力按公式(6.4.4-9)、(6.4.4-10)计算
             self.positive_check('r', 'a_s', 'l0', 'As', 'c', 'd')
             if self.Ns == 0: # 受弯构件
                 raise InputError(self, 'Ns','JTG规范不支持圆形截面受弯构件裂缝宽度计算')
@@ -184,10 +186,19 @@ class crack_width(abacus):
             if self.Ms > 0:
                 self.C2 = max(self.C2, 1+0.5*self.Ml/self.Ms)
             self.rs = self.r-self.a_s
-            self.ηs = self.f_ηs(self.e0,self.l0,2*self.r,2*self.r-self.a_s)
-            self.ρte=self.f_ρte_round(self.As, self.r, self.ηs, self.e0, self.a_s)
-            self.σss = self.f_σss_round(
-                self.l0,self.r,self.rs,self.As,self.a_s,self.Ns*1e3,self.e0,self.ηs)
+            if self.force_type == 'EC':
+                self.ηs = self.f_ηs(self.e0,self.l0,2*self.r,2*self.r-self.a_s)
+                self.ρte,self.r1,self.β,self.ρ=self.f_ρte_round(self.As, self.r, self.ηs, self.e0, self.a_s)
+                self.σss = self.f_σss_round(
+                    self.l0,self.r,self.rs,self.As,self.a_s,self.Ns*1e3,self.e0,self.ηs)
+            elif self.force_type == 'BD':
+                # 规范没给出受弯的计算公式，根据公式(6.4.4-9)、(6.4.4-10)推导，
+                # 受弯构件：σss = 0.6/(0.45r+0.26rs)*Ms/As
+                # 因此，本结果仅为试验性质
+                fσss_BD = lambda r,rs,Ms,As:0.6/(0.45*r+0.26*rs)*Ms/As
+                self.σss = fσss_BD(self.r,self.rs,self.Ms,self.As)
+            else:
+                raise Exception('JTG 3362-2018规范不支持圆形截面{}构件的裂缝宽度计算'.format(self.force_type))
         else:
             self.h0 = self.h - self.a_s
             # 矩形、T 形和I 形截面的钢筋混凝土构件
@@ -230,22 +241,29 @@ class crack_width(abacus):
         yield self.format('Es',digits=None)
         yield '系数:'
         yield self.formatX('C1', 'C2', 'C3', digits=None)
-        eq = 'β*As/π/(r<sup>2</sup>-r<sub>1</sub><sup>2</sup>)' if self.section_type == 'round' else 'As/Ate'
+        eq = 'β·As/π/(r<sup>2</sup>-r<sub>1</sub><sup>2</sup>)' if self.section_type == 'round' else 'As/Ate'
         yield self.format('ρte',eq=eq, digits = 3)
         if self.force_type == 'EC' or self.force_type == 'ET':
             yield self.formatX('e0',digits=digits)
             yield self.formatX('ηs',digits=digits)
             if self.force_type == 'EC' and self.section_type=='rect':
                 yield self.format('ys',digits=digits,omit_name=True)
-                yield self.format('γf_',eq='(bf_-b)*hf_/b/h0',digits=digits,omit_name=True)
-                yield self.format('z',eq='(0.87-0.12*(1-γf_)*(h0/es)<sup>2</sup>)*h0',digits=digits,omit_name=True)
+                yield self.format('γf_',eq='(bf_-b)·hf_/b/h0',digits=digits,omit_name=True)
+                yield self.format('z',eq='(0.87-0.12·(1-γf_)·(h0/es)<sup>2</sup>)·h0',digits=digits,omit_name=True)
             if self.section_type == 'rect':
-                yield self.format('es',eq='ηs*e0+ys',digits=digits,omit_name=True)
+                yield self.format('es',eq='ηs·e0+ys',digits=digits,omit_name=True)
             elif self.section_type == 'ps':
                 yield self.formatX('e',digits=digits)
-        eq = 'Ns/As' if self.force_type=='AT' else 'Ms/0.87/As/h0' \
-        if self.force_type=='BD' else "Ns*es'/As/(h0-as')" \
-        if self.force_type=='ET' else 'Ns*(es-z)/As/z'
+        if self.section_type == 'rect':
+            eq = 'Ns/As' if self.force_type=='AT' else 'Ms/0.87/As/h0' \
+            if self.force_type=='BD' else "Ns·es'/As/(h0-as')" \
+            if self.force_type=='ET' else 'Ns·(es-z)/As/z'
+        elif self.section_type == 'round':
+            eq = '0.6·(ηs·e0/r-0.1)<sup>3</sup>/(0.45+0.26·rs/r)/(ηs·e0/r+0.2)<sup>2</sup>·Ns/As' if self.force_type == 'EC' \
+                else '0.6/(0.45·r+0.26·rs)·Ms/As (推导公式，非规范直接公式)' if self.force_type == 'BD' \
+                else '未知计算公式'
+        else:
+            eq = '未知计算公式'
         yield self.format('σss',eq=eq, digits=digits)
         wtk = self.para_attrs('Wcr')
         yield self.format('Wcr', eq='C1·C2·C3·σss/Es·(c+d)/(0.36+1.7·ρte)',digits=digits)

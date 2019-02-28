@@ -86,7 +86,7 @@ class fc_rect(abacus, material_base):
         ('b',('<i>b</i>','mm',500,'截面宽度','矩形截面宽度或T形截面腹板宽度')),
         ('h0',('<i>h</i><sub>0</sub>','mm',900,'截面有效高度')),
         material_base.rebar_item,
-        ('fsd',('<i>f</i><sub>sd</sub>','MPa',360,'钢筋抗拉强度设计值')),
+        ('fsd',('<i>f</i><sub>sd</sub>','MPa',330,'钢筋抗拉强度设计值')),
         ('As',('<i>A</i><sub>s</sub>','mm<sup>2</sup>',0,'受拉钢筋面积')),
         ('fsd_',('<i>f</i><sub>sd</sub><sup>\'</sup>','MPa',360,'受压区普通钢筋抗压强度设计值')),
         ('As_',('<i>A</i><sub>s</sub><sup>\'</sup>','mm<sup>2</sup>',0,'受压区钢筋面积', '受压区纵向普通钢筋的截面面积')),
@@ -106,8 +106,9 @@ class fc_rect(abacus, material_base):
         ('x',('<i>x</i>','mm',0,'截面受压区高度')),
         ('xb',('<i>x</i><sub>b</sub>','mm',0,'界限受压区高度')),
         ('ξb',('<i>ξ</i><sub>b</sub>','',0,'相对界限受压区高度')),
-        ('eql',('<i>γ</i><sub>0</sub><i>M</i><sub>d</sub>','kN·m',600,'正截面抗弯承载力设计值')),
-        ('Mu',('<i>M</i><sub>u</sub>','kN·m',600,'正截面抗弯承载力设计值')),
+        ('eql',('','kN·m',0,'')),
+        ('xmin',('','mm',0,'')),
+        ('Mu',('<i>M</i><sub>u</sub>','kN·m',0,'正截面抗弯承载力设计值')),
         ))
     __toggles__ = {
         'option':{'review':(), 'design':('As', 'fsd_','As_','as_','ps','fpd','Ap','ap','fpd_','Ap_','ap_','σp0_')},
@@ -127,8 +128,14 @@ class fc_rect(abacus, material_base):
         self.x=fc_rect.f_x(
             self.fcd,self.b,self.fsd,self.As,self.fsd_,self.As_,
             self.fpd,self.Ap,self.σp0_,self.fpd_,self.Ap_)
+        self.xmin = 2*self.as_
+        if self.x < self.xmin:
+            # 受压钢筋达不到强度设计值
+            self._x = self.xmin
+        else:
+            self._x = self.x
         self.Mu = fc_rect.f_M(
-            self.fcd,self.b,self.x,self.h0,self.fsd_,self.As_,self.as_,
+            self.fcd,self.b,self._x,self.h0,self.fsd_,self.As_,self.as_,
             self.σp0_,self.fpd_,self.Ap_,self.ap_)
         self.Mu=self.Mu/1E6
         return self.Mu
@@ -165,26 +172,31 @@ class fc_rect(abacus, material_base):
         yield self.format('γ0', digits=None)
         yield '截面尺寸：'
         yield self.formatX('b','h0')
-        yield self.format('As')
+        yield '配筋面积：'
+        yield self.formatX('As','As_')
         yield '材料力学特性：'
         yield self.formatX('fcd','fsd', toggled = False)
+        yield self.format('Md')
         ok = self.x<self.xb
         yield '{} {} {}'.format(
             self.format('x'), '&lt;' if ok else '&gt;', 
             self.format('xb', omit_name = True))
         if not ok:
             yield '超筋，需减小受拉钢筋面积。'
-        ok = self.x > 2*self.as_
+        ok = self.x >= self.xmin
         yield '{} {} {}'.format(
-            self.format('x'), '&gt;' if ok else '&lt;', 
-            self.format('as_', omit_name = True))
+            self.format('x'), '≥' if ok else '&lt;', 
+            self.format('xmin', eq = '2as_'))
         if not ok:
-            yield '少筋，需增加受拉钢筋面积。'
+            if self.As_ <= 0:
+                yield '少筋，需增加受拉钢筋面积。'
+            else:
+                yield '受压钢筋达不到强度设计值，取{}。'.format(self.format('x', value=self._x))
         ok = self.eql <= self.Mu
-        yield '{} {} {}'.format(
-            self.format('eql'), '≤' if ok else '&gt;', 
-            self.format('Mu', omit_name=True))
-        yield '{}满足规范要求。'.format('' if ok else '不')
+        yield '{} {} {}，{}满足规范要求。'.format(
+            self.format('eql', eq='γ0 Md'), '≤' if ok else '&gt;', 
+            self.format('Mu', omit_name=True),
+            '' if ok else '不')
         
     def _html_As(self, digits=2):
         yield '已知弯矩求普通钢筋面积'
@@ -1118,6 +1130,8 @@ class shear_capacity(abacus, material_base):
             '{1:.{0}f}'.format(digits, self.V12), V12.unit)
         yield '{}满足规范5.2.12条规定，{}进行抗剪承载力的验算。'.format(
             '' if ok else '不', '可不' if ok else '需')
+        if ok:
+            return
         yield self.format('Vcs', eq='0.45e-3·α1·α2·α3·b·h0·√((2+0.6·P)·√(fcuk)·(ρsv·fsv+0.6·ρpv·fpv))')
         yield self.format('Vsb', eq='0.75e-3·fsd·Asb·sinθs')
         yield self.format('Vpb', eq='0.75e-3·fpd·Apb·sinθp')
@@ -1267,6 +1281,8 @@ class local_pressure(abacus, material_base):
                 yield self.format(attr, digits = None)
         Fl = self.γ0*self.Fld
         ok = Fl <= self.Flud1
+        yield self.format('ηs',digits)
+        yield self.format('β',digits)
         yield '{} {} {} = {} kN， {}满足规范第5.7.1条要求。'.format(
             self.replace_by_symbols('γ0·Fld'), '≤' if ok else '&gt;',
             self.replace_by_symbols('1.3·ηs·β·fcd·Aln'), 

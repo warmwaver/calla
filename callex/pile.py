@@ -8,7 +8,7 @@ from math import pi
 from calla import abacus,InputError
 from calla.JTG import material, load
 from calla.JTG.bearing_capacity import bc_round
-from calla.JTG.crack_width import cw_round
+from calla.JTG.crack_width import crack_width
 from calla.JTG.pile_capacity import friction_pile_capacity, end_bearing_pile_capacity, pile_effects
 
 material_base = material.material_base
@@ -186,8 +186,9 @@ class Pile(abacus, material_base):
         Ms = p.Mmax
 
         # 裂缝宽度计算
-        cw = cw_round(
-            option='review',Es=material.rebar.Es(self.rebar),
+        cw = crack_width(
+            option='review', section_type='round', force_type='EC',
+            Es=material.rebar.Es(self.rebar),
             fcuk=material.concrete.fcuk(self.concrete),
             d=28,C=30,r=r,rs=r-60,l=1000,l0=1000,
             As=self.As,

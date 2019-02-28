@@ -5,5 +5,6 @@ from . import crack_width
 from . import load
 from . import pile_cap
 from . import pile_capacity
+from . import anchorage
 from . import diaphragm
 from . import steel

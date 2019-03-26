@@ -49,7 +49,7 @@ class rib_size(abacus):
             yield self.format(para, digits=None)
         ok = self.eql <= self.eqr
         yield '{} {} {}，{}满足规范要求。'.format(
-            self.format('eql', digits,eq='hs/ts'), '≤' if ok else '>', 
+            self.format('eql', digits,eq='hs/ts'), '≤' if ok else '&gt;', 
             self.format('eqr', digits=digits, eq = '12√(345/fy)', omit_name=True),
             '' if ok else '不')
 
@@ -62,8 +62,8 @@ class compressed_rib(abacus):
     __inputs__ = OrderedDict((
         ('E',('<i>E</i>','MPa',2.06E5,'钢材弹性模量')),
         ('υ',('<i>υ</i>','',0.31,'钢材泊松比')),
-        ('a',('<i>a</i>','mm',2000,'加劲板的计算长度')),
-        ('b',('<i>b</i>','mm',1800,'加劲板的计算宽度')),
+        ('a',('<i>a</i>','mm',2000,'加劲板的计算长度','横隔板或刚性横向加劲肋的间距')),
+        ('b',('<i>b</i>','mm',1800,'加劲板的计算宽度','腹板或刚性纵向加劲肋的间距')),
         ('t',('<i>t</i>','mm',12,'母板厚度')),
         ('hl',('<i>h</i><sub>l</sub>','mm',90,'纵向加劲肋截面高度')),
         ('tl',('<i>t</i><sub>l</sub>','mm',10,'纵向加劲肋厚度')),
@@ -137,19 +137,20 @@ class compressed_rib(abacus):
         yield self.format('γl_', digits,eq=eq)
         rigid = self.γl >= self.γl_
         yield '{} {} {}，{}满足刚性加劲肋要求。'.format(
-            self.format('γl', digits,eq='E·Il/b/D'), '≥' if rigid else '<', 
+            self.format('γl', digits,eq='E·Il/b/D'), '≥' if rigid else '&lt;', 
             self.format('γl_', digits=digits, omit_name=True),
             '' if rigid else '不')
         ok = self.Asl >= self.Asl_min
         yield '{} {} {}，{}满足规范要求。'.format(
-            self.format('Asl', digits), '≥' if ok else '<', 
+            self.format('Asl', digits), '≥' if ok else '&lt;', 
             self.format('Asl_min', digits=digits, omit_name=True),
             '' if ok else '不')
-        ok = self.γt >= self.γt_min
-        yield '{} {} {}，{}满足规范要求。'.format(
-            self.format('γt', digits,eq='E·It/b/D'), '≥' if ok else '<', 
-            self.format('γt_min', digits=digits, omit_name=True),
-            '' if ok else '不')
+        if self.option:
+            ok = self.γt >= self.γt_min
+            yield '{} {} {}，{}满足规范要求。'.format(
+                self.format('γt', digits,eq='E·It/b/D'), '≥' if ok else '&lt;', 
+                self.format('γt_min', digits=digits, omit_name=True),
+                '' if ok else '不')
         if rigid:
             yield self.format('k', digits)
         else:
@@ -288,11 +289,11 @@ class stability(abacus):
             yield self.format(para, digits)
         ok = self.eql1 <= 1
         yield '{} {} {}，{}满足规范要求。'.format(
-            self.format('eql1', digits,eq='γ0·(βmy·My/χLTy/MRdy+Mz/MRdz)'), '≤' if ok else '>', 
+            self.format('eql1', digits,eq='γ0·(βmy·My/χLTy/MRdy+Mz/MRdz)'), '≤' if ok else '&gt;', 
             1, '' if ok else '不')
         ok = self.eql2 <= 1
         yield '{} {} {}，{}满足规范要求。'.format(
-            self.format('eql2', digits,eq='γ0·(My/MRdy+βmz·Mz/χLTz/MRdz)'), '≤' if ok else '>', 
+            self.format('eql2', digits,eq='γ0·(My/MRdy+βmz·Mz/χLTz/MRdz)'), '≤' if ok else '&gt;', 
             1, '' if ok else '不')
 
 class web_rib(abacus):
@@ -308,11 +309,11 @@ class web_rib(abacus):
         ('fvd',('<i>f</i><sub>vd</sub>','MPa',160,'钢材的抗剪强度设计值')),
         ('hw',('<i>h</i><sub>w</sub>','mm',90,'腹板高度')),
         ('tw',('<i>t</i><sub>w</sub>','mm',10,'腹板厚度')),
+        ('nt',('是否设置横向加劲肋','',0,'','',{0:'否',1:'是'})),
         ('a',('<i>a</i>','mm',1000,'腹板横向加劲肋间距')),
         ('It',('<i>I</i><sub>t</sub>','mm<sup>4</sup>',0,'横向加劲肋惯性矩')),
         ('nl',('<i>n</i><sub>l</sub>','',0,'纵向加劲肋数量')),
         ('Il',('<i>I</i><sub>l</sub>','mm<sup>4</sup>',0,'纵向加劲肋惯性矩')),
-        ('nt',('<i>n</i><sub>t</sub>','',0,'横向加劲肋数量')),
         ))
     __deriveds__ = OrderedDict((
         ('η',('<i>η</i>','',0,'折减系数')),
@@ -322,6 +323,9 @@ class web_rib(abacus):
         ('ξl',('<i>ξ</i><sub>l</sub>','',0,'纵向加劲肋的相对刚度')),
         ('Il_min',('','mm<sup>4</sup>',0,'','纵向加劲肋惯性矩限值')),
         ))
+    __toggles__ = {
+        'nt':{0:('a','It','nl','Il'),1:()},
+        }
 
     @staticmethod
     def web_thick(τ, fvd, hw, b):
@@ -358,7 +362,7 @@ class web_rib(abacus):
         nl = min(self.nl, 2)
         self.C = op[self.steel][nt][nl]
         if self.C <= 0:
-            raise InputError(self, 'nl', '不设横向加劲肋时，需设置纵向加劲肋')
+            raise InputError(self, 'nt', '设置纵向加劲肋时，需同时设置横向加劲肋')
         self.η, self.tw_min = self.web_thick(self.τ, self.fvd, self.hw, self.C)
 
         opC1 = [345,900,3000]
@@ -383,7 +387,7 @@ class web_rib(abacus):
         ok = self.tw >= self.tw_min
         eq = 'η·hw/{}'.format(self.C)
         yield '{} {} {}，{}满足规范要求。'.format(
-            self.format('tw', digits), '≥' if ok else '<', 
+            self.format('tw', digits), '≥' if ok else '&lt;', 
             self.format('tw_min', digits=digits, eq = eq, omit_name=True),
             '' if ok else '不')
 
@@ -393,14 +397,14 @@ class web_rib(abacus):
         ok = self.eql <= 1
         eq = '(hw/100/tw)<sup>4</sup>·((σ/{})<sup>2</sup>+(τ/({}+58·(hw/a)<sup>2</sup>))<sup>2</sup>)'.format(self.C1,self.C2)
         yield '{} {} {}，{}满足规范要求。'.format(
-            self.format('eql', digits,eq=eq), '≤' if ok else '>', 
+            self.format('eql', digits,eq=eq), '≤' if ok else '&gt;', 
             1,
             '' if ok else '不')
 
         yield '腹板横向加劲肋惯性矩验算'
         ok = self.It >= self.It_min
         yield '{} {} {}，{}满足规范要求。'.format(
-            self.format('It', digits), '≥' if ok else '<', 
+            self.format('It', digits), '≥' if ok else '&lt;', 
             self.format('It_min', digits,eq='3·hw·tw<sup>3</sup>', omit_name=True),
             '' if ok else '不')
 
@@ -409,7 +413,7 @@ class web_rib(abacus):
         yield self.format('Il')
         ok = self.Il >= self.Il_min
         yield '{} {} {}，{}满足规范要求。'.format(
-            self.format('Il', digits,eq='E·Il/b/D'), '≥' if ok else '<', 
+            self.format('Il', digits,eq='E·Il/b/D'), '≥' if ok else '&lt;', 
             self.format('Il_min', digits=digits, eq = 'ξl·hw·tw<sup>3</sup>', omit_name=True),
             '' if ok else '不')
 
@@ -454,13 +458,13 @@ class support_rib(abacus):
         ok = self.eql1 <= self.fcd
         eq = 'γ0·Rv/(As+Beb·tw)'
         yield '{} {} {}，{}满足规范要求。'.format(
-            self.format('eql1', digits,eq=eq), '≤' if ok else '>', 
+            self.format('eql1', digits,eq=eq), '≤' if ok else '&gt;', 
             self.format('fcd', digits=digits, omit_name=True),
             '' if ok else '不')
         ok = self.eql2 <= self.fd
         eq = 'γ0·Rv/(As+Beb·tw)'
         yield '{} {} {}，{}满足规范要求。'.format(
-            self.format('eql2', digits,eq=eq), '≤' if ok else '>', 
+            self.format('eql2', digits,eq=eq), '≤' if ok else '&gt;', 
             self.format('fd', digits=digits, omit_name=True),
             '' if ok else '不')
 

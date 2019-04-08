@@ -20,7 +20,7 @@ from math import pi, sqrt
 class rib_size(abacus):
     """
     受压板件加劲肋几何尺寸验算
-    《JTG D64-2015 公路钢结构桥梁设计规范》 第5.1.5节
+    《公路钢结构桥梁设计规范》（JTG D64-2015） 第5.1.5节
     """
     __title__ = '受压板件加劲肋几何尺寸验算'
     __inputs__ = OrderedDict((
@@ -56,7 +56,7 @@ class rib_size(abacus):
 class compressed_rib(abacus):
     """
     受压加劲板刚度
-    《JTG D64-2015 公路钢结构桥梁设计规范》 第5.1.6节
+    《公路钢结构桥梁设计规范》（JTG D64-2015） 第5.1.6节
     """
     __title__ = '受压加劲板刚度'
     __inputs__ = OrderedDict((
@@ -161,14 +161,14 @@ class compressed_rib(abacus):
 class effective_section(abacus):
     """
     受压加劲板有效截面
-    《JTG D64-2015 公路钢结构桥梁设计规范》 第5.1.7节
+    《公路钢结构桥梁设计规范》（JTG D64-2015） 第5.1.7节
     """
     __title__ = '受压加劲板有效截面'
     __inputs__ = OrderedDict((
         ('bp',('<i>b</i><sub>p</sub>','mm',1800,'加劲肋局部稳定计算宽度',
         '''对开口刚性加劲肋，按加劲肋的间距bi计算[图5.1.7a];
-对闭口刚性加劲肋，按加劲肋腹板间的间距计算;
-对柔性加劲肋，按腹板间距或腹板至悬臂端的宽度bi计算[图5.1.7b]''')),
+        对闭口刚性加劲肋，按加劲肋腹板间的间距计算;
+        对柔性加劲肋，按腹板间距或腹板至悬臂端的宽度bi计算[图5.1.7b]''')),
         ('t',('<i>t</i>','mm',12,'母板厚度')),
         ('fy',('<i>f</i><sub>y</sub>','MPa',345,'钢材的屈服强度')),
         ('E',('<i>E</i>','MPa',2.06E5,'钢材弹性模量')),
@@ -232,7 +232,7 @@ class effective_section(abacus):
 class stability(abacus):
     """
     受弯构件整体稳定性
-    《JTG D64-2015 公路钢结构桥梁设计规范》 第5.3.2节
+    《公路钢结构桥梁设计规范》（JTG D64-2015） 第5.3.2节
     """
     __title__ = '受弯构件整体稳定性'
     __inputs__ = OrderedDict((
@@ -299,7 +299,7 @@ class stability(abacus):
 class web_rib(abacus):
     """
     腹板及加劲肋
-    《JTG D64-2015 公路钢结构桥梁设计规范》 第5.3.3节
+    《公路钢结构桥梁设计规范》（JTG D64-2015） 第5.3.3节
     """
     __title__ = '腹板及加劲肋'
     __inputs__ = OrderedDict((
@@ -410,17 +410,16 @@ class web_rib(abacus):
 
         yield '腹板纵向加劲肋惯性矩验算'
         yield self.format('ξl')
-        yield self.format('Il')
         ok = self.Il >= self.Il_min
         yield '{} {} {}，{}满足规范要求。'.format(
-            self.format('Il', digits,eq='E·Il/b/D'), '≥' if ok else '&lt;', 
+            self.format('Il', digits), '≥' if ok else '&lt;', 
             self.format('Il_min', digits=digits, eq = 'ξl·hw·tw<sup>3</sup>', omit_name=True),
             '' if ok else '不')
 
 class support_rib(abacus):
     """
     支承加劲肋
-    《JTG D64-2015 公路钢结构桥梁设计规范》 第5.3.4节
+    《公路钢结构桥梁设计规范》（JTG D64-2015） 第5.3.4节
     """
     __title__ = '支承加劲肋'
     __inputs__ = OrderedDict((
@@ -471,7 +470,7 @@ class support_rib(abacus):
 class diaphragm(abacus):
     """
     横隔板验算
-    《JTG D64-2015 公路钢结构桥梁设计规范》 第8.5.2节及条文说明
+    《公路钢结构桥梁设计规范》（JTG D64-2015） 第8.5.2节及条文说明
     """
     __title__ = '横隔板验算'
     __inputs__ = OrderedDict((

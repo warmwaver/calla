@@ -66,9 +66,6 @@ class abacus:
                         setattr(self,k,v)
         # initialize parameters by inputs
         self.inputs = inputs
-##        for key in inputs:
-##            if hasattr(self, key):
-##                setattr(self, key, inputs[key])
 
     @property
     def inputs(self):
@@ -178,7 +175,7 @@ class abacus:
             info = self.__inputs__[parameter]
         elif parameter in self.__deriveds__:
             info = self.__deriveds__[parameter]
-        value = value or getattr(self,parameter)
+        value = value if value != None else getattr(self,parameter)
         if info == None or len(info)<1:
             value = '{1:.{0}f}'.format(digits, value) if digits != None and digits >= 0 else value
             return '{} = {}'.format(parameter, value)
@@ -191,7 +188,7 @@ class abacus:
             s = '{}{}'.format(name,sep) if name != '' else ''
         if digits != None and digits >= 0:
             try:
-                value = '{1:.{0}f}'.format(digits, value)
+                value = '{1:.{0}{2}}'.format(digits, value, 'e' if value>1e4 else 'f')
             except: # v is not decimal or numbers
                 pass
         symbol = info[0]
@@ -339,7 +336,7 @@ class abacus:
     def text(self, digits = 2, sub='', sup=''):
         return html2text(self.html(digits), sub, sup)
 
-    def inputs_check(self, requirement:str, *inputs:str):
+    def validate(self, requirement:str, *inputs:str):
         for parameter in inputs:
             if hasattr(self, parameter):
                 value = getattr(self, parameter)

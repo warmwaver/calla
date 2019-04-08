@@ -18,7 +18,7 @@ class crack_width(abacus):
     __title__ = '裂缝宽度'
     __inputs__ = OrderedDict((
         ('option',('计算选项','','review','','',{'review':'计算裂缝宽度','design':'计算配筋'})),
-        ('section_type',('截面类型','','rect','','',{'rect':'矩形、T形和I形截面','round':'圆形截面','ps':'B类预应力混凝土受弯构件'})),
+        ('section',('截面类型','','rect','','',{'rect':'矩形、T形和I形截面','round':'圆形截面','ps':'B类预应力混凝土受弯构件'})),
         ('force_type',('受力类型','','BD','','',{'BD':'受弯构件','EC':'偏心受压构件','ET':'偏心受拉构件','AT':'轴心受拉构件'})),
         ('Es',('<i>E</i><sub>s</sub>','MPa',2.0E5,'钢筋弹性模量')),
         ('c',('<i>c</i>','mm',30,'最外排纵向受拉钢筋的混凝土保护层厚度','当c > 50mm 时，取50mm')),
@@ -70,7 +70,7 @@ class crack_width(abacus):
         ))
     __toggles__ = {
         'option':{'review':(),'design':('As')},
-        'section_type':{'rect':('r','rs'),'round':('b','h','bf','hf','bf_','hf_')},
+        'section':{'rect':('r','rs'),'round':('b','h','bf','hf','bf_','hf_')},
         'force_type':{'BD':('l','l0','Nl','Ns','ys','ys_','as_'),'EC':('ys_',),'ET':('l','l0','ys'),'AT':('Ml','Ms','l','l0','ys','ys_','as_')},
         }
 
@@ -176,7 +176,7 @@ class crack_width(abacus):
             self.C2=1+0.5*self.Nl/self.Ns
             self.e0 = self.Ms/self.Ns*1e3 # mm
         # 计算有效配筋率和钢筋应力
-        if self.section_type == 'round':
+        if self.section == 'round':
             # 圆形截面偏心受压构件钢筋应力按公式(6.4.4-9)、(6.4.4-10)计算
             self.positive_check('r', 'a_s', 'l0', 'As', 'c', 'd')
             if self.Ns == 0: # 受弯构件
@@ -226,10 +226,10 @@ class crack_width(abacus):
         
     def _html_wmax(self,digits=2):
         yield '构件受力类型: {}'.format(self.para_attrs('force_type').choices[self.force_type])
-        yield '构件截面形式: {}'.format(self.para_attrs('section_type').choices[self.section_type])
+        yield '构件截面形式: {}'.format(self.para_attrs('section').choices[self.section])
         yield '构件尺寸:'
         yield self.formatX('b','h','bf','hf','bf_','hf_','r','rs',digits=None)
-        if self.section_type == 'rect':
+        if self.section == 'rect':
             yield self.format('h0', omit_name = True, digits=None)
         yield '钢筋:'
         yield self.formatX('d', 'As','Ap',digits=None)
@@ -241,36 +241,42 @@ class crack_width(abacus):
         yield self.format('Es',digits=None)
         yield '系数:'
         yield self.formatX('C1', 'C2', 'C3', digits=None)
-        eq = 'β·As/π/(r<sup>2</sup>-r<sub>1</sub><sup>2</sup>)' if self.section_type == 'round' else 'As/Ate'
+        eq = 'β·As/π/(r<sup>2</sup>-r<sub>1</sub><sup>2</sup>)' if self.section == 'round' else 'As/Ate'
         yield self.format('ρte',eq=eq, digits = 3)
         if self.force_type == 'EC' or self.force_type == 'ET':
             yield self.formatX('e0',digits=digits)
             yield self.formatX('ηs',digits=digits)
-            if self.force_type == 'EC' and self.section_type=='rect':
+            if self.force_type == 'EC' and self.section=='rect':
                 yield self.format('ys',digits=digits,omit_name=True)
                 yield self.format('γf_',eq='(bf_-b)·hf_/b/h0',digits=digits,omit_name=True)
                 yield self.format('z',eq='(0.87-0.12·(1-γf_)·(h0/es)<sup>2</sup>)·h0',digits=digits,omit_name=True)
-            if self.section_type == 'rect':
+            if self.section == 'rect':
                 yield self.format('es',eq='ηs·e0+ys',digits=digits,omit_name=True)
-            elif self.section_type == 'ps':
+            elif self.section == 'ps':
                 yield self.formatX('e',digits=digits)
-        if self.section_type == 'rect':
+        if self.section == 'rect':
             eq = 'Ns/As' if self.force_type=='AT' else 'Ms/0.87/As/h0' \
             if self.force_type=='BD' else "Ns·es'/As/(h0-as')" \
             if self.force_type=='ET' else 'Ns·(es-z)/As/z'
-        elif self.section_type == 'round':
+        elif self.section == 'round':
             eq = '0.6·(ηs·e0/r-0.1)<sup>3</sup>/(0.45+0.26·rs/r)/(ηs·e0/r+0.2)<sup>2</sup>·Ns/As' if self.force_type == 'EC' \
                 else '0.6/(0.45·r+0.26·rs)·Ms/As (推导公式，非规范直接公式)' if self.force_type == 'BD' \
                 else '未知计算公式'
         else:
             eq = '未知计算公式'
         yield self.format('σss',eq=eq, digits=digits)
-        wtk = self.para_attrs('Wcr')
-        yield self.format('Wcr', eq='C1·C2·C3·σss/Es·(c+d)/(0.36+1.7·ρte)',digits=digits)
         ok = self.Wcr<self.wlim or abs(self.Wcr-self.wlim)<0.001
-        yield '{} {} {}，{}{}满足规范要求。'.format(
-            wtk.symbol, '≤' if ok else '>',
-            self.format('wlim', omit_name=True), wtk.name, '' if ok else '不')
+        if self.σss <= 0:
+            yield '故全截面处于受压状态。'
+            yield '{} {} {}，{}满足规范要求。'.format(
+            self.format('Wcr', value=0), '≤' if ok else '&gt;',
+            self.format('wlim', omit_name=True), '' if ok else '不')
+        else:
+            wcr = self.para_attrs('Wcr')
+            yield self.format('Wcr', eq='C1·C2·C3·σss/Es·(c+d)/(0.36+1.7·ρte)',digits=digits)
+            yield '{} {} {}，{}{}满足规范要求。'.format(
+                wcr.symbol, '≤' if ok else '&gt;',
+                self.format('wlim', omit_name=True), wcr.name, '' if ok else '不')
             
     def _html_As(self,digits=2):
         yield '构件受力类型: '
@@ -287,7 +293,7 @@ class crack_width(abacus):
         yield self.format('Es',digits=None)
         yield '系数:'
         yield self.formatX('C1', 'C2', 'C3', digits=None)
-        eq = 'As/Ate' if self.section_type == 'rect' else 'β*As/pi/(r**2-r1**2)'
+        eq = 'As/Ate' if self.section == 'rect' else 'β*As/pi/(r**2-r1**2)'
         yield self.format('ρte', eq=eq, digits=3)
         yield self.format('σss')
         yield self.format('As',digits)
@@ -301,13 +307,21 @@ def _test1():
 
 def _test2():
     f = crack_width(
-        section_type='round',force_type='EC',As=20*490.9,Ns=1000,Ms=800,
+        section='round',force_type='EC',As=20*490.9,Ns=1000,Ms=800,
         l=6000,l0=2.1*6000,r=800,a_s=100,fcuk=40,C1=1,Es=2.0e5,d=25,c=70)
     f.solve()
     print(f.text())
+
+def _test3():
+    f = crack_width(
+        wlim=0.15,Ml=3689.9,l0=0,b=2500,a_s=90,force_type='EC',option='review',
+        Ms=3689.9,bf_=0,c=50,ys=0,C1=1,section='rect',C3=1,Ns=27787,h=2500,Nl=27787,
+        Ap=0,as_=0,d=2**0.5*32,hf=0,Es=200000,hf_=0,ys_=0,r=500,As=2*25*804.2,l=0,bf=0)
+    f.solve()
+    print(f.text())
+
         
 if __name__ == '__main__':
     import doctest
     doctest.testmod()
-    _test1()
-    _test2()
+    _test3()

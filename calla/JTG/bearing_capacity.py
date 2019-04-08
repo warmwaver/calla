@@ -312,7 +312,7 @@ class axial_compression(abacus):
         ))
     __deriveds__ = OrderedDict((
         ('φ',('<i>φ</i>','',0,'稳定系数')),
-        ('Nu',('','kN',0,'抗压承载力')),
+        ('Nud',('','kN',0,'抗压承载力')),
         ('轴压比',('轴压比','',0)),
         ('eql',('','kN',0,'')),
         ))
@@ -363,7 +363,7 @@ class axial_compression(abacus):
     
     def solve(self):
         self.φ = axial_compression._phi(self.l0, self.b,2*self.r,self.i)
-        self.Nu = self.fNu(self.φ, self.fcd, self.A, self.fsd_, self.As_)*1e-3
+        self.Nud = self.fNu(self.φ, self.fcd, self.A, self.fsd_, self.As_)*1e-3
         #self.轴压比 = axial_compression.compression_ratio(self.Nd, self.A, self.fcd)*1e3
         self.eql = self.γ0*self.Nd
 
@@ -373,11 +373,11 @@ class axial_compression(abacus):
             yield self.format(para, digits=None)
         for para in ('φ'):
             yield self.format(para, digits)
-        ok = self.eql <= self.Nu
+        ok = self.eql <= self.Nud
         eq = 'γ0·Nd'
         yield '{} {} {}，{}满足规范要求。'.format(
             self.format('eql', digits,eq=eq), '≤' if ok else '>', 
-            self.format('Nu', digits=digits, eq='0.9 φ (fcd A+fsd_ As_)', omit_name=True),
+            self.format('Nud', digits=digits, eq='0.9 φ (fcd A+fsd_ As_)', omit_name=True),
             '' if ok else '不')     
 
 class eccentric_compression(abacus, material_base):
@@ -685,13 +685,13 @@ class eccentric_compression(abacus, material_base):
                 if self.As < self.Asmin:
                     self._As_ = self._As = self.As
                     self.As_ = self.As = self.Asmin
-##                x0 = self.x
-##                if x0 > self.h:
-##                    x0 = self.xb
-##                self.x = nac.solve_x(N,self.e,self.fcd,self.b,x0,self.h0,
-##                                                self.fsd_,self.as_,self.Es,self.εcu,self.beta1)
-##                self.As=nac.f_As_(N,self.e,self.fcd,self.b,self.x,self.h0,self.fsd_,self.as_)
-##                self.σs=nac.f_σsi(self.Es,self.εcu,self.β1,self.h0,self.x)
+            #    x0 = self.x
+            #    if x0 > self.h:
+            #        x0 = self.xb
+            #    self.x = nac.solve_x(N,self.e,self.fcd,self.b,x0,self.h0,
+            #                                    self.fsd_,self.as_,self.Es,self.εcu,self.beta1)
+            #    self.As=nac.f_As_(N,self.e,self.fcd,self.b,self.x,self.h0,self.fsd_,self.as_)
+            #    self.σs=nac.f_σsi(self.Es,self.εcu,self.β1,self.h0,self.x)
             else:
                 # 小偏心
                 self.type = '小偏心'
@@ -909,9 +909,11 @@ class bc_round(abacus, material_base):
         #('ρ',('<i>ρ</i>','',0,'纵向钢筋配筋率','ρ=As/πr^2')),
         ('A',('<i>A</i>','mm<sup>2</sup>',0,'圆形截面面积')),
         ('α',('<i>α</i>','',0,'受压区域圆心角与2π的比值')),
-        #('Nud',('<i>N</i><sub>ud</sub>','kN',0,'', '正截面抗压承载力设计值')),
+        ('Nud',('<i>N</i><sub>ud</sub>','kN',0,'', '正截面抗压承载力设计值')),
         ('Mud',('<i>M</i><sub>ud</sub>','kN·m',0,'', '正截面抗弯承载力设计值')),
         ('Asmin',('<i>A</i><sub>s,min</sub>','mm<sup>2</sup>',0,'','全截面最小钢筋面积')),
+        ('eql1',('','kN',0,'')),
+        ('eql2',('','kN·m',0,'')),
         ))
     __toggles__ = {
         'option':{'review':(), 'design':('As',)},
@@ -987,7 +989,7 @@ class bc_round(abacus, material_base):
                 α = numeric.iteration_method_solve(
                     f, 0.65, fc=fc,fy=fy,r=r,rs=rs,A=A,As=As,N=N)
             except:
-                pass
+                raise
         if α != None:
             Mu = cls.f_M(α,fc,fy,r,rs,A,As)
             return (α, Mu)
@@ -1002,7 +1004,9 @@ class bc_round(abacus, material_base):
         if self.option == 'review':
             self.α,self.Mud = self.solve_M(
                 self.fcd,self.fsd,self.r,self.rs,self.A,self.As,self.γ0*self.Nd*1e3)
-            self.Mud *= 1e-6
+            self.Mud *= 1e-6 # kNm
+            if hasattr(self,'e0') and self.e0>0:
+                self.Nud = self.Mud/(self.η*self.e0*1e-3) # kN
         else:
             self.α,self.As = self.solve_As(
                 self.fcd,self.fsd,self.r,self.rs,self.A,self.γ0*self.Nd*1e3,self.γ0*self.M*1e6)
@@ -1013,11 +1017,25 @@ class bc_round(abacus, material_base):
     def _html_Mud(self,digits=2):
         for item in ('γ0', 'fcd', 'fsd'):
             yield self.format(item, digits=None)
-        for item in ('As', 'A', 'Nd', 'Md', 'e0', 'η', 'α'):
+        for item in ('As', 'A', 'Nd', 'Md', 'α'):
             yield self.format(item, digits=digits)
-        ok = self.Mud > self.M
-        yield '{1} {2} 偏心弯矩{3:.{0}f} kN·m，{4}满足规范要求。'.format(
-            digits, self.format('Mud'), '&gt;' if ok else '&lt;', self.M,'' if ok else '不')
+        if hasattr(self,'e0') and self.e0>0:
+            yield self.format('e0', digits=digits)
+            yield self.format('η', digits=digits)
+            self.eql1 = self.γ0*self.Nd
+            ok = self.eql1 <= self.Nud
+            yield '{0} {1} {2}，{3}满足规范要求。'.format(
+                self.format('eql1', eq='γ0*Nd'),
+                '&le;' if ok else '&gt;', 
+                self.format('Nud'), 
+                '' if ok else '不')
+        self.eql2 = self.γ0*self.M
+        ok = self.eql2 <= self.Mud
+        yield '{0} {1} {2}，{3}满足规范要求。'.format(
+            self.format('eql2', eq='γ0*Nd*η*e0'),
+            '&le;' if ok else '&gt;', 
+            self.format('Mud'), 
+            '' if ok else '不')
 
     def _html_As(self,digits=2):
         for item in ('γ0', 'Nd', 'Md', 'fcd', 'fsd'):

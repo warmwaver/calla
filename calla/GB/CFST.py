@@ -14,7 +14,7 @@ from calla import abacus
 class bearing_capacity(abacus):
     """
     钢管混凝土构件在复杂受力状态下承载力计算
-    GB 50936-2014 钢管混凝土结构技术规范 第5.3.1节
+    《钢管混凝土结构技术规范》（GB 50936-2014） 第5.3.1节
     """
     __title__ = '钢管混凝土构件承载力'
     __inputs__ = OrderedDict((

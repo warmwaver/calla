@@ -16,7 +16,7 @@ from math import pi
 class friction_pile_capacity(abacus):
     """
     钻孔灌注桩（摩擦桩）轴向受压承载力计算
-    《JTG D63-2007 公路桥涵地基与基础设计规范》 第5.3.3节
+    《公路桥涵地基与基础设计规范》（JTG D63-2007） 第5.3.3节
     """
     __title__ = '摩擦桩轴向受压承载力'
     __inputs__ = OrderedDict((
@@ -172,7 +172,7 @@ class friction_pile_capacity(abacus):
 class end_bearing_pile_capacity(abacus):
     """
     端承桩轴向受压承载力计算
-    《JTG D63-2007 公路桥涵地基与基础设计规范》 第5.3.4节
+    《公路桥涵地基与基础设计规范》（JTG D63-2007） 第5.3.4节
     """
     __title__ = '端承桩轴向受压承载力'
     __inputs__ = OrderedDict((
@@ -316,7 +316,7 @@ class end_bearing_pile_capacity(abacus):
 class pile_effects(abacus):
     """
     按m法计算弹性桩水平位移及作用效应
-    《JTG D63-2007 公路桥涵地基与基础设计规范》 附录P
+    《公路桥涵地基与基础设计规范》（JTG D63-2007） 附录P
     """
     __title__ = '弹性桩水平位移及作用效应'
     __inputs__ = OrderedDict((

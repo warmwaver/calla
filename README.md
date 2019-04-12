@@ -5,6 +5,18 @@ Open implementation of formulas in specifications or codes for structural engine
 
 访问项目主页 https://callapy.xyz 获取更多信息。
 
+## 使用方法
+所有计算类实例都有着一致的输入及输出方式：
+
+```python
+# 示例：矩形截面抗弯承载力计算
+from calla.GB.flexural_capacity import fc_rect
+f = fc_rect(M=180,b=250,h0=460,fc=14.3)
+f.solve()
+print(f.text())
+```
+如果需要html格式的输出，请使用html()函数替换text()函数。
+
 ## 开发者注意事项
 ### 如何开发一个新的计算类
 为了保证一致的输入及输出方式，方便使用，所有计算类应派生自抽象基类abacus。abacus主要的类成员如下：
@@ -56,6 +68,11 @@ def _html(self, digits=2):
 
 - **text**：plain text格式的文本输出函数
 基类abacus实现了由html格式自动转换成纯文本格式。除非有特别需求，否则无需重写此函数。
+
+```python
+def text(self, digits=2):
+	return 'Write some outputs here.'
+```
 
 ### 计算类输入参数命名规则
 字母符号尽可能的与规范标准中的一致，下标连写（除非与python关键字冲突，例如<i>a</i><sub>s</sub>，命名为a_s），上标'采用_代替。

@@ -4,4 +4,5 @@ __all__ = [
     'pile',
     'longitudinal_force_distribution',
     'stress',
+    'composite_bridge',
     ]

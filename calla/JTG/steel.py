@@ -489,7 +489,7 @@ class diaphragm(abacus):
         ('H',('<i>H</i>','mm',1000,'腹板长度')),
         ('b1',('<i>b</i><sub>1</sub>','mm',100,'上翼缘宽度')),
         ('b2',('<i>b</i><sub>2</sub>','mm',100,'下翼缘宽度')),
-        ('option',('横隔板类型','mm','1','','',{'1':'实腹式','2':'桁架式','3':'框架式'})),
+        ('option',('横隔板类型','','1','','',{'1':'实腹式','2':'桁架式','3':'框架式'})),
         # 实腹式
         # 桁架式
         # 框架式
@@ -557,6 +557,7 @@ class diaphragm(abacus):
         raise Exception('not implemented')
 
     def solve(self):
+        self.validate('positive','Bu','tD','A')
         self.Ifu = self.tu*(self.Bu+2*self.b1)**3/12
         self.Ifl = self.tl*(self.Bl+2*self.b2)**3/12
         self.e,self.f,self.α1,self.α2,self.Idw,self.Kmin = self.fKmin(
@@ -612,8 +613,8 @@ class diaphragm(abacus):
 
 
 if __name__ == '__main__':
-    f = stability(γ0=1.1,fy=345,fd=275,My=7071.2,Mz=884.6,Wyeff=0.03365,Wzeff=0.2761,Mcry=6.3*7071.2,Mcrz=6.3*884.6)
-
+    f = diaphragm(
+        E=206000,G=79000,tu=12,tl=12,Ac=0,tD=20,
+        Ld=2000,Bu=1000,Bl=1000,Fu=0,Fl=0,Fh=0,H=1000,b1=100,b2=100,option='1',Td=0,fvd=160,A=0)
     f.solve()
-
     print(f.text())

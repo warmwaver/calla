@@ -26,11 +26,11 @@ class Pile(abacus, material_base):
     __title__ = '弹性桩验算'
     __inputs__ = OrderedDict((
         ('γ0',('<i>γ</i><sub>0</sub>','',1.0,'重要性系数')),
-        ('forces_fu', ('', 'kN,m', _forces_sample_, '基本组合内力',_forces_notes_)),
-        ('forces_ac', ('', 'kN,m', _forces_sample_, '偶然组合内力',_forces_notes_)),
-        ('forces_fr', ('', 'kN,m', _forces_sample_, '频遇组合内力',_forces_notes_)),
-        ('forces_qp', ('', 'kN,m', _forces_sample_, '准永久组合内力',_forces_notes_)),
-        ('forces_ch', ('', 'kN,m', _forces_sample_, '标准组合内力',_forces_notes_)),
+        ('forces_fu', ('', 'kN,m', _forces_sample_, '桩顶基本组合内力',_forces_notes_)),
+        ('forces_ac', ('', 'kN,m', _forces_sample_, '桩顶偶然组合内力',_forces_notes_)),
+        ('forces_fr', ('', 'kN,m', _forces_sample_, '桩顶频遇组合内力',_forces_notes_)),
+        ('forces_qp', ('', 'kN,m', _forces_sample_, '桩顶准永久组合内力',_forces_notes_)),
+        ('forces_ch', ('', 'kN,m', _forces_sample_, '桩顶标准组合内力',_forces_notes_)),
         material_base.concrete_item,
         material_base.rebar_item,
         ('L1',('<i>L</i><sub>1</sub>','m',2,'平行于水平力作用方向的桩间净距')),

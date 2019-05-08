@@ -188,7 +188,8 @@ class abacus:
             s = '{}{}'.format(name,sep) if name != '' else ''
         if digits != None and digits >= 0:
             try:
-                value = '{1:.{0}{2}}'.format(digits, value, 'e' if value>1e4 else 'f')
+                vabs = abs(value)
+                value = '{1:.{0}{2}}'.format(digits, value, 'e' if (vabs>1e4 or vabs<10**-digits) else 'f')
             except: # v is not decimal or numbers
                 pass
         symbol = info[0]

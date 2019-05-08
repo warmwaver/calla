@@ -131,7 +131,7 @@ class wind(abacus):
             ('U10',('<i>U</i><sub>10</sub>','m/s',10,'基本风速')),
             ('kt',('<i>k</i><sub>t</sub>','',1.0,'地形条件系数','不小于1.0。开阔平坦地形取1.0，峡谷山口取1.2~1.5')),
             ('L',('<i>L</i>','m',20,'水平加载长度','成桥状态下为主桥全长')),
-            ('Z',('<i>Z</i>','m',10,'基准高度')),
+            ('Z',('<i>Z</i>','m',10,'基准高度','按规范4.2.2、4.2.3条取值')),
             ('地表类别',('地表类别','','A','','',('A','B','C','D'))),
             ('ρ',('<i>ρ</i>','kg/m<sup>3</sup>',1.25,'空气密度')),
             ('CH',('<i>C</i><sub>H</sub>','',1.0,'主梁横向力系数','')),
@@ -197,6 +197,9 @@ class wind(abacus):
 
     @staticmethod
     def fkh(kc,Z,α0):
+        '''
+        按公式(4.2.6-3)~(4.2.6-6)计算
+        '''
         return kc*(Z/10)**α0
 
     @staticmethod
@@ -216,6 +219,7 @@ class wind(abacus):
         self.kc = self._kc[self.地表类别]
         self.α0 = self._α0[self.地表类别]
         kh = self.fkh(self.kc,self.Z,self.α0)
+        # 1≤kh≤1.77
         kh = max(kh, 1.0)
         self.kh = min(kh, 1.77)
         self.Ud = self.fUd(self.kf,self.kt,self.kh,self.U10)

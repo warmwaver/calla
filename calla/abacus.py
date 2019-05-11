@@ -151,6 +151,8 @@ class abacus:
             v = getattr(self,key)
             if v not in choices:
                 v = self.para_attrs(key).default_value
+            if v not in choices:
+                continue
             items = choices[v]
             if isinstance(items,tuple):
                 for item in items:

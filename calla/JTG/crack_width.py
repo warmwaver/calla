@@ -40,7 +40,7 @@ class crack_width(abacus):
         # force_type ='EC':
         ('ys',('<i>y</i><sub>s</sub>','mm',0,'截面重心至受拉钢筋距离','截面重心至纵向受拉钢筋合力点的距离')),
         # force_type ='ET':
-        ('ys_',('<i>y</i><sup>\'</sup>','mm',0,'截面重心至受拉较小或受压钢筋距离')),
+        ('ys_',('<i>y</i><sub>s</sub><sup>\'</sup>','mm',0,'截面重心至受拉较小或受压钢筋距离')),
         ('As',('<i>A</i><sub>s</sub>','mm<sup>2</sup>',0,'受拉钢筋面积')),
         ('Ap',('<i>A</i><sub>p</sub>','mm<sup>2</sup>',0,'受拉预应力筋面积')),
         ('Nl',('<i>N</i><sub>l</sub>','kN',0,'作用长期效应组合轴力','按荷载长期效应组合计算的轴向力值')),
@@ -65,7 +65,7 @@ class crack_width(abacus):
         ('β',('<i>β</i>','',0,'构件纵向受拉钢筋对裂缝贡献的系数')),
         ('ρte',('<i>ρ</i><sub>te</sub>','',0,'纵向受拉钢筋的有效配筋率')),
         ('Ate',('<i>A</i><sub>te</sub>','mm<sup>2</sup>',0,'有效受拉混凝土截面面积')),
-        ('es_',('<i>e</i><sub>s</sub><sup>\'</sup>','轴向拉力作用点至受压区或受拉较小边纵向钢筋合力点的距离')),
+        ('es_',('<i>e</i><sub>s</sub><sup>\'</sup>','mm','轴向拉力作用点至受压区或受拉较小边纵向钢筋合力点的距离')),
         ('Wcr',('<i>W</i><sub>cr</sub>','mm',0,'最大裂缝宽度')),
         ))
     __toggles__ = {
@@ -132,7 +132,7 @@ class crack_width(abacus):
             self.σss=self.Ns*1e3*(self.es-self.z)/self.As/self.z
         elif self.force_type == 'ET':
             self.ηs = self.f_ηs(self.e0,self.l0,self.h,self.h0)
-            self.es_ = self.ηs*self.e0+self.ys
+            self.es_ = self.ηs*self.e0+self.ys_
             self.σss=self.f_σss_ET(self.Ns,self.es_,self.As,self.h0,self.as_)
         elif self.force_type == 'AT':
             self.σss=self.f_σss_AT(self.Ns,self.As)
@@ -228,7 +228,7 @@ class crack_width(abacus):
         yield '构件受力类型: {}'.format(self.para_attrs('force_type').choices[self.force_type])
         yield '构件截面形式: {}'.format(self.para_attrs('section').choices[self.section])
         yield '构件尺寸:'
-        yield self.formatX('b','h','bf','hf','bf_','hf_','r','rs',digits=None)
+        yield self.formatX('b','h','bf','hf','bf_','hf_','r','rs','ys','ys_',digits=None)
         if self.section == 'rect':
             yield self.format('h0', omit_name = True, digits=None)
         yield '钢筋:'
@@ -250,13 +250,15 @@ class crack_width(abacus):
                 yield self.format('ys',digits=digits,omit_name=True)
                 yield self.format('γf_',eq='(bf_-b)·hf_/b/h0',digits=digits,omit_name=True)
                 yield self.format('z',eq='(0.87-0.12·(1-γf_)·(h0/es)<sup>2</sup>)·h0',digits=digits,omit_name=True)
-            if self.section == 'rect':
-                yield self.format('es',eq='ηs·e0+ys',digits=digits,omit_name=True)
-            elif self.section == 'ps':
+            if self.section == 'ps':
                 yield self.formatX('e',digits=digits)
         if self.section == 'rect':
+            if self.force_type == 'EC':
+                yield self.format('es',eq='ηs·e0+ys',digits=digits,omit_name=True)
+            elif self.force_type == 'ET':
+                yield self.format('es_',eq='ηs·e0+ys_',digits=digits,omit_name=True)
             eq = 'Ns/As' if self.force_type=='AT' else 'Ms/0.87/As/h0' \
-            if self.force_type=='BD' else "Ns·es'/As/(h0-as')" \
+            if self.force_type=='BD' else "Ns·es_/As/(h0-as_)" \
             if self.force_type=='ET' else 'Ns·(es-z)/As/z'
         elif self.section == 'round':
             eq = '0.6·(ηs·e0/r-0.1)<sup>3</sup>/(0.45+0.26·rs/r)/(ηs·e0/r+0.2)<sup>2</sup>·Ns/As' if self.force_type == 'EC' \

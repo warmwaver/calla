@@ -17,7 +17,7 @@ __all__ = [
 
 from math import pi, sin, cos, acos, sqrt
 from collections import OrderedDict
-from calla import abacus, numeric
+from calla import abacus, numeric, InputError
 from calla.JTG import material
 
 material_base = material.material_base
@@ -1164,55 +1164,186 @@ class shear_capacity(abacus, material_base):
 
 class torsion(abacus, material_base):
     """ 抗扭承载力计算
-    《公路钢筋混凝土及预应力混凝土桥涵设计规范》（JTG 3362-2018）第5.2.9节
+    《公路钢筋混凝土及预应力混凝土桥涵设计规范》（JTG 3362-2018）第5.5节
     """
     __title__ = '矩形和箱形截面抗扭承载力'
     __inputs__ = OrderedDict((
         ('section_type',('截面类型','','rect','','',{'rect':'矩形截面','box':'箱形截面'})),
         ('γ0',('<i>γ</i><sub>0</sub>','',1.0,'重要性系数')),
+        ('α1',('<i>α</i><sub>1</sub>','',1.0,'异号弯矩影响系数','简支梁和连续梁近边支点取1.0；连续梁和悬臂梁近中支点取0.9')),
+        ('α2',('<i>α</i><sub>2</sub>','',1.0,'预应力提高系数','钢筋混凝土取1.0；预应力混凝土取1.25')),
+        ('α3',('<i>α</i><sub>3</sub>','',1.0,'受压翼缘的影响系数','矩形截面取1.0；T形和I形截面取1.1')),
+        ('Vd',('<i>V</i><sub>d</sub>','kN',1000.0,'剪力设计值')),
+        ('Td',('<i>T</i><sub>d</sub>','kN·m',100.0,'扭矩设计值')),
         material_base.concrete_item,
-        ('fc',('<i>f</i><sub>c</sub>','N/mm<sup>2</sup>',14.3,'混凝土轴心抗压强度设计值')),
         ('fcuk',('<i>f</i><sub>cu,k</sub>','MPa',50,'混凝土立方体抗压强度标准值','取混凝土标号')),
+        ('fcd',('<i>f</i><sub>cd</sub>','N/mm<sup>2</sup>',14.3,'混凝土轴心抗压强度设计值')),
+        ('ftd',('<i>f</i><sub>td</sub>','MPa',1.83,'混凝土轴心抗拉强度设计值')),
         material_base.rebar_item,
-        ('fsd',('<i>f</i><sub>y</sub>','N/mm<sup>2</sup>',360,'普通钢筋抗拉强度设计值')),
-        ('b',('<i>b</i>','mm',1000,'矩形截面的短边尺寸')),
-        ('h',('<i>h</i>','mm',1600,'截面高度')),
+        ('fsd',('<i>f</i><sub>sd</sub>','N/mm<sup>2</sup>',330,'普通钢筋抗拉强度设计值')),
+        ('Asv',('<i>A</i><sub>sv</sub>','mm<sup>2</sup>',0,'箍筋面积','斜截面内配置在同一截面内的箍筋总截面面积')),
+        ('Asv1',('<i>A</i><sub>sv1</sub>','mm<sup>2</sup>',113.1,'纯扭计算中箍筋的单肢截面面积',\
+            '纯扭计算中箍筋的单肢截面面积')),
+        ('fsv',('<i>f</i><sub>sv</sub>','N/mm<sup>2</sup>',250,'箍筋抗拉强度设计值')),
+        ('b',('<i>b</i>','mm',1000,'截面的短边尺寸')),
+        ('h',('<i>h</i>','mm',1600,'截面的长边尺寸')),
         ('h0',('<i>h</i><sub>0</sub>','mm',1500,'截面有效高度')),
         ('t1',('<i>t</i><sub>1</sub>','mm',180,'箱形截面腹板壁厚')),
         ('t2',('<i>t</i><sub>2</sub>','mm',180,'箱形截面底板壁厚')),
+        ('bcor',('<i>b</i><sub>cor</sub>','mm',1500,'核芯面积的短边边长')),
+        ('hcor',('<i>h</i><sub>cor</sub>','mm',1500,'核芯面积的长边边长')),
         ('l0',('<i>l</i><sub>0</sub>','mm',1000,'构件计算长度')),
-        #('A',('<i>A</i>','mm<sup>2</sup>',pi/4*800**2,'圆形截面面积')),
-        ('Vd',('<i>v</i><sub>d</sub>','kN',1000.0,'剪力设计值')),
-        ('Td',('<i>T</i><sub>d</sub>','kN·m',100.0,'扭矩设计值')),
+        ('Ast',('<i>A</i><sub>st</sub>','mm<sup>2</sup>',pi/4*800**2,'纵向钢筋截面面积',\
+            '纯扭计算中沿截面周边对称配置的全部普通纵向钢筋截面面积')),
         ('εcu',('<i>ε</i><sub>cu</sub>','mm',0.0033,'混凝土极限压应变')),
+        ('sv',('<i>s</i><sub>v</sub>','mm',100,'箍筋间距','沿构件长度方向的箍筋间距')),
+        ('ρ',('<i>ρ</i>','',0,'纵向钢筋配筋率')),
+        ('ep0',('<i>e</i><sub>p0</sub>','mm',100,'受力筋对换算截面重心轴的偏心距',\
+            '预应力钢筋和普通钢筋的合力对换算截面重心轴的偏心距')),
+        ('Np0',('<i>N</i><sub>p0</sub>','mm',100,'预应力和普通钢筋的合力',\
+            '混凝土法向预应力等于零时预应力钢筋和普通钢筋的合力')),
+        ('A0',('<i>A</i><sub>0</sub>','mm<sup>2</sup>',0,'构件的换算截面面积')),
         ))
     __deriveds__ = OrderedDict((
         #('α',('<i>α</i>','',0,'受压区域圆心角与2π的比值')),
         ('Wt',('<i>W</i><sub>t</sub>','',0,'截面受扭塑性抵抗矩')),
-        ('eql',('eq<sub>l</sub>','',0,'公式(5.5.3-1)左式')),
-        ('eqr',('eq<sub>r</sub>','',0,'公式(5.5.3-1)右式')),
+        ('Acor',('<i>A</i><sub>cor</sub>','mm<sup>2</sup>',0,'由箍筋内表面包围的截面核芯面积')),
+        ('Ucor',('<i>U</i><sub>cor</sub>','mm',0,'截面核心面积的周长')),
+        ('ρsv',('<i>ρ</i><sub>sv</sub>','',0,'箍筋配筋率')),
+        ('τd',('','',0,'')),
+        ('γ0Vd',('','kN',0,'')),
+        ('γ0Td',('','kN·m',0,'')),
+        ('Tu',('','kN',0,'')),
+        ('Vut',('','kN',0,'')),
+        ('Tut',('','kN·m',0,'')),
         ))
     __toggles__ = {
         'concrete': material_base.material_toggles['concrete'],
         'rebar': material_base.material_toggles['rebar'],
+        'section_type':{'rect':('t1','t2'),'box':()}
         }
-    
-    # 矩形和箱形截面受扭塑性抵抗矩 (5.5.2)
-    f_Wt = lambda b,h,t1,t2:\
-        b**2/6*(3*h-b) if (t1==0 and t2==0) else\
+
+    @staticmethod
+    def fWt(b,h,t1,t2):
+        '''矩形和箱形截面受扭塑性抵抗矩,5.5.2节'''
+        return b**2/6*(3*h-b) if (t1==0 and t2==0) else\
         b**2/6*(3*h-b)-(b-2*t1)**2/6*(3*(h-2*t2)-(b-2*t1))
-    #(5.5.3-1)
-    f = lambda b,h0,Wt,γ0,Vd,Td:γ0*Vd/b/h0+γ0*Td/Wt
+
+    @staticmethod
+    def fζ(fsd, Ast, sv, fsv, Asv1, Ucor):
+        '''(5.5.1-2)'''
+        return fsd*Ast*sv/fsv/Asv1/Ucor
+
+    @staticmethod
+    def fTu(h, βa, ftd, Wt, ζ, fsv, Asv1, Acor, sv, ep0, Np0, A0):
+        '''矩形、箱形截面纯扭构件抗扭承载力，(5.5.1)右式'''
+        Tu = 0.35*βa*ftd*Wt+1.2*sqrt(ζ)*fsv*Asv1*Acor/sv
+        if ep0 <= h/6 and ζ >= 1.7:
+            Tu += 0.05*Np0/A0*Wt
+        return Tu
+    
+    @staticmethod
+    def fτd(b,h0,Wt,γ0,Vd,Td):
+        '''5.5.3-1节'''
+        return γ0*Vd/b/h0+γ0*Td/Wt
+
+    @staticmethod
+    def fβt(Vd,Td,b,h0,Wt):
+        '''(5.5.4-3)'''
+        return 1.5/(1+0.5*Vd*Wt/Td/b/h0)
+
+    @staticmethod
+    def fVut(α1,α2,α3, βt,b,h0,fcuk, P, ρsv, fsv):
+        '''(5.5.4-1)'''
+        # βt = 1.5/(1+0.5*Vd*Wt/Td/b/h0)
+        Tu = 0.5e-4*α1*α2*α3*(10-2*βt)*b*h0*sqrt((2+0.6*P)*sqrt(fcuk)*ρsv*fsv)
+        # Tut = βt*(0.35*βa*ftd+0.05*Np0/A0)*Wt+1.2*sqrt(ζ)*fsv*Asv1*Acor/sv
+        return Tu
+
+    @staticmethod
+    def fTut(βt, βa, ftd, Wt, ζ, fsv, Asv1, Acor, sv, Np0, A0):
+        '''矩形、箱形截面纯扭构件抗扭承载力，(5.5.4-2)右式'''
+        Tu = βt*(0.35*βa*ftd+0.05*Np0/A0)*Wt+1.2*sqrt(ζ)*fsv*Asv1*Acor/sv
+        return Tu
+
     def solve(self):
-        self.Wt = torsion.f_Wt(self.b,self.h,self.t1,self.t2)
-        self.eql = torsion.f(self.b,self.h0,self.Wt,self.γ0,self.Vd,self.Td*1e3)
-        self.eqr = 0.51e-3*(self.fcuk)**0.5
-        return self.eql <= self.eqr
-    def _test():
-        Wt = torsion.f_Wt(1000,1600,200,180)
-        eql = torsion.f(1000,1400,0.5*Wt,1.1,1580,410e3)
-        eqr = 0.51e-3*(50)**0.5
-        print('eql = {} , eqr = {}'.format(eql,eqr))
+        b = self.b
+        h = self.h
+        if self.b > self.h:
+            b = self.h
+            h = self.b
+            # raise InputError(self, 'b', 'b应为短边尺寸，h为长边尺寸')
+        Vd = self.Vd*1e3
+        Td = self.Td*1e6
+        self.Acor=self.bcor*self.hcor
+        self.Ucor=2*(self.bcor+self.hcor)
+        self.P = self.ρ * 100
+        self.ρsv = 0 if self.sv == 0 else self.Asv/self.sv/b
+        # 5.5.2
+        self.Wt = self.fWt(b,h,self.t1,self.t2)
+        # 5.5.1 抗扭承载力
+        self.βa = 1.0
+        if (self.t2 >= 0.1*b and self.t2 <= 0.25*b) or \
+            (self.t1 >= 0.1*h and self.t2 <= 0.25*h):
+            self.βa = 4*min(self.t2/b, self.t1/h)
+        self.γ0Td = self.γ0*self.Td
+        ζ = self.fζ(self.fsd, self.Ast, self.sv, self.fsv, self.Asv1, self.Ucor)
+        if self.Np0 <= 0:
+            if ζ < 0.6:
+                ζ = 0.6
+            if ζ > 1.7:
+                ζ = 1.7
+        self.ζ = ζ
+        self.Tu = self.fTu(
+            h, self.βa,self.ftd,self.Wt, self.ζ, self.fsv, self.Asv1,
+            self.Acor, self.sv, self.ep0, self.Np0, self.A0)
+        # 5.5.3 截面验算
+        self.τd = self.fτd(b,self.h0,self.Wt,self.γ0,Vd,Td)
+        self.fcv = 0.51*sqrt(self.fcuk)# (5.5.3-1) 参数说明
+        self.τ1 = 0.5*self.α2*self.ftd # (5.5.3-2)
+        # 5.5.4 抗剪扭承载力
+        self.γ0Vd = self.γ0*self.Vd
+        self.βt = self.fβt(Vd,Td,b,self.h0,self.Wt)
+        self.Vut = self.fVut(
+            self.α1,self.α2,self.α3, self.βt, b,self.h0,self.fcuk, self.P, self.ρsv, self.fsv)/1e3
+        self.Tut = self.fTut(
+            self.βt, self.βa,self.ftd,self.Wt, self.ζ, self.fsv, self.Asv1,
+            self.Acor, self.sv, self.Np0, self.A0)/1e6
+
+    def _html(self, digits=2):
+        # yield '混凝土桥面板配筋：'
+        inputs = self.inputs
+        for para in inputs:
+            yield self.format(para, digits=None)
+        if self.Vd == 0:
+            ok = self.γ0Td <= self.Tu
+            yield '{} {} {}，{}满足规范要求。'.format(
+                self.format('γ0Td', digits, eq='γ0 Td'), '&le;' if ok else '&gt;', 
+                self.format('Tu', digits=digits, eq = '0.35*βa*ftd*Wt+1.2*sqrt(ζ)*fsv*Asv1*Acor/sv', omit_name=True),
+                '' if ok else '不')
+        else:
+            ok = self.τd <= self.fcv
+            yield '{} {} {}，截面验算{}满足规范要求。'.format(
+                self.format('τd', digits, eq='γ0*Vd/b/h0+γ0*Td/Wt', omit_name=True), '&le;' if ok else '&gt;', 
+                self.format('fcv', digits, omit_name=True),
+                '' if ok else '不')
+            ok = self.τd <= self.τ1
+            yield '{} {} {}，{}满足(5.5.3-2)式要求，{}进行抗扭承载力计算。'.format(
+                self.format('τd', digits, eq='γ0*Vd/b/h0+γ0*Td/Wt'), '&le;' if ok else '&gt;', 
+                self.format('τ1', digits, omit_name=True),
+                '' if ok else '不', '可不' if ok else '需')
+            if not ok:
+                yield self.formatX('βt','P','ρsv')
+                ok = self.γ0Vd <= self.Vut
+                yield '{} {} {}，{}满足规范要求。'.format(
+                    self.format('γ0Vd', digits, eq='γ0 Vd'), '&le;' if ok else '&gt;', 
+                    self.format('Vut', digits, eq='0.5e-4*α1*α2*α3*(10-2*βt)*b*h0*sqrt((2+0.6*P)*sqrt(fcuk)*ρsv*fsv)', omit_name=True),
+                    '' if ok else '不')
+                ok = self.γ0Td <= self.Tut
+                yield '{} {} {}，{}满足规范要求。'.format(
+                    self.format('γ0Td', digits, eq='γ0 Td'), '&le;' if ok else '&gt;', 
+                    self.format('Tut', digits, eq='βt*(0.35*βa*ftd+0.05*Np0/A0)*Wt+1.2*sqrt(ζ)*fsv*Asv1*Acor/sv', omit_name=True),
+                    '' if ok else '不')
 
 class local_pressure(abacus, material_base):
     """局部承压验算
@@ -1316,10 +1447,8 @@ class local_pressure(abacus, material_base):
 if __name__ == '__main__':
     import doctest
     doctest.testmod()
-
-    f = local_pressure(γ0=1.0,Fld=1200,Ab=500**2,Al=500**2,Aln=500**2,concrete='C30',rebar='HRB400',Acor=500**2,rebar_shape='方格网',l1=400,n1=5,As1=113.1,l2=400,n2=5,As2=113.1,s=80)
-
+    # f = local_pressure(γ0=1.0,Fld=1200,Ab=500**2,Al=500**2,Aln=500**2,concrete='C30',rebar='HRB400',Acor=500**2,rebar_shape='方格网',l1=400,n1=5,As1=113.1,l2=400,n2=5,As2=113.1,s=80)
+    f = torsion()
     f.solve()
-
     print(f.text())
     

@@ -4,6 +4,7 @@
 
 __all__ = [
     'deck_effective_width',
+    'stress_increment',
     'connector_shear_capacity',
     'shear_connector_uls_check',
     'shear_connector_sls_check',
@@ -82,6 +83,180 @@ class deck_effective_width(abacus):
         yield self.format('bc1', digits, eq='min(Lc/6, b1)')
         yield self.format('bc2', digits, eq='min(Lc/6, b2)')
         yield self.format('bc', digits, eq=eq2)
+
+class stress_increment(abacus):
+    """
+    钢-混凝土组合桥梁计算混凝土徐变、收缩等引起的截面应力增量
+    《钢-混凝土组合桥梁设计规范》（GB 50917-2013） 附录B
+    """
+    __title__ = '钢-混组合梁截面应力增量'
+    __inputs__ = OrderedDict((
+        ('load_type',('','','1','荷载类型','',{'1':'永久作用','2':'混凝土收缩','3':'温度变化'})),
+        # ('εcs',('<i>ε</i><sub>cs</sub>','',0,'收缩应变','收缩开始时的龄期为ts，计算考虑的龄期为t 时的收缩应变')),
+        ('φ',('<i>φ</i>(<i>t</i>,<i>t</i><sub>0</sub>)','',2.11,'徐变系数最终值')),
+        ('εsh',('<i>ε</i><sub>sh</sub>','',0,'混凝土的收缩应变')),
+        ('ξ',('<i>ξ</i>','',1.0,'收缩折减系数')),
+        # ('L',('<i>L</i>','mm',50e3,'梁长')),
+        ('αs',('<i>α</i><sub>s</sub>','1/°C',1.2e-5,'钢材线性膨胀系数')),
+        ('αc',('<i>α</i><sub>c</sub>','1/°C',1.0e-5,'混凝土线性膨胀系数')),
+        ('Δt',('<i>Δt</i>','°C',24,'温度变化值')),
+        # 截面参数
+        ('As',('<i>A</i><sub>s</sub>','mm<sup>2</sup>',0,'钢梁的截面面积')),
+        ('Es',('<i>E</i><sub>s</sub>','MPa',2.06e5,'钢梁的弹性模量')),
+        ('Ac',('<i>A</i><sub>c</sub>','mm<sup>2</sup>',0,'混凝土桥面板的截面面积')),
+        ('Ec',('<i>E</i><sub>c</sub>','MPa',3.45e4,'混凝土的弹性模量')),
+        ('I0L',('<i>I</i><sub>0L</sub>','mm<sup>4</sup>',0,'换算截面惯性矩')),
+        ('y0c',('<i>y</i><sub>0c</sub>','mm',1000,'混凝土桥面板形心至换算中和轴的距离')),
+        ('y0Lc',('<i>y</i><sub>0L</sub><sup>c</sup>','mm',1000,'混凝土桥面板所求应力点至换算截面中和轴的距离')),
+        ('S0c',('<i>S</i><sub>0c</sub>','mm',1000,'混凝土桥面板对组合截面中和轴的面积矩')),
+        ('y0Ls',('<i>y</i><sub>0L</sub><sup>s</sup>','mm',1000,'钢梁所求应力点至换算截面中和轴的距离')),
+        ('S0s',('<i>S</i><sub>0s</sub>','mm',1000,'钢梁对组合截面中和轴的面积矩')),
+        ))
+    __deriveds__ = OrderedDict((
+        ('n0',('<i>n</i><sub>0</sub>','',0,'钢与混凝土的弹性模量比')),
+        ('nL',('<i>n</i><sub>L</sub>','',0,'钢与混凝土的有效弹性模量比')),
+        ('A0L',('<i>A</i><sub>0L</sub>','mm<sup>2</sup>',0,'换算截面面积')),
+        ('ψL',('<i>ψ</i><sub>L</sub>','',1.1,'徐变因子')),
+        # ('Δ',('<i>Δ</i>','mm',0,'组合梁伸缩量')),
+        ('P0',('<i>P</i><sub>0</sub>','N',0,'虚拟荷载')),
+        ('M0',('<i>M</i><sub>0</sub>','N·mm',0,'虚拟荷载偏心弯矩')),
+        ('Δσc',('<i>Δσc</i><sub>c</sub>','MPa',0,'混凝土桥面板应力增量')),
+        ('Δσs',('<i>Δσc</i><sub>s</sub>','MPa',0,'钢梁应力增量')),
+        ('Pc',('<i>P</i><sub>c</sub>','N',0,'混凝土桥面板轴力')),
+        ('Ps',('<i>P</i><sub>s</sub>','N',0,'钢梁轴力')),
+        ))
+    __toggles__ = {
+        'load_type':{'1':('εsh','Δt','αs','αc'),'2':('Δt','αs','αc'),'3':('εsh','φ')}
+        }
+
+    @staticmethod
+    def fΔσc(P0,M0,nL,A0L,I0L,Ac,y0Lc):
+        '''(B.0.3-1)'''
+        # 力平衡方程：(Δc-Δ)/L*Ac*Ec = Δ/L*As*Es
+        # Δ为组合梁缩短量
+        # Δ = L*εcs*Ac*Ec/(As*Es+Ac*Ec)
+        # F = Δ/L*As*Es=εcs*As*Es*Ac*Ec/(As*Es+Ac*Ec)
+        return 1/nL*(P0/A0L+M0/I0L*y0Lc)-P0/Ac
+
+    @staticmethod
+    def fΔσs(P0,M0,A0L,I0L,Ac,y0Ls):
+        '''(B.0.3-2)'''
+        # 力平衡方程：(Δc-Δ)/L*Ac*Ec = Δ/L*As*Es
+        # Δ为组合梁缩短量
+        # Δ = L*εcs*Ac*Ec/(As*Es+Ac*Ec)
+        # F = Δ/L*As*Es=εcs*As*Es*Ac*Ec/(As*Es+Ac*Ec)
+        return P0/A0L+M0/I0L*y0Ls
+
+    @staticmethod
+    def fEcφ(Ec, ψL, φ):
+        # 力平衡方程：(Δc-Δ)/L*Ac*Ec = Δ/L*As*Es
+        # Δ为组合梁缩短量
+        # Δ = L*εcs*Ac*Ec/(As*Es+Ac*Ec)
+        # F = Δ/L*As*Es=εcs*As*Es*Ac*Ec/(As*Es+Ac*Ec)
+        return Ec/(1+ψL*φ)
+
+    @staticmethod
+    def fP0(Ecgφ,Ac,ε0,φ,y0c):
+        '''(B.0.3-2)'''
+        # 力平衡方程：(Δc-Δ)/L*Ac*Ec = Δ/L*As*Es
+        # Δ为组合梁缩短量
+        # Δ = L*εcs*Ac*Ec/(As*Es+Ac*Ec)
+        # F = Δ/L*As*Es=εcs*As*Es*Ac*Ec/(As*Es+Ac*Ec)
+        P0 = Ecgφ*Ac*ε0*φ
+        M0 = P0*y0c
+        return (P0, M0)
+
+    @staticmethod
+    def fP0sh(Ecsφ,Ac,εsh):
+        '''混凝土收缩虚拟荷载'''
+        # 力平衡方程：(Δc-Δ)/L*Ac*Ec = Δ/L*As*Es
+        # Δ为组合梁缩短量
+        # Δ = L*εcs*Ac*Ec/(As*Es+Ac*Ec)
+        # F = Δ/L*As*Es=εcs*As*Es*Ac*Ec/(As*Es+Ac*Ec)
+        P0 = Ecsφ*Ac*εsh
+        return P0
+
+    @staticmethod
+    def fP0t(Ac,Ec,αc,αs,Δt):
+        '''温度变化虚拟荷载'''
+        # 力平衡方程：(Δ-Δs)/L*As*Es+(Δ-Δc)/L*Ac*Ec = 0
+        # Δ为组合梁伸缩量
+        # ΔL=(As*Es*αs+Ac*Ec*αc)*L*Δt/(As*Es+Ac*Ec) #mm
+        # Δs = L*Δt*αs
+        # Δc = L*Δt*αc
+        # Fs = (ΔL-Δs)/L*As*Es
+        # Fc = (ΔL-Δc)/L*Ac*Ec
+        P0 = Ec*Ac*Δt*(αs-αc)
+        return P0
+
+    @staticmethod
+    def fPc(P0,M0,nL,A0L,I0L,Ac,S0c):
+        return (1/nL*P0/A0L-P0/Ac)*Ac+M0/I0L*S0c
+
+    @staticmethod
+    def fPs(P0,M0,A0L,I0L,As,S0s):
+        return P0/A0L*As+M0/I0L*S0s
+        
+    def solve_shrinkage(self):
+        # 拉力为正，压力为负
+        # 混凝土收缩，故εsh按负值计算
+        self.ψL = 0.55
+        self.nL = self.n0*(1+self.ψL*self.φ)
+        self.Ecsφ = self.fEcφ(self.Ec, self.ψL, self.φ)
+        εsh = self.εsh
+        if εsh>0:
+            εsh = -εsh
+        self.P0  = self.fP0sh(self.Ecsφ,self.Ac,εsh*self.ξ)
+        self.M0 = self.P0*self.y0c
+        self.A0L = self.As + self.Ac/self.nL
+        self.Δσc = self.fΔσc(self.P0,self.M0,self.nL,self.A0L,self.I0L,self.Ac,self.y0Lc)
+        self.Δσs = self.fΔσs(self.P0,self.M0,self.A0L,self.I0L,self.Ac,self.y0Ls)
+        self.Pc = self.fPc(self.P0,self.M0,self.nL,self.A0L,self.I0L,self.Ac,self.S0c)
+        self.Ps = self.fPs(self.P0,self.M0,self.A0L,self.I0L,self.As,self.S0s)
+        
+    def solve_temperature(self):
+        self.ψL = 0
+        self.nL = self.n0
+        self.P0 = self.fP0t(self.Ac,self.Ec,self.αc,self.αs,self.Δt)
+        self.M0 = self.P0*self.y0c
+        self.A0L = self.As + self.Ac/self.nL
+        self.Δσc = self.fΔσc(self.P0,self.M0,self.nL,self.A0L,self.I0L,self.Ac,self.y0Lc)
+        self.Δσs = self.fΔσs(self.P0,self.M0,self.A0L,self.I0L,self.Ac,self.y0Ls)
+        self.Pc = self.fPc(self.P0,self.M0,self.nL,self.A0L,self.I0L,self.Ac,self.S0c)
+        self.Ps = self.fPs(self.P0,self.M0,self.A0L,self.I0L,self.As,self.S0s)
+        
+    def solve(self):
+        # fPc = lambda P0,M0,nL,A0L,I0L,Ac,S0c:(1/nL*P0/A0L-P0/Ac)*Ac+M0/I0L*S0c
+        # fPs = lambda P0,M0,A0L,I0L,As,S0s:P0/A0L*As+M0/I0L*S0s
+        self.validate('positive','As','Es','Ac','Ec')
+        self.n0 = self.Es/self.Ec
+        # 混凝土收缩
+        if self.load_type == '2':
+            self.solve_shrinkage()
+        elif self.load_type == '3':
+            self.solve_temperature()
+
+    def _html(self, digits=2):
+        for para in ('As','Es','Ac','Ec','I0L','y0c','y0Lc','S0c','y0Ls','S0s'):
+            yield self.format(para, digits=None)
+        yield self.format('n0')
+        yield self.format('ψL')
+        if self.load_type == '2':
+            for para in ('εsh','ξ','φ'):
+                yield self.format(para, digits=None)
+            yield self.format('nL', eq='n0*(1+ψL*φ))')
+            yield self.format('P0', eq='Ecsφ*Ac*εsh')
+        elif self.load_type == '3':
+            for para in ('αs','αc','Δt'):
+                yield self.format(para, digits=None)
+            yield self.format('nL', eq='n0')
+            yield self.format('P0', eq='Ec*Ac*Δt*(αs-αc)')
+        yield self.format('M0', eq='P0*y0c')
+        yield self.format('A0L', eq='As+Ac/nL')
+        yield self.format('Δσc', eq='1/nL*(P0/A0L+M0/I0L*y0Lc)-P0/Ac')
+        yield self.format('Δσs', eq='P0/A0L+M0/I0L*y0Ls')
+        yield self.format('Pc', eq='(1/nL*P0/A0L-P0/Ac)*Ac+M0/I0L*S0c')
+        yield self.format('Ps', eq='P0/A0L*As+M0/I0L*S0s')
 
 class connector_shear_capacity(abacus):
     """
@@ -274,7 +449,7 @@ class shear_connector_sls_check(abacus):
         self.validate('positive', 'I0','nd')
         self.V1a = self.Vd*self.S0c/self.I0
         self.lcs = min(self.l1, self.l2/10)
-        if self.option == '0':
+        if self.option == '0' or self.option == '2':
             self.V1b = self.Vt/self.lcs
         else:
             self.V1b = 2*self.Vt/self.lcs
@@ -286,7 +461,7 @@ class shear_connector_sls_check(abacus):
         for para in ('Vd','Vt','S0c','I0','ld','nd','lcs','Nvc'):
             yield self.format(para, digits=None)
         yield self.format('V1a', eq='Vd*S0c/I0')
-        yield self.format('V1b', eq='{}Vt/lcs'.format('' if self.option == '0' else '2'))
+        yield self.format('V1b', eq='{}Vt/lcs'.format('2' if self.option == '1' else ''))
         yield self.format('V1')
         ok = self.eql <= self.eqr
         yield '{} {} {}，{}满足规范要求。'.format(
@@ -353,7 +528,7 @@ class deck_longitudinal_shear(abacus):
         self.Aemin = 0.8*self.Ls/self.fsd
         self.V1a = self.Vd*self.S0c/self.I0
         self.lcs = min(self.l1, self.l2/10)
-        if self.option == '0':
+        if self.option == '0' or self.option == '2':
             self.V1b = self.Vt/self.lcs
         else:
             self.V1b = 2*self.Vt/self.lcs
@@ -378,8 +553,14 @@ class deck_longitudinal_shear(abacus):
             self.format('Aemin', digits=digits, eq = '0.8·Ls/fsd', omit_name=True),
             '' if ok else '不')
         yield self.format('V1a', eq='Vd*S0c/I0')
-        yield self.format('V1b', eq='{}Vt/lcs'.format('' if self.option == '0' else '2'))
+        yield self.format('V1b', eq='{}Vt/lcs'.format('2' if self.option == '1' else ''))
         yield self.format('V1')
+        yield '按式(7.4.6-1)：'
+        yield self.format('V1Rd', digits, value=self.V1Rd1, eq='0.7*Ls*ftd+0.8*Ae*fsd',omit_name=True)
+        yield '按式(7.4.6-2)：'
+        yield self.format('V1Rd', digits, value=self.V1Rd2, eq='0.25*Ls*fcd',omit_name=True)
+        yield '取两者较小值：'
+        yield self.format('V1Rd', digits,omit_name=True)
         ok = self.V1d <= self.V1Rd
         eq = 'max(V1*b1/bc, V1*b2/bc)' if self.interface == 'a-a' else 'V1'
         yield '{} {} {}，{}满足规范要求。'.format(
@@ -449,6 +630,7 @@ class shear_connector_fatigue(abacus):
 if __name__ == '__main__':
     # f = connector_shear_capacity(As=0.516e6,Ac=3.43e6,Art=40*201.1)
     # f = deck_longitudinal_shear(I0=0.77e12,bc=2000,b1=600,b2=600)
-    f = shear_connector_sls_check(I0=0.77e12, S0c=420*3.43e6, Vd=1000e3, Vt=1000e3,Nvc=1.03e5)
+    # f = shear_connector_sls_check(I0=0.77e12, S0c=420*3.43e6, Vd=1000e3, Vt=1000e3,Nvc=1.03e5)
+    f = stress_increment(load_type='3',εsh=1e-4,Ac=3.43e6,As=0.77e12,I0L=0.75e12)
     f.solve()
     print(f.text())

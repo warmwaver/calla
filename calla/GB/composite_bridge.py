@@ -92,41 +92,54 @@ class stress_increment(abacus):
     __title__ = '钢-混组合梁截面应力增量'
     __inputs__ = OrderedDict((
         ('load_type',('','','1','荷载类型','',{'1':'永久作用','2':'混凝土收缩','3':'温度变化'})),
+        ('temperature_type',('','','1','温度类型','',{'1':'整体升降温','2':'矩形温差','3':'梯形温差'})),
         # ('εcs',('<i>ε</i><sub>cs</sub>','',0,'收缩应变','收缩开始时的龄期为ts，计算考虑的龄期为t 时的收缩应变')),
+        ('ε0',('<i>ε</i><sub>0</sub>','',0,'组合梁混凝土桥面板形心处在t0时刻的初应变')),
+        ('φt',('<i>φ</i>(<i>t</i>,<i>τ</i>)','',1.0,'徐变系数')),
         ('φ',('<i>φ</i>(<i>t</i>,<i>t</i><sub>0</sub>)','',2.11,'徐变系数最终值')),
         ('εsh',('<i>ε</i><sub>sh</sub>','',0,'混凝土的收缩应变')),
         ('ξ',('<i>ξ</i>','',1.0,'收缩折减系数')),
         # ('L',('<i>L</i>','mm',50e3,'梁长')),
         ('αs',('<i>α</i><sub>s</sub>','1/°C',1.2e-5,'钢材线性膨胀系数')),
         ('αc',('<i>α</i><sub>c</sub>','1/°C',1.0e-5,'混凝土线性膨胀系数')),
-        ('Δt',('<i>Δt</i>','°C',24,'温度变化值')),
+        ('Δt',('<i>Δt</i>','°C',0,'温度变化值')),
+        ('ts',('<i>t</i><sub>s</sub>','°C',0,'钢梁温度')),
+        ('tc',('<i>t</i><sub>c</sub>','°C',0,'混凝土温度')),
         # 截面参数
         ('As',('<i>A</i><sub>s</sub>','mm<sup>2</sup>',0,'钢梁的截面面积')),
+        ('Is',('<i>I</i><sub>s</sub>','mm<sup>4</sup>',0,'钢梁截面惯性矩')),
         ('Es',('<i>E</i><sub>s</sub>','MPa',2.06e5,'钢梁的弹性模量')),
         ('Ac',('<i>A</i><sub>c</sub>','mm<sup>2</sup>',0,'混凝土桥面板的截面面积')),
+        ('Ic',('<i>I</i><sub>c</sub>','mm<sup>4</sup>',0,'混凝土截面惯性矩')),
         ('Ec',('<i>E</i><sub>c</sub>','MPa',3.45e4,'混凝土的弹性模量')),
-        ('I0L',('<i>I</i><sub>0L</sub>','mm<sup>4</sup>',0,'换算截面惯性矩')),
-        ('y0c',('<i>y</i><sub>0c</sub>','mm',1000,'混凝土桥面板形心至换算中和轴的距离')),
-        ('y0Lc',('<i>y</i><sub>0L</sub><sup>c</sup>','mm',1000,'混凝土桥面板所求应力点至换算截面中和轴的距离')),
-        ('S0c',('<i>S</i><sub>0c</sub>','mm',1000,'混凝土桥面板对组合截面中和轴的面积矩')),
-        ('y0Ls',('<i>y</i><sub>0L</sub><sup>s</sup>','mm',1000,'钢梁所求应力点至换算截面中和轴的距离')),
-        ('S0s',('<i>S</i><sub>0s</sub>','mm',1000,'钢梁对组合截面中和轴的面积矩')),
+        ('ycs',('<i>y</i><sub>cs</sub>','mm',0,'混凝土桥面板形心至钢梁形心的距离')),
+        ('y0Lc',('<i>y</i><sub>0L</sub><sup>c</sup>','mm',0,'混凝土桥面板所求应力点至换算截面中和轴的距离')),
+        ('y0Ls',('<i>y</i><sub>0L</sub><sup>s</sup>','mm',0,'钢梁所求应力点至换算截面中和轴的距离')),
         ))
     __deriveds__ = OrderedDict((
+        ('y0c',('<i>y</i><sub>0c</sub>','mm',0,'混凝土桥面板形心至换算中和轴的距离')),
+        ('y0s',('<i>y</i><sub>0s</sub>','mm',0,'钢梁形心至换算中和轴的距离')),
+        ('S0c',('<i>S</i><sub>0c</sub>','mm<sup>3</sup>',0,'混凝土桥面板对组合截面中和轴的面积矩')),
+        ('S0s',('<i>S</i><sub>0s</sub>','mm<sup>3</sup>',0,'钢梁对组合截面中和轴的面积矩')),
         ('n0',('<i>n</i><sub>0</sub>','',0,'钢与混凝土的弹性模量比')),
         ('nL',('<i>n</i><sub>L</sub>','',0,'钢与混凝土的有效弹性模量比')),
+        ('I0L',('<i>I</i><sub>0L</sub>','mm<sup>4</sup>',0,'换算截面惯性矩')),
         ('A0L',('<i>A</i><sub>0L</sub>','mm<sup>2</sup>',0,'换算截面面积')),
         ('ψL',('<i>ψ</i><sub>L</sub>','',1.1,'徐变因子')),
+        # ('Ecφ',('<i>E</i><sub>cφ</sub>','MPa',0,'混凝土的有效弹性模量')),
+        ('Ecgφ',('<i>E</i><sub>cgφ</sub>','MPa',0,'混凝土的有效弹性模量')),
+        ('Ecsφ',('<i>E</i><sub>csφ</sub>','MPa',0,'混凝土的有效弹性模量')),
         # ('Δ',('<i>Δ</i>','mm',0,'组合梁伸缩量')),
         ('P0',('<i>P</i><sub>0</sub>','N',0,'虚拟荷载')),
         ('M0',('<i>M</i><sub>0</sub>','N·mm',0,'虚拟荷载偏心弯矩')),
-        ('Δσc',('<i>Δσc</i><sub>c</sub>','MPa',0,'混凝土桥面板应力增量')),
-        ('Δσs',('<i>Δσc</i><sub>s</sub>','MPa',0,'钢梁应力增量')),
+        ('Δσc',('<i>Δσ</i><sub>c</sub>','MPa',0,'混凝土桥面板应力增量')),
+        ('Δσs',('<i>Δσ</i><sub>s</sub>','MPa',0,'钢梁应力增量')),
         ('Pc',('<i>P</i><sub>c</sub>','N',0,'混凝土桥面板轴力')),
         ('Ps',('<i>P</i><sub>s</sub>','N',0,'钢梁轴力')),
         ))
     __toggles__ = {
-        'load_type':{'1':('εsh','Δt','αs','αc'),'2':('Δt','αs','αc'),'3':('εsh','φ')}
+        'load_type':{'1':('εsh','Δt','αs','αc','temperature_type'),'2':('ε0','Δt','αs','αc','temperature_type'),'3':('ε0','εsh','φ')},
+        'temperature_type':{'1':('ts','tc'),'2':('Δt'),'3':('ts','tc','Δt')}
         }
 
     @staticmethod
@@ -149,36 +162,24 @@ class stress_increment(abacus):
 
     @staticmethod
     def fEcφ(Ec, ψL, φ):
-        # 力平衡方程：(Δc-Δ)/L*Ac*Ec = Δ/L*As*Es
-        # Δ为组合梁缩短量
-        # Δ = L*εcs*Ac*Ec/(As*Es+Ac*Ec)
-        # F = Δ/L*As*Es=εcs*As*Es*Ac*Ec/(As*Es+Ac*Ec)
+        '''(6.2.3-1)'''
         return Ec/(1+ψL*φ)
 
     @staticmethod
-    def fP0(Ecgφ,Ac,ε0,φ,y0c):
-        '''(B.0.3-2)'''
-        # 力平衡方程：(Δc-Δ)/L*Ac*Ec = Δ/L*As*Es
-        # Δ为组合梁缩短量
-        # Δ = L*εcs*Ac*Ec/(As*Es+Ac*Ec)
-        # F = Δ/L*As*Es=εcs*As*Es*Ac*Ec/(As*Es+Ac*Ec)
+    def fP0g(Ecgφ,Ac,ε0,φ):
+        '''徐变引起的永久作用虚拟荷载(B.0.4-1)'''
         P0 = Ecgφ*Ac*ε0*φ
-        M0 = P0*y0c
-        return (P0, M0)
+        return P0
 
     @staticmethod
     def fP0sh(Ecsφ,Ac,εsh):
-        '''混凝土收缩虚拟荷载'''
-        # 力平衡方程：(Δc-Δ)/L*Ac*Ec = Δ/L*As*Es
-        # Δ为组合梁缩短量
-        # Δ = L*εcs*Ac*Ec/(As*Es+Ac*Ec)
-        # F = Δ/L*As*Es=εcs*As*Es*Ac*Ec/(As*Es+Ac*Ec)
+        '''混凝土收缩虚拟荷载(B.0.4-3)'''
         P0 = Ecsφ*Ac*εsh
         return P0
 
     @staticmethod
     def fP0t(Ac,Ec,αc,αs,Δt):
-        '''温度变化虚拟荷载'''
+        '''温度变化虚拟荷载(B.0.4-6)'''
         # 力平衡方程：(Δ-Δs)/L*As*Es+(Δ-Δc)/L*Ac*Ec = 0
         # Δ为组合梁伸缩量
         # ΔL=(As*Es*αs+Ac*Ec*αc)*L*Δt/(As*Es+Ac*Ec) #mm
@@ -190,73 +191,122 @@ class stress_increment(abacus):
         return P0
 
     @staticmethod
+    def fP0t2(Ac,Ec,αc,αs,ts,tc):
+        '''温度变化虚拟荷载(B.0.4-7)'''
+        P0 = -Ec*Ac*(ts*αs-tc*αc)
+        return P0
+
+    @staticmethod
     def fPc(P0,M0,nL,A0L,I0L,Ac,S0c):
-        return (1/nL*P0/A0L-P0/Ac)*Ac+M0/I0L*S0c
+        '''计算混凝土截面中的轴力
+        对式(B.0.3-1)在混凝土截面上进行积分
+        轴力以拉为正，弯矩以截面底部受拉为正，故弯矩部分在混凝土截面上产生的应力积分以后为负值，
+        即正弯矩在混凝土截面上产生压力，在钢梁截面上产生拉力。
+        '''
+        return (1/nL*P0/A0L-P0/Ac)*Ac+M0/nL/I0L*S0c
 
     @staticmethod
     def fPs(P0,M0,A0L,I0L,As,S0s):
-        return P0/A0L*As+M0/I0L*S0s
-        
-    def solve_shrinkage(self):
-        # 拉力为正，压力为负
-        # 混凝土收缩，故εsh按负值计算
-        self.ψL = 0.55
-        self.nL = self.n0*(1+self.ψL*self.φ)
-        self.Ecsφ = self.fEcφ(self.Ec, self.ψL, self.φ)
-        εsh = self.εsh
-        if εsh>0:
-            εsh = -εsh
-        self.P0  = self.fP0sh(self.Ecsφ,self.Ac,εsh*self.ξ)
-        self.M0 = self.P0*self.y0c
+        '''计算钢梁截面中的轴力
+        对式(B.0.3-2)在钢梁截面上进行积分
+        轴力以拉为正，弯矩以截面底部受拉为正，故弯矩部分在钢梁截面上产生的应力积分以后为正值，
+        即正弯矩在混凝土截面上产生压力，在钢梁截面上产生拉力。
+        '''
+        return P0/A0L*As-M0/I0L*S0s
+
+    def solve_section_properties(self):
         self.A0L = self.As + self.Ac/self.nL
-        self.Δσc = self.fΔσc(self.P0,self.M0,self.nL,self.A0L,self.I0L,self.Ac,self.y0Lc)
-        self.Δσs = self.fΔσs(self.P0,self.M0,self.A0L,self.I0L,self.Ac,self.y0Ls)
-        self.Pc = self.fPc(self.P0,self.M0,self.nL,self.A0L,self.I0L,self.Ac,self.S0c)
-        self.Ps = self.fPs(self.P0,self.M0,self.A0L,self.I0L,self.As,self.S0s)
-        
-    def solve_temperature(self):
-        self.ψL = 0
-        self.nL = self.n0
-        self.P0 = self.fP0t(self.Ac,self.Ec,self.αc,self.αs,self.Δt)
-        self.M0 = self.P0*self.y0c
-        self.A0L = self.As + self.Ac/self.nL
-        self.Δσc = self.fΔσc(self.P0,self.M0,self.nL,self.A0L,self.I0L,self.Ac,self.y0Lc)
-        self.Δσs = self.fΔσs(self.P0,self.M0,self.A0L,self.I0L,self.Ac,self.y0Ls)
-        self.Pc = self.fPc(self.P0,self.M0,self.nL,self.A0L,self.I0L,self.Ac,self.S0c)
-        self.Ps = self.fPs(self.P0,self.M0,self.A0L,self.I0L,self.As,self.S0s)
+        self.y0c = self.As/self.A0L*self.ycs
+        self.y0s = self.Ac/self.nL/self.A0L*self.ycs
+        self.S0c = self.Ac*self.y0c
+        self.S0s = self.As*self.y0s
+        self.I0L = self.Is + self.Ic/self.nL + self.A0L*self.y0s*self.y0c
         
     def solve(self):
-        # fPc = lambda P0,M0,nL,A0L,I0L,Ac,S0c:(1/nL*P0/A0L-P0/Ac)*Ac+M0/I0L*S0c
-        # fPs = lambda P0,M0,A0L,I0L,As,S0s:P0/A0L*As+M0/I0L*S0s
-        self.validate('positive','As','Es','Ac','Ec')
+        self.validate('positive','As','Is','Es','Ac','Ic','Ec')
         self.n0 = self.Es/self.Ec
         # 混凝土收缩
-        if self.load_type == '2':
-            self.solve_shrinkage()
+        if self.load_type == '1':
+            # self.solve_deadload()
+            self.ψL = 1.1
+            self.nL = self.n0*(1+self.ψL*self.φ)
+            self.solve_section_properties()
+            self.Ecgφ = self.fEcφ(self.Ec, self.ψL, self.φ)
+            self.P0  = self.fP0g(self.Ecgφ,self.Ac,self.ε0,self.φ)
+        elif self.load_type == '2':
+            # self.solve_shrinkage()
+            self.ψL = 0.55
+            self.nL = self.n0*(1+self.ψL*self.φ)
+            self.solve_section_properties()
+            self.Ecsφ = self.fEcφ(self.Ec, self.ψL, self.φ)
+            εsh = self.εsh
+            if εsh>0:
+                εsh = -εsh
+            self.P0  = self.fP0sh(self.Ecsφ,self.Ac,εsh*self.ξ)
         elif self.load_type == '3':
-            self.solve_temperature()
+            # self.solve_temperature()
+            self.ψL = 0
+            self.nL = self.n0
+            self.solve_section_properties()
+            if self.temperature_type == '1':
+                self.P0 = self.fP0t(self.Ac,self.Ec,self.αc,self.αs,self.Δt)
+            elif self.temperature_type == '2':
+                self.P0 = self.fP0t2(self.Ac,self.Ec,self.αc,self.αs,self.ts,self.tc)
+            else:
+                raise Exception('梯形温差计算尚未实现')
+        else:
+            raise InputError(self, 'load_type', '不支持的荷载类型')
+        self.M0 = self.P0*self.y0c
+        self.Δσc = self.fΔσc(self.P0,self.M0,self.nL,self.A0L,self.I0L,self.Ac,self.y0Lc)
+        self.Δσs = self.fΔσs(self.P0,self.M0,self.A0L,self.I0L,self.Ac,self.y0Ls)
+        self.Pc = self.fPc(self.P0,self.M0,self.nL,self.A0L,self.I0L,self.Ac,self.S0c)
+        self.Ps = self.fPs(self.P0,self.M0,self.A0L,self.I0L,self.As,self.S0s)
+        # test
+        # self.Pcv = self.fPc(self.P0,0,self.nL,self.A0L,self.I0L,self.Ac,self.S0c)
+        # self.Psv = self.fPs(self.P0,0,self.A0L,self.I0L,self.As,self.S0s)
+        # self.Pcm = self.fPc(0,self.M0,self.nL,self.A0L,self.I0L,self.Ac,self.S0c)
+        # self.Psm = self.fPs(0,self.M0,self.A0L,self.I0L,self.As,self.S0s)
 
     def _html(self, digits=2):
-        for para in ('As','Es','Ac','Ec','I0L','y0c','y0Lc','S0c','y0Ls','S0s'):
+        for para in ('As','Es','Is','Ac','Ic','Ec','y0c','y0s'):
             yield self.format(para, digits=None)
-        yield self.format('n0')
-        yield self.format('ψL')
+        yield self.format('S0c',digits)
+        yield self.format('S0s',digits)
+        yield self.format('n0',digits)
+        yield self.format('ψL',digits)
         if self.load_type == '2':
             for para in ('εsh','ξ','φ'):
                 yield self.format(para, digits=None)
             yield self.format('nL', eq='n0*(1+ψL*φ))')
+            yield self.format('Ecsφ', eq='Ec/(1+ψL*φ)')
             yield self.format('P0', eq='Ecsφ*Ac*εsh')
         elif self.load_type == '3':
-            for para in ('αs','αc','Δt'):
+            for para in ('αs','αc'):
                 yield self.format(para, digits=None)
+            if self.temperature_type == '1':
+                yield self.format('Δt', digits=None)
+                yield self.format('P0', eq='Ec*Ac*Δt*(αs-αc)')
+            elif self.temperature_type == '2':
+                yield self.format('ts', digits=None)
+                yield self.format('tc', digits=None)
+                yield self.format('P0', eq='-Ec*Ac*(ts*αs-tc*αc)')
+            else:
+                raise Exception('梯形温差计算尚未实现')
             yield self.format('nL', eq='n0')
-            yield self.format('P0', eq='Ec*Ac*Δt*(αs-αc)')
         yield self.format('M0', eq='P0*y0c')
         yield self.format('A0L', eq='As+Ac/nL')
+        yield self.format('I0L', eq='Is + Ic/nL + A0L*y0s*y0c')
+        yield self.format('y0Lc', digits=None)
         yield self.format('Δσc', eq='1/nL*(P0/A0L+M0/I0L*y0Lc)-P0/Ac')
+        yield self.format('y0Ls', digits=None)
         yield self.format('Δσs', eq='P0/A0L+M0/I0L*y0Ls')
-        yield self.format('Pc', eq='(1/nL*P0/A0L-P0/Ac)*Ac+M0/I0L*S0c')
-        yield self.format('Ps', eq='P0/A0L*As+M0/I0L*S0s')
+        yield self.format('Pc', eq='(1/nL*P0/A0L-P0/Ac)*Ac+M0/nL/I0L*S0c')
+        yield self.format('Ps', eq='P0/A0L*As-M0/I0L*S0s')
+        # test
+        # yield self.format('Pcv', eq='(1/nL*P0/A0L-P0/Ac)*Ac')
+        # yield self.format('Psv', eq='P0/A0L*As')
+        # yield self.format('Pcm', eq='M0/nL/I0L*S0c')
+        # yield self.format('Psm', eq='M0/I0L*S0s')
 
 class connector_shear_capacity(abacus):
     """
@@ -631,6 +681,8 @@ if __name__ == '__main__':
     # f = connector_shear_capacity(As=0.516e6,Ac=3.43e6,Art=40*201.1)
     # f = deck_longitudinal_shear(I0=0.77e12,bc=2000,b1=600,b2=600)
     # f = shear_connector_sls_check(I0=0.77e12, S0c=420*3.43e6, Vd=1000e3, Vt=1000e3,Nvc=1.03e5)
-    f = stress_increment(load_type='3',εsh=1e-4,Ac=3.43e6,As=0.77e12,I0L=0.75e12)
+    f = stress_increment(
+        load_type='2',φ=2.11,εsh=1.74e-04,ξ=0.98,αs=1.2E-05,αc=1E-05,Δt=-26,
+        As=0.77e12,Is=3.65e11,Es=206000,Ac=3.43e6,Ic=2.5e10,Ec=34500,y0c=200,y0Lc=1000,y0s=679,y0Ls=1000)
     f.solve()
     print(f.text())

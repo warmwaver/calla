@@ -182,8 +182,10 @@ class abacus:
             value = '{1:.{0}f}'.format(digits, value) if digits != None and digits >= 0 else value
             return '{} = {}'.format(parameter, value)
         # use choices' value to substitude parameter value
-        if len(info)>5 and type(info[5]) is dict:
-            value = info[5][value]
+        if len(info)>5:
+            choices = info[5]
+            if type(choices) is dict and value in choices:
+                value = choices[value]
         s = ''
         if not omit_name:
             name = info[3] if (len(info)>3 and info[3] != '') else ''

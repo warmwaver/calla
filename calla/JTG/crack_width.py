@@ -47,6 +47,11 @@ class crack_width(abacus):
         ('Ml',('<i>M</i><sub>l</sub>','kN·m',0,'作用长期效应组合弯矩','按荷载长期效应组合计算的弯矩值')),
         ('Ns',('<i>N</i><sub>s</sub>','kN',0,'作用短期效应组合轴力','按荷载短期效应组合计算的轴向力值')),
         ('Ms',('<i>M</i><sub>s</sub>','kN·m',0,'作用短期效应组合弯矩','按荷载短期效应组合计算的弯矩值')),
+        ('Np0',('<i>N</i><sub>p0</sub>','mm',100,'预应力和普通钢筋的合力',\
+            '混凝土法向预应力等于零时预应力钢筋和普通钢筋的合力')),
+        ('ep',('<i>e</i><sub>p0</sub>','mm',100,'Np0作用点至受力筋合力点的距离',\
+            '混凝土法向应力等于零时，纵向预应力钢筋和普通钢筋的合力Np0的作用点至受拉区纵向预应力钢筋和普通钢筋合力点的距离')),
+        ('Mp2',('<i>M</i><sub>p2</sub>','kN·m',0,'预加力Np产生的次弯矩','由预加力Np在后张法预应力混凝土连续梁等超静定结构中产生的次弯矩')),
         ('wlim',('<i>w</i><sub>lim</sub>','mm',0.2,'裂缝宽度限值')),
         ('C1',('<i>C</i><sub>1</sub>','',1.0,'钢筋表面形状系数','对光面钢筋，C1=1.4；对带肋钢筋，C1=1.0')),
         ('C3',('<i>C</i><sub>3</sub>','',1.0,'与构件受力性质有关的系数','钢筋混凝土板式受弯构件C3=1.15，其它受弯构件C3=1.0，轴心受拉构件C3=1.2，偏心受拉构件C3=1.1，偏心受压构件C3=0.9')),
@@ -112,10 +117,11 @@ class crack_width(abacus):
     @staticmethod
     def f_σss_ps(b,bf_,hf_,h0, Ms,Mp2,Np0,Ap,As,ep):
         '''B 类预应力混凝土受弯构件'''
-        e = ep+(Ms+Mp2)/Np0
+        M = abs(Ms)+abs(Mp2)
+        e = ep+M/Np0
         γf_=(bf_-b)*hf_/b/h0
         z = (0.87-0.12*(1-γf_)*(h0/e)**2)*h0
-        σss=(Ms+Mp2-Np0*(z-ep))/(Ap+As)/z
+        σss=(M-Np0*(z-ep))/(Ap+As)/z
         return σss
     
     def f_σss(self):
@@ -144,37 +150,6 @@ class crack_width(abacus):
         '''
         计算最大裂缝宽度
         '''
-        c = 50 if self.c > 50 else self.c
-        self.Wcr=self.f_Wcr(self.C1,self.C2,self.C3,self.σss,self.Es, c, self.d,self.ρte)
-        return self.Wcr
-    
-    def solve_As(self):
-        ''' 根据裂缝宽度限值反算钢筋面积'''
-        A1 = 1E-9
-        A2 = 1E6
-        self.As = A1
-        p1 = self.solve_Wcr() - self.wlim
-        self.As = A2
-        p2 = self.solve_Wcr() - self.wlim
-        while p1 * p2 < 0:
-            self.As = (A1 + A2)/2
-            p3 = self.solve_Wcr() - self.wlim
-            if abs(p3)<1E-9:
-                break
-            if p3 * p1 < 0:
-                A2 = self.As
-            else:
-                A1 = self.As
-        return self.As
-    
-    def solve(self):
-        if self.force_type == 'BD':
-            self.positive_check('Ms')
-            self.C2=1+0.5*self.Ml/self.Ms
-        else:
-            self.positive_check('Ns')
-            self.C2=1+0.5*self.Nl/self.Ns
-            self.e0 = self.Ms/self.Ns*1e3 # mm
         # 计算有效配筋率和钢筋应力
         if self.section == 'round':
             # 圆形截面偏心受压构件钢筋应力按公式(6.4.4-9)、(6.4.4-10)计算
@@ -216,6 +191,37 @@ class crack_width(abacus):
             self.σss = self.f_σss_ps(
                 self.b,self.bf_,self.hf_,self.h0, self.Ms*1e6,self.Mp2*1e6,self.Np0*1e3,
                 self.Ap,self.As,self.ep)
+        c = 50 if self.c > 50 else self.c
+        self.Wcr=self.f_Wcr(self.C1,self.C2,self.C3,self.σss,self.Es, c, self.d,self.ρte)
+        return self.Wcr
+    
+    def solve_As(self):
+        ''' 根据裂缝宽度限值反算钢筋面积'''
+        A1 = 1E-9
+        A2 = 1E6
+        self.As = A1
+        p1 = self.solve_Wcr() - self.wlim
+        self.As = A2
+        p2 = self.solve_Wcr() - self.wlim
+        while p1 * p2 < 0:
+            self.As = (A1 + A2)/2
+            p3 = self.solve_Wcr() - self.wlim
+            if abs(p3)<1E-9:
+                break
+            if p3 * p1 < 0:
+                A2 = self.As
+            else:
+                A1 = self.As
+        return self.As
+    
+    def solve(self):
+        if self.force_type == 'BD':
+            self.positive_check('Ms')
+            self.C2=1+0.5*self.Ml/self.Ms
+        else:
+            self.positive_check('Ns')
+            self.C2=1+0.5*self.Nl/self.Ns
+            self.e0 = self.Ms/self.Ns*1e3 # mm
         if self.option == 'review':
             self.positive_check('As')
             return self.solve_Wcr() 

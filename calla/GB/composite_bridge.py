@@ -360,23 +360,6 @@ class connector_shear_capacity(abacus):
         yield '当发生混凝土压碎破坏时：'
         yield self.format('Nvc', omit_name=True, value=self.Nvc2, eq='0.43·η·Astd·√(fcd·Ec)')
         yield self.format('Nvc')
-        # ok = self.eql <= self.eqr
-        # yield '{} {} {}，{}满足规范要求。'.format(
-        #     self.format('eql', digits,eq='hs/ts'), '≤' if ok else '&gt;', 
-        #     self.format('eqr', digits=digits, eq = '12√(345/fy)', omit_name=True),
-        #     '' if ok else '不')
-        yield '位于正弯矩区段的剪跨：'
-        yield self.format('Vs', omit_name=True, value=self.Vs1, eq='min(As·fd, Ac·fcd)')
-        yield self.format('nf', digits=0, omit_name=True, value=self.nf1, eq='Vs/Nvc')
-        yield '位于负弯矩区段的剪跨：'
-        yield self.format('Vs', omit_name=True, value=self.Vs2, eq='Art·fsd')
-        yield '中间支座两侧：'
-        yield self.format('nf', digits=0, omit_name=True, value=self.nf2a, eq='Vs/Nvc')
-        yield '悬臂部分：'
-        yield self.format('nf', digits=0, omit_name=True, value=self.nf2b, eq='Vs/Nvc')
-        yield '当采用栓钉和槽钢抗剪件时：'
-        yield self.format('Vs', omit_name=True, value=self.Vs3, eq='Ac·fcd+Art·fsd')
-        yield self.format('nf', digits=0, omit_name=True, value=self.nf3, eq='Vs/Nvc')
 
 class shear_connector_uls_check(abacus):
     """
@@ -446,11 +429,6 @@ class shear_connector_uls_check(abacus):
         yield '当发生混凝土压碎破坏时：'
         yield self.format('Nvc', omit_name=True, value=self.Nvc2, eq='0.43·η·Astd·√(fcd·Ec)')
         yield self.format('Nvc')
-        # ok = self.eql <= self.eqr
-        # yield '{} {} {}，{}满足规范要求。'.format(
-        #     self.format('eql', digits,eq='hs/ts'), '≤' if ok else '&gt;', 
-        #     self.format('eqr', digits=digits, eq = '12√(345/fy)', omit_name=True),
-        #     '' if ok else '不')
         yield '位于正弯矩区段的剪跨：'
         yield self.format('Vs', omit_name=True, value=self.Vs1, eq='min(As·fd, Ac·fcd)')
         yield self.format('nf', digits=0, omit_name=True, value=self.nf1, eq='Vs/Nvc')
@@ -566,6 +544,7 @@ class deck_longitudinal_shear(abacus):
         }
 
     def solve(self):
+        self.validate('positive','I0','bc')
         # fAemin = lambda Ls,fsd:0.8*Ls/fsd
         if self.interface == 'a-a':
             self.Ae = self.Ab+self.At

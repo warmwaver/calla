@@ -336,9 +336,11 @@ class axial_compression(abacus):
             设计抗压强度
         """
         return 0.9*phi*(fc*A+fy_*As_)
+
+    @staticmethod
     def _phi(l0, b=0,d=0,i=0):
         if b<=0 and d<=0 and i<=0:
-            raise Exception('输入值必须大于0')
+            raise InputError(axial_compression(),'i','b,d,i输入值必须有一个大于0')
         n = 22
         _b = (8,10,12,14,16,18,20,22,24,26,28,30,32,34,36,38,40,42,44,46,48,50)
         _d = (7,8.5,10.5,12,14,15.5,17,19,21,22.5,24,26,28,29.5,31,33,34.5,36.5,38,40,41.5,43)
@@ -362,7 +364,7 @@ class axial_compression(abacus):
     compression_ratio = lambda N, A, fc:N/(A*fc)
     
     def solve(self):
-        self.φ = axial_compression._phi(self.l0, self.b,2*self.r,self.i)
+        self.φ = self._phi(self.l0, self.b,2*self.r,self.i)
         self.Nud = self.fNu(self.φ, self.fcd, self.A, self.fsd_, self.As_)*1e-3
         #self.轴压比 = axial_compression.compression_ratio(self.Nd, self.A, self.fcd)*1e3
         self.eql = self.γ0*self.Nd
@@ -505,7 +507,7 @@ class eccentric_compression(abacus, material_base):
             x1 = cls.f_x(N,e,fc,b,x0,h0,fsd_,as_,Es,εcu)
             count += 1
         if count > 99:
-            raise Exception('No real solution.')
+            raise numeric.NumericError('No real solution.')
         return x1
 
     @classmethod
@@ -519,7 +521,7 @@ class eccentric_compression(abacus, material_base):
             x1 = cls.f_x_As_known(N,e,β,fc,b,x0,h0,fsd_,as_,Es,εcu,As)
             count += 1
         if count > 99:
-            raise Exception('No real solution.')
+            raise numeric.NumericError('No real solution.')
         return x1
     
     @staticmethod
@@ -532,7 +534,7 @@ class eccentric_compression(abacus, material_base):
             x1 = (-b+sqrt(b**2-4*a*c))/2/a
             x2 = (-b-sqrt(b**2-4*a*c))/2/a
         except:
-            raise Exception('No proper solution.')
+            raise numeric.NumericError('No proper solution.')
         if x1 > 0 and x1 < h0:
             if x2 > 0 and x2 < h0:
                 if x1 < x2:
@@ -545,7 +547,7 @@ class eccentric_compression(abacus, material_base):
             if x2 > 0 and x2 < h0:
                     return x2
             else:
-                raise Exception('No proper solution.')
+                raise numeric.NumericError('No proper solution.')
 
     def solve_Nu(self):
         '''
@@ -583,7 +585,7 @@ class eccentric_compression(abacus, material_base):
         self.x = solve_x(self.fcd, self.b, self.e, self.h0, self.fsd_, self.As_, self.es_, 
         self.fpd_, self.σp0_, self.Ap_, self.ep_, self.fsd, self.As, self.es, self.fpd, self.Ap, self.ep)
         if self.x < 0:
-            raise Exception('截面受压区高度无正数解')
+            raise numeric.NumericError('截面受压区高度无正数解')
         self.ξ = self.x/self.h0
         self.ξb = f_ξb(self.fcd, self.fsd) #TODO: 增加预应力计算
         self.xb = self.ξb*self.h0
@@ -646,7 +648,7 @@ class eccentric_compression(abacus, material_base):
                         # 受压区钢筋已知
                         self.x = self.solve_x_Asp_known(self.fcd,self.b,self.h0,N,self.e,self.fsd_,self.As_,self.as_)
                         if self.x > self.xb:
-                            raise Exception('给定的受压区钢筋面积偏小，请增大后再计算，或不给出受压区钢筋面积.')
+                            raise numeric.NumericError('给定的受压区钢筋面积偏小，请增大后再计算，或不给出受压区钢筋面积.')
                         if self.x < 2*self.as_:
                             self.As = N*self.e/(self.fsd*(self.h0-self.as_))
                         else:
@@ -660,7 +662,7 @@ class eccentric_compression(abacus, material_base):
                     self.x = self.solve_x_As_known(N,self.e,self.β,self.fcd,self.b,self.xb,self.h0,
                                               self.fsd_,self.as_,self.Es,self.εcu,self.As)
                     if self.x < self.xb:
-                        #raise Exception('受压区高度偏小，请按大偏心受压构件计算.')
+                        #raise numeric.NumericError('受压区高度偏小，请按大偏心受压构件计算.')
                         self.type = '大偏心'
                         continue
                     if self.x > self.h:
@@ -701,6 +703,7 @@ class eccentric_compression(abacus, material_base):
                 self.As_ = self.As = nac.f_As_(N,self.e,self.fcd,self.b,self.ξ*self.h0,self.h0,self.fsd,self.as_)
             
     def solve(self):
+        self.validate('positive','Nd')
         # 5.1.4节
         self.β = 0.8 if self.fcuk <= 50 else 0.8+(self.fcuk-50)*(0.74-0.8)/(80-50)
         # strictly, a = (σs*As*a_s+σp*Ap*ap)/(σs*As+σp*Ap)
@@ -964,7 +967,7 @@ class bc_round(abacus, material_base):
             f0 = f(x0,fc,fy,r,rs,A,N,M)
             f1 = f(x1,fc,fy,r,rs,A,N,M)
             if f0*f1>0:
-                raise Exception('No real solution.')
+                raise numeric.NumericError('No real solution.')
         α = numeric.binary_search_solve(
                 f, x0, x1, fc=fc,fy=fy,r=r,rs=rs,A=A,N=N,M=M)
         As = cls.f_As(α,fc,fy,A,N)
@@ -1475,6 +1478,7 @@ class local_pressure(abacus, material_base):
         return 4*Ass1/dcor/s # (5.7.2-4)
 
     def solve(self):
+        self.validate('positive','Al','Acor','s')
         fcuk = material.concrete.fcuk(self.concrete)
         if fcuk < 50:
             ηs = 1.0

@@ -143,6 +143,7 @@ class inner_anchorage(abacus):
         ))
 
     def solve(self):
+        self.validate('positive','d','e')
         fTbd = lambda Pd,a,d: 0.25*Pd*(1-a/2/d) # (8.2.6-1)
         fTsd = lambda Pd:0.04*Pd # (8.2.6-2)
         fTtbd = lambda Pd:0.2*Pd # (8.2.6-3)

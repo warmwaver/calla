@@ -298,6 +298,19 @@ class Column(abacus):
                 raise InputError(self,'As','无法识别的输入')
         else:
             raise InputError(self,'As','无法识别的输入')
+        if isinstance(self.Ap, float) or isinstance(self.Ap, int):
+            Apx = Apy = self.Ap
+        elif isinstance(self.Ap, tuple) or isinstance(self.Ap, list):
+            n = len(self.Ap)
+            if n >0 and n < 1:
+                Apx = Apy = self.Ap
+            elif n > 1:
+                Apx = self.Ap[0]
+                Apy = self.Ap[1]
+            else:
+                raise InputError(self,'Ap','无法识别的输入')
+        else:
+            raise InputError(self,'Ap','无法识别的输入')
         bcs = []
         # y方向验算
         bc.Md = forces_uls.Mz
@@ -306,6 +319,7 @@ class Column(abacus):
         bc.h0 = self.b - self.as_
         bc.l0 = self.k*self.l
         bc.As = Asx
+        bc.Ap = Apx
         bc.solve()
         bcs.append(bc)
         # z方向验算
@@ -315,6 +329,7 @@ class Column(abacus):
         bcy.h = self.h
         bcy.h0 = self.h - self.as_
         bcy.As = Asy
+        bcy.Ap = Apy
         bcy.solve()
         bcs.append(bcy)
 

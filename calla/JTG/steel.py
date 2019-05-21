@@ -277,6 +277,7 @@ class stability(abacus):
         return (MRdy, MRdz,λLTy,λLTz,ε0y,χLTy,ε0z,χLTz,eql1,eql2)
 
     def solve(self):
+        self.validate('positive','fd','Mcry','Mcrz','Wyeff','Wzeff')
         self.MRdy, self.MRdz,self.λLTy,self.λLTz,self.ε0y,\
         self.χLTy,self.ε0z,self.χLTz,self.eql1,self.eql2=\
         self.fsolve(self.γ0, self.fy*1e3, self.fd*1e3,self.My,self.Mz, 

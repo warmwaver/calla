@@ -46,8 +46,8 @@ class LongitudinalShear(abacus):
         # ΔL=(As*Es*αs+Ac*Ec*αc)*L*Δt/(As*Es+Ac*Ec) #mm
         # Δs = L*Δt*αs
         # Δc = L*Δt*αc
-        # Fs = (ΔL-Δs)/L*As*Es
-        # Fc = (ΔL-Δc)/L*Ac*Ec
+        # Fs = (Δ-Δs)/L*As*Es
+        # Fc = (Δ-Δc)/L*Ac*Ec
         Δ = (As*Es*αs+Ac*Ec*αc)*L*Δt/(As*Es+Ac*Ec)
         Δs = L*Δt*αs
         Vs = (Δ-Δs)/L*As*Es

@@ -445,7 +445,7 @@ class shear_connector_uls_check(abacus):
 class shear_connector_sls_check(abacus):
     """
     正常使用极限状态抗剪连接件剪力验算
-    《钢-混凝土组合桥梁设计规范》（GB 50917-2013） 第7.3节
+    《钢-混凝土组合桥梁设计规范》（GB 50917-2013） 第7.1.3节
     """
     __title__ = '正常使用极限状态抗剪连接件剪力验算'
     __inputs__ = OrderedDict((
@@ -477,7 +477,7 @@ class shear_connector_sls_check(abacus):
         self.validate('positive', 'I0','nd')
         self.V1a = self.Vd*self.S0c/self.I0
         self.lcs = min(self.l1, self.l2/10)
-        if self.option == '0' or self.option == '2':
+        if self.option == '0': #or self.option == '2':
             self.V1b = self.Vt/self.lcs
         else:
             self.V1b = 2*self.Vt/self.lcs
@@ -489,7 +489,8 @@ class shear_connector_sls_check(abacus):
         for para in ('Vd','Vt','S0c','I0','ld','nd','lcs','Nvc'):
             yield self.format(para, digits=None)
         yield self.format('V1a', eq='Vd*S0c/I0')
-        yield self.format('V1b', eq='{}Vt/lcs'.format('2' if self.option == '1' else ''))
+        # yield self.format('V1b', eq='{}Vt/lcs'.format('2' if self.option == '1' else ''))
+        yield self.format('V1b', eq='{}Vt/lcs'.format('' if self.option == '0' else '2'))
         yield self.format('V1')
         ok = self.eql <= self.eqr
         yield '{} {} {}，{}满足规范要求。'.format(
@@ -557,7 +558,7 @@ class deck_longitudinal_shear(abacus):
         self.Aemin = 0.8*self.Ls/self.fsd
         self.V1a = self.Vd*self.S0c/self.I0
         self.lcs = min(self.l1, self.l2/10)
-        if self.option == '0' or self.option == '2':
+        if self.option == '0': #or self.option == '2':
             self.V1b = self.Vt/self.lcs
         else:
             self.V1b = 2*self.Vt/self.lcs
@@ -582,7 +583,8 @@ class deck_longitudinal_shear(abacus):
             self.format('Aemin', digits=digits, eq = '0.8·Ls/fsd', omit_name=True),
             '' if ok else '不')
         yield self.format('V1a', eq='Vd*S0c/I0')
-        yield self.format('V1b', eq='{}Vt/lcs'.format('2' if self.option == '1' else ''))
+        # yield self.format('V1b', eq='{}Vt/lcs'.format('2' if self.option == '1' else ''))
+        yield self.format('V1b', eq='{}Vt/lcs'.format('' if self.option == '0' else '2'))
         yield self.format('V1')
         yield '按式(7.4.6-1)：'
         yield self.format('V1Rd', digits, value=self.V1Rd1, eq='0.7*Ls*ftd+0.8*Ae*fsd',omit_name=True)

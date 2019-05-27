@@ -32,9 +32,8 @@ class crack_width(abacus):
         ('hf_',('<i>h</i><sub>f</sub><sup>\'</sup>','mm',0,'受压区翼缘计算高度')),
         # 圆形截面
         ('r',('<i>r</i>','mm',500,'圆形截面半径')),
-
         ('a_s',('<i>a</i><sub>s</sub>','mm',30,'单根钢筋中心到构件边缘的距离')),
-        ('l',('<i>l</i>','mm',0,'构件长度')),
+        # ('l',('<i>l</i>','mm',0,'构件长度')),
         ('l0',('<i>l</i><sub>0</sub>','mm',0,'构件计算长度')),
         ('as_',('<i>a</i><sub>s</sub><sup>\'</sup>','mm',0,'受压区钢筋合力点至受压区边缘距离')),
         # force_type ='EC':
@@ -47,9 +46,9 @@ class crack_width(abacus):
         ('Ml',('<i>M</i><sub>l</sub>','kN·m',0,'作用长期效应组合弯矩','按荷载长期效应组合计算的弯矩值')),
         ('Ns',('<i>N</i><sub>s</sub>','kN',0,'作用短期效应组合轴力','按荷载短期效应组合计算的轴向力值')),
         ('Ms',('<i>M</i><sub>s</sub>','kN·m',0,'作用短期效应组合弯矩','按荷载短期效应组合计算的弯矩值')),
-        ('Np0',('<i>N</i><sub>p0</sub>','mm',100,'预应力和普通钢筋的合力',\
+        ('Np0',('<i>N</i><sub>p0</sub>','mm',0,'预应力和普通钢筋的合力',\
             '混凝土法向预应力等于零时预应力钢筋和普通钢筋的合力')),
-        ('ep',('<i>e</i><sub>p0</sub>','mm',100,'Np0作用点至受力筋合力点的距离',\
+        ('ep',('<i>e</i><sub>p0</sub>','mm',0,'Np0作用点至受力筋合力点的距离',\
             '混凝土法向应力等于零时，纵向预应力钢筋和普通钢筋的合力Np0的作用点至受拉区纵向预应力钢筋和普通钢筋合力点的距离')),
         ('Mp2',('<i>M</i><sub>p2</sub>','kN·m',0,'预加力Np产生的次弯矩','由预加力Np在后张法预应力混凝土连续梁等超静定结构中产生的次弯矩')),
         ('wlim',('<i>w</i><sub>lim</sub>','mm',0.2,'裂缝宽度限值')),
@@ -75,8 +74,12 @@ class crack_width(abacus):
         ))
     __toggles__ = {
         'option':{'review':(),'design':('As')},
-        'section':{'rect':('r','rs'),'round':('b','h','bf','hf','bf_','hf_')},
-        'force_type':{'BD':('l','l0','Nl','Ns','ys','ys_','as_'),'EC':('ys_',),'ET':('l','l0','ys'),'AT':('Ml','Ms','l','l0','ys','ys_','as_')},
+        'section':{
+            'rect':('r','rs', 'Ap','Np0','ep','Mp2'),
+            'round':('force_type', 'b','h','bf','hf','bf_','hf_','ys','ys_','as_', 'Ap','Np0','ep','Mp2'),
+            'ps':('force_type', 'b','h','bf','hf','bf_','hf_','ys','ys_','as','as_','r','rs','l0')
+            },
+        'force_type':{'BD':('b', 'h','l0','Nl','Ns','ys','ys_','as_'),'EC':('ys_',),'ET':('l0','ys'),'AT':('Ml','Ms','l0','ys','ys_','as_')},
         }
 
     @staticmethod
@@ -153,7 +156,7 @@ class crack_width(abacus):
         # 计算有效配筋率和钢筋应力
         if self.section == 'round':
             # 圆形截面偏心受压构件钢筋应力按公式(6.4.4-9)、(6.4.4-10)计算
-            self.positive_check('r', 'a_s', 'l0', 'As', 'c', 'd')
+            self.positive_check('r', 'a_s', 'As', 'c', 'd')
             if self.Ns == 0: # 受弯构件
                 raise InputError(self, 'Ns','JTG规范不支持圆形截面受弯构件裂缝宽度计算')
             if self.Ms == 0: # 受压构件
@@ -332,4 +335,6 @@ def _test3():
 if __name__ == '__main__':
     import doctest
     doctest.testmod()
+    _test1()
+    _test2()
     _test3()

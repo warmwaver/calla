@@ -110,6 +110,10 @@ class abacus:
         if not hasattr(cls,'__toggles__'):
             return r
         for key in cls.__toggles__:
+            # A latter toggle can be diabled by a previous toggle,
+            # together with its' toggle function.
+            if key in r:
+                continue
             v = None
             if key in toggles:
                 v = toggles[key]
@@ -120,7 +124,10 @@ class abacus:
                 v = cls.__inputs__[key][2]
             if v == None:
                 continue
-            items = cls.__toggles__[key][v]
+            choices = cls.__toggles__[key]
+            if v not in choices:
+                continue
+            items = choices[v]
             if isinstance(items,tuple):
                 for item in items:
                     r.append(item)
@@ -147,10 +154,14 @@ class abacus:
         if not hasattr(self,'__toggles__'):
             return r
         for key in self.__toggles__:
+            # A latter toggle can be diabled by a previous toggle,
+            # together with its' toggle function.
+            if key in r: 
+                continue
             choices = self.__toggles__[key]
             v = getattr(self,key)
-            if v not in choices:
-                v = self.para_attrs(key).default_value
+            # if v not in choices:
+            #     v = self.para_attrs(key).default_value
             if v not in choices:
                 continue
             items = choices[v]

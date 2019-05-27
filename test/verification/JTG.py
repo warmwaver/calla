@@ -61,7 +61,7 @@ class test_crack_width(TestCase):
        原文裂缝宽度0.075
        """
        f = crack_width.crack_width(
-           section_type='round', r=750, a_s=50, l0=20000, As = 28*314.2, c = 40,
+           section='round', r=750, a_s=50, l0=20000, As = 28*314.2, c = 40,
            force_type='EC', Ms = 1622, Ns=4012, Nl=3664, Ml=1548, d = 20)
        f.solve()
        self.assertApproxEqualX(f, Wcr=0.096)

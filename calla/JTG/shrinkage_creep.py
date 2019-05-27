@@ -30,6 +30,7 @@ class shrinkage(abacus):
         ('fcm',('<i>f</i><sub>cm</sub>','MPa',50,'强度等级C25~C50混凝土在28d龄期时的平均圆柱体抗压强度')),
         ('βRH',('<i>β</i><sub>RH</sub>','',0,'与年平均相对湿度相关的系数')),
         ('εcs0',('<i>ε</i><sub>cs0</sub>','',0,'名义收缩系数')),
+        ('βsΔt',('<i>β</i><sub>s(t-ts)</sub>','',0,'收缩随时间发展的系数')),
         ('εcs',('<i>ε</i><sub>cs</sub>','',0,'收缩应变','收缩开始时的龄期为ts，计算考虑的龄期为t 时的收缩应变')),
         ))
     __toggles__ = {
@@ -54,7 +55,7 @@ class shrinkage(abacus):
         # εcs0 = εs*βRH # (C.1.1-2)
         βsΔt = sqrt((t-ts)/t1/(350*(h/h0)**2+(t-ts)/t1)) # (C.1.1-5)
         εcs = εcs0*βsΔt # (C.1.1-1)
-        return εcs
+        return (εcs,βsΔt)
 
     def solve(self):
         self.fcm = 0.8*self.fcuk+8
@@ -64,7 +65,7 @@ class shrinkage(abacus):
             self.εcs0 = 0.529e-3 if self.RH < 70 else 0.310e-3
             if self.fcuk > 50:
                 self.εcs0 = self.εcs0*sqrt(32.4/self.fck)
-        self.εcs = self.fε(self.t, self.ts, self.h, self.εcs0)
+        self.εcs,self.βsΔt = self.fε(self.t, self.ts, self.h, self.εcs0)
 
 if __name__ == '__main__':
     f = shrinkage(t=3650,ts=3,h=300,fcuk=50,RH=90,βsc=5)

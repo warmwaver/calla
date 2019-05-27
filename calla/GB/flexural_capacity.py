@@ -12,7 +12,7 @@ __all__ = [
 
 from math import pi, sin, sqrt
 from collections import OrderedDict
-from calla import abacus, numeric
+from calla import abacus, numeric, InputError
 
 class fc_rect(abacus):
     """矩形截面或翼缘位于受拉边的倒T形截面混凝土构件正截面受弯承载力计算
@@ -85,12 +85,12 @@ class fc_rect(abacus):
                 self.εcu = self.f_εcu()
                 self.σs = self.Es*self.εcu*(self.β1*self.h0/self.x-1)
                 if self.σs<0:
-                    raise '截面受压区高度过大，钢筋出现压应力，弯矩无法平衡\n'
+                    raise InputError(self, 'h0', '截面受压区高度过大，钢筋出现压应力，弯矩无法平衡\n')
                 else:
                     self.As = self.α1*self.fc*self.b*self.x/self.σs
                     return self.As
         else:
-            raise '弯矩无法平衡，需增大截面尺寸'
+            raise InputError(self, 'h0', '弯矩无法平衡，需增大截面尺寸')
         
     def solve(self):
         if self.option == '0':
@@ -221,7 +221,7 @@ class fc_T(fc_rect):
 
 class fc_ring:
     """
-    环形截面承载力计算
+    环形截面承载力计算(TODO)
     《混凝土结构设计规范》（GB 50010-2010）附录E.0.3节
     """
     γ0=1.1
@@ -330,7 +330,7 @@ class fc_round(abacus):
             f0 = f(x0,α1,fc,fy,r,rs,A,N,M)
             f1 = f(x1,α1,fc,fy,r,rs,A,N,M)
             if f0*f1>0:
-                raise Exception('No real solution.')
+                raise numeric.NumericError('No real solution.')
         α = numeric.binary_search_solve(
                 f, x0, x1, α1=α1,fc=fc,fy=fy,r=r,rs=rs,A=A,N=N,M=M)
         As = fc_round.f_As(α,α1,fc,fy,A,N)

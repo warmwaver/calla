@@ -493,10 +493,20 @@ class diaphragm(abacus):
         ('option',('横隔板类型','','1','','',{'1':'实腹式','2':'桁架式','3':'框架式'})),
         # 实腹式
         # 桁架式
+        ('shape',('','','X','桁架形状','',{'X':'X形','V':'V形'})),
+        ('Ab',('<i>A</i><sub>b</sub>','mm<sup>2</sup>',0,'单个斜撑的截面积')),
+        ('Lb',('<i>L</i><sub>b</sub>','mm',0,'斜撑的长度')),
         # 框架式
+        ('β',('<i>β</i>','',0,'开口率修正系数')),
+        ('b',('<i>b</i>','mm',0,'框架的宽度')),
+        ('h',('<i>h</i>','mm',0,'框架的高度')),
+        ('Iu',('<i>I</i><sub>u</sub>','mm<sup>4</sup>',0,'顶板处横隔板简化为框架截面的惯性矩')),
+        ('Il',('<i>I</i><sub>l</sub>','mm<sup>4</sup>',0,'底板处横隔板简化为框架截面的惯性矩')),
+        ('Ih',('<i>I</i><sub>h</sub>','mm<sup>4</sup>',0,'腹板处横隔板简化为框架截面的惯性矩')),
         # 应力验算
         ('Td',('<i>T</i><sub>d</sub>','kN·m',0,'箱梁扭矩设计值')),
         ('fvd',('<i>f</i><sub>vd</sub>','MPa',160,'钢材的抗剪强度设计值')),
+        ('fd',('<i>f</i><sub>d</sub>','MPa',275,'钢材的强度设计值')),
         ('A',('<i>A</i>','mm<sup>2</sup>',0,'横隔板面积')),
         ))
     __deriveds__ = OrderedDict((
@@ -512,9 +522,15 @@ class diaphragm(abacus):
         ('τu',('<i>τ</i><sub>u</sub>','MPa',0,'')),
         ('τh',('<i>τ</i><sub>h</sub>','MPa',0,'')),
         ('τl',('<i>τ</i><sub>l</sub>','MPa',0,'')),
+        # 桁架式
+        ('Nb',('<i>N</i><sub>b</sub>','kN',0,'桁架斜腹杆内力')),
+        ('σ',('<i>σ</i>','MPa',0,'斜腹杆截面应力')),
         ))
     __toggles__ = {
-        'option':{'1':('Ab','Lb'),'2':('tD'),'3':('Ac','tD')},
+        'option':{
+            '1':('Ab','Lb','fd','Ab','Lb','β','b','h','Iu','Il','Ih'),
+            '2':('tD','β','b','h','Iu','Il','Ih','fvd'),
+            '3':('Ac','Ab','Lb','tD','fvd','Td','fd','A')},
         }
     @staticmethod
     def fKmin(E,Ld,Ifu,Ifl,Bu,Bl,Fu,Fl,Fh,H,b1,b2):
@@ -549,29 +565,28 @@ class diaphragm(abacus):
         return (τu,τh,τl)
 
     @staticmethod
-    def fτ2(Lb,A,Td, shape='X'):
+    def fNb(Lb,A,Td, shape='X'):
         Nb = Lb/A/Td/(4 if shape == 'X' else 2)
         return Nb
 
-    @staticmethod
-    def fτ3(Bu,Bl,Td,tD,A):
-        raise Exception('not implemented')
-
     def solve(self):
-        self.validate('positive','Bu','tD','A')
+        self.validate('positive','Bu','tD')
         self.Ifu = self.tu*(self.Bu+2*self.b1)**3/12
         self.Ifl = self.tl*(self.Bl+2*self.b2)**3/12
         self.e,self.f,self.α1,self.α2,self.Idw,self.Kmin = self.fKmin(
             self.E,self.Ld,self.Ifu,self.Ifl,self.Bu,self.Bl,self.Fu,self.Fl,self.Fh,self.H,self.b1,self.b2)
         if self.option == '1':
+            self.validate('positive','A')
             self.K = self.fK1(self.G,self.Ac,self.tD)
             self.τu,self.τh,self.τl = self.fτ1(self.Bu,self.Bl,self.tD,self.A,self.Td*1e6)
         elif self.option == '2':
+            self.validate('positive','A','Ab')
             self.K = self.fK2(self.E,self.Ac,self.Ab,self.Lb, self.shape)
-            self.τ = self.fτ2(self.Lb,self.A,Td, shape)
+            self.Nb = self.fNb(self.Lb,self.A,self.Td, self.shape)
+            self.σ = self.Nb/self.Ab
         elif self.option == '3':
-            self.K = self.fK2(self.β, self.E,self.b,self.h,self.Iu,self.Il,self.Ih)
-            self.τ = self.fτ3(Bu,Bl,Td,tD,A)
+            self.validate('positive','b','h','Iu','Il','Ih')
+            self.K = self.fK3(self.β, self.E,self.b,self.h,self.Iu,self.Il,self.Ih)
 
     def _html(self, digits=2):
         disableds = self.disableds()
@@ -594,23 +609,32 @@ class diaphragm(abacus):
             self.format('K', digits,eq=eq), '≥' if ok else '&lt;', 
             self.format('Kmin', digits=digits,eq='20 E Idw/Ld<sup>3</sup>', omit_name=True),
             '' if ok else '不')
-        yield '横隔板应力验算'
-        yield self.format('Td')
-        ok = self.τu <= self.fvd
-        yield '{} {} {}，{}满足规范要求。'.format(
-            self.format('τu', digits,eq='Bl/Bu Td/2/A/tD'), '≤' if ok else '&gt;', 
-            self.format('fvd', digits=digits, omit_name=True),
-            '' if ok else '不')
-        ok = self.τh <= self.fvd
-        yield '{} {} {}，{}满足规范要求。'.format(
-            self.format('τh', digits,eq='Td/2/A/tD'), '≤' if ok else '&gt;', 
-            self.format('fvd', digits=digits, omit_name=True),
-            '' if ok else '不')
-        ok = self.τl <= self.fvd
-        yield '{} {} {}，{}满足规范要求。'.format(
-            self.format('τl', digits,eq='Bu/Bl Td/2/A/tD'), '≤' if ok else '&gt;', 
-            self.format('fvd', digits=digits, omit_name=True),
-            '' if ok else '不')
+        if self.option == '1' or self.option == '2':
+            yield '横隔板应力验算'
+            yield self.format('Td')
+        if self.option == '1':
+            ok = self.τu <= self.fvd
+            yield '{} {} {}，{}满足规范要求。'.format(
+                self.format('τu', digits,eq='Bl/Bu Td/2/A/tD'), '≤' if ok else '&gt;', 
+                self.format('fvd', digits=digits, omit_name=True),
+                '' if ok else '不')
+            ok = self.τh <= self.fvd
+            yield '{} {} {}，{}满足规范要求。'.format(
+                self.format('τh', digits,eq='Td/2/A/tD'), '≤' if ok else '&gt;', 
+                self.format('fvd', digits=digits, omit_name=True),
+                '' if ok else '不')
+            ok = self.τl <= self.fvd
+            yield '{} {} {}，{}满足规范要求。'.format(
+                self.format('τl', digits,eq='Bu/Bl Td/2/A/tD'), '≤' if ok else '&gt;', 
+                self.format('fvd', digits=digits, omit_name=True),
+                '' if ok else '不')
+        elif self.option == '2':
+            yield self.format('Nb',eq='Lb/{}/A*Td'.format(4 if self.shape == 'X' else 2))
+            ok = self.σ <= self.fd
+            yield '{} {} {}，{}满足规范要求。'.format(
+                self.format('σ', digits,eq='Nb/Ab'), '≤' if ok else '&gt;', 
+                self.format('fd', digits=digits, omit_name=True),
+                '' if ok else '不')
 
 
 if __name__ == '__main__':

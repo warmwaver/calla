@@ -137,9 +137,9 @@ class friction_pile_capacity(abacus):
     
     def _html(self, precision = 2):
         yield '按摩擦桩计算桩基竖向承载力'
-        yield self.formatX('L',digits=precision)
-        yield self.formatX('u',digits=precision)
-        yield self.formatX('Ap',digits=precision)
+        yield self.formatx('L',digits=precision)
+        yield self.formatx('u',digits=precision)
+        yield self.formatx('Ap',digits=precision)
         yield '地质资料:'
         t = []
         qik = self.para_attrs('qik')

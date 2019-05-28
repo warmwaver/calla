@@ -218,7 +218,7 @@ class abacus:
                     self.replace_by_symbols(eq), value, unit)
         return s
     
-    def formatX(self, *parameters, digits=2, sep='', sep_names=', ', omit_name=True, toggled=True):
+    def formatx(self, *parameters, digits=2, sep='', sep_names=', ', omit_name=True, toggled=True):
         """
         Format parameters，choosing diferent format automatically.
         e.g. force N = 100 kN, moment M=100 kN·m, ...

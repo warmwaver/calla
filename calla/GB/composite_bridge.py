@@ -574,7 +574,7 @@ class deck_longitudinal_shear(abacus):
 
     def _html(self, digits=2):
         yield '混凝土桥面板配筋：'
-        yield self.formatX('Ab','At','Abh')
+        yield self.formatx('Ab','At','Abh')
         for para in ('Ls','fsd','Vd','Vt','S0c','I0','fcd','ftd','lcs','bc','b1','b2'):
             yield self.format(para, digits=None)
         ok = self.Ae > self.Aemin

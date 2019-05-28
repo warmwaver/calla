@@ -171,11 +171,11 @@ class fc_rect(abacus, material_base):
     def _html_M(self, digits = 2):
         yield self.format('γ0', digits=None)
         yield '截面尺寸：'
-        yield self.formatX('b','h0')
+        yield self.formatx('b','h0')
         yield '配筋面积：'
-        yield self.formatX('As','As_')
+        yield self.formatx('As','As_')
         yield '材料力学特性：'
-        yield self.formatX('fcd','fsd', toggled = False)
+        yield self.formatx('fcd','fsd', toggled = False)
         yield self.format('Md')
         ok = self.x<self.xb
         yield '{} {} {}'.format(
@@ -201,9 +201,9 @@ class fc_rect(abacus, material_base):
     def _html_As(self, digits=2):
         yield '已知弯矩求普通钢筋面积'
         yield '截面尺寸：'
-        yield self.formatX('b','h0', sep_names = '，', omit_name = True)
+        yield self.formatx('b','h0', sep_names = '，', omit_name = True)
         yield '材料力学特性：'
-        yield self.formatX('fcd','fsd', sep_names = '，', omit_name = True, toggled= False)
+        yield self.formatx('fcd','fsd', sep_names = '，', omit_name = True, toggled= False)
         yield self.format('Md')
         if self.delta>0:
             if self.x<self.xb:
@@ -370,7 +370,7 @@ class axial_compression(abacus):
         self.eql = self.γ0*self.Nd
 
     def _html(self,digits=2):
-        #yield self.formatX('轴压比')
+        #yield self.formatx('轴压比')
         for para in ('γ0','fcd','fsd_','As_'):
             yield self.format(para, digits=None)
         for para in ('φ'):
@@ -728,11 +728,11 @@ class eccentric_compression(abacus, material_base):
         return self._html_Nu(digits) if self.option == 'review' else self._html_As(digits)
     
     def _html_Nu(self, digits = 2):
-        yield '截面尺寸:{}'.format(self.formatX('b','h','h0',digits=None,omit_name=True))
+        yield '截面尺寸:{}'.format(self.formatx('b','h','h0',digits=None,omit_name=True))
         yield self.format('l0')
-        yield '设计内力:{}'.format(self.formatX('Nd','Md',digits=digits,omit_name=True))
+        yield '设计内力:{}'.format(self.formatx('Nd','Md',digits=digits,omit_name=True))
         yield '材料特性:'
-        yield self.formatX('fcd','fcuk','fsd','fsd_',omit_name=True, toggled = False)
+        yield self.formatx('fcd','fcuk','fsd','fsd_',omit_name=True, toggled = False)
         yield self.format('As',digits=digits)
         yield self.format('Es',digits=None)
         yield self.format('e0',digits=digits)
@@ -751,10 +751,10 @@ class eccentric_compression(abacus, material_base):
             '' if ok else '不')
 
     def _html_As(self, digits = 2):
-        yield '截面尺寸:{}'.format(self.formatX('b','h','h0',digits=None,omit_name=True))
-        yield '设计内力:{}'.format(self.formatX('Nd','Md',digits=None,omit_name=True))
+        yield '截面尺寸:{}'.format(self.formatx('b','h','h0',digits=None,omit_name=True))
+        yield '设计内力:{}'.format(self.formatx('Nd','Md',digits=None,omit_name=True))
         yield '材料特性:'
-        yield self.formatX('fcd','fcuk','fsd','fsd_',omit_name=True, toggled = False)
+        yield self.formatx('fcd','fcuk','fsd','fsd_',omit_name=True, toggled = False)
         yield self.format('Es',digits=None)
         yield self.format('e',digits=digits)
         yield self.format('xb', digits=digits)
@@ -1390,7 +1390,7 @@ class torsion(abacus, material_base):
                 '' if ok else '不', '可不' if ok else '需')
             if not ok:
                 yield '按规范5.5.4节：'
-                yield self.formatX('βt','P','ρsv')
+                yield self.formatx('βt','P','ρsv')
                 eq = '0.5e-4*α1*α2*α3*(10-2*βt)*{}*h0*sqrt((2+0.6*P)*sqrt(fcuk)*ρsv*fsv)'.format('b' if self.section_type == 'rect' else 'bw')
                 ok = self.γ0Vd <= self.Vut
                 yield '{} {} {}，{}满足规范要求。'.format(

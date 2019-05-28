@@ -111,12 +111,12 @@ class fc_rect(abacus):
     def _html_M(self, digits = 2):
         yield '正截面受弯承载力计算'
         yield '截面尺寸:'
-        yield self.formatX('b','h0')
+        yield self.formatx('b','h0')
         yield self.format('As')
         yield '计算系数:'
-        yield self.formatX('γ0','α1')
+        yield self.formatx('γ0','α1')
         yield '材料力学特性:'
-        yield self.formatX('fc','fcuk','fy')
+        yield self.formatx('fc','fcuk','fy')
         yield self.format('x')
         yield '正截面受弯承载力弯矩值: <i>M</i><sub>d</sub> = {:.2f} kN·m'.format(self.Mfc)
         
@@ -126,9 +126,9 @@ class fc_rect(abacus):
         yield "<i>b</i> = {} mm, <i>h</i><sub>0</sub> = {} mm".format(self.b,self.h0)
         yield self.format('M')
         yield '计算系数:'
-        yield self.formatX('γ0','α1')
+        yield self.formatx('γ0','α1')
         yield '材料力学特性:'
-        yield self.formatX('fc','fcuk','fy')
+        yield self.formatx('fc','fcuk','fy')
         if self.delta>0:
             if self.x<self.xb:
                 yield '{0} &lt; ξb*h0 = {1:.0f} mm'.format(self.format('x'), self.xb)

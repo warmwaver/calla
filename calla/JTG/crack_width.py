@@ -18,7 +18,7 @@ class crack_width(abacus):
     __title__ = '裂缝宽度'
     __inputs__ = OrderedDict((
         ('option',('计算选项','','review','','',{'review':'计算裂缝宽度','design':'计算配筋'})),
-        ('section',('截面类型','','rect','','',{'rect':'矩形、T形和I形截面','round':'圆形截面','ps':'B类预应力混凝土受弯构件'})),
+        ('case',('','','rect','计算类别','',{'rect':'矩形、T形和I形截面','round':'圆形截面偏心受压','ps':'B类预应力混凝土受弯'})),
         ('force_type',('受力类型','','BD','','',{'BD':'受弯构件','EC':'偏心受压构件','ET':'偏心受拉构件','AT':'轴心受拉构件'})),
         ('Es',('<i>E</i><sub>s</sub>','MPa',2.0E5,'钢筋弹性模量')),
         ('c',('<i>c</i>','mm',30,'最外排纵向受拉钢筋的混凝土保护层厚度','当c > 50mm 时，取50mm')),
@@ -46,9 +46,9 @@ class crack_width(abacus):
         ('Ml',('<i>M</i><sub>l</sub>','kN·m',0,'作用长期效应组合弯矩','按荷载长期效应组合计算的弯矩值')),
         ('Ns',('<i>N</i><sub>s</sub>','kN',0,'作用短期效应组合轴力','按荷载短期效应组合计算的轴向力值')),
         ('Ms',('<i>M</i><sub>s</sub>','kN·m',0,'作用短期效应组合弯矩','按荷载短期效应组合计算的弯矩值')),
-        ('Np0',('<i>N</i><sub>p0</sub>','mm',0,'预应力和普通钢筋的合力',\
+        ('Np0',('<i>N</i><sub>p0</sub>','kN',0,'预应力和普通钢筋的合力',\
             '混凝土法向预应力等于零时预应力钢筋和普通钢筋的合力')),
-        ('ep',('<i>e</i><sub>p0</sub>','mm',0,'Np0作用点至受力筋合力点的距离',\
+        ('ep',('<i>e</i><sub>p</sub>','mm',0,'Np0作用点至受力筋合力点的距离',\
             '混凝土法向应力等于零时，纵向预应力钢筋和普通钢筋的合力Np0的作用点至受拉区纵向预应力钢筋和普通钢筋合力点的距离')),
         ('Mp2',('<i>M</i><sub>p2</sub>','kN·m',0,'预加力Np产生的次弯矩','由预加力Np在后张法预应力混凝土连续梁等超静定结构中产生的次弯矩')),
         ('wlim',('<i>w</i><sub>lim</sub>','mm',0.2,'裂缝宽度限值')),
@@ -74,12 +74,15 @@ class crack_width(abacus):
         ))
     __toggles__ = {
         'option':{'review':(),'design':('As')},
-        'section':{
+        'case':{
             'rect':('r','rs', 'Ap','Np0','ep','Mp2'),
             'round':('force_type', 'b','h','bf','hf','bf_','hf_','ys','ys_','as_', 'Ap','Np0','ep','Mp2'),
-            'ps':('force_type', 'b','h','bf','hf','bf_','hf_','ys','ys_','as','as_','r','rs','l0')
+            'ps':('force_type', 'b','h','bf','hf','bf_','hf_','ys','ys_','r','rs','l0','Nl','Ns')
             },
-        'force_type':{'BD':('b', 'h','l0','Nl','Ns','ys','ys_','as_'),'EC':('ys_',),'ET':('l0','ys'),'AT':('Ml','Ms','l0','ys','ys_','as_')},
+        'force_type':{
+            'BD':('b', 'h','l0','Nl','Ns','ys','ys_','as_'),
+            'EC':('ys_',),'ET':('l0','ys'),
+            'AT':('Ml','Ms','l0','ys','ys_','as_')},
         }
 
     @staticmethod
@@ -90,10 +93,10 @@ class crack_width(abacus):
     @staticmethod
     def f_ρte_round(As, r, ηs, e0, a_s):
         '''圆形截面构件'''
-        ρ = As/pi/r**2
-        β = (0.4+2.5*ρ)*(1+0.353*(ηs*e0/r)**-2)
-        r1 = r-2*a_s
-        ρte = β*As/pi/(r**2-r1**2)
+        ρ = As/pi/r**2 # (6.4.5-5)
+        β = (0.4+2.5*ρ)*(1+0.353*(ηs*e0/r)**-2) # (6.4.5-4)
+        r1 = r-2*a_s # (6.4.5-3)
+        ρte = β*As/pi/(r**2-r1**2) # (6.4.5-2)
         return (ρte,r1,β,ρ)
 
     @staticmethod
@@ -102,6 +105,7 @@ class crack_width(abacus):
 
     @staticmethod
     def f_ηs(e0,l0,h,h0):
+        '''(6.4.4-8)'''
         return 1+1/(4000*e0/h0)*(l0/h)**2
 
     @staticmethod
@@ -119,15 +123,15 @@ class crack_width(abacus):
 
     @staticmethod
     def f_σss_ps(b,bf_,hf_,h0, Ms,Mp2,Np0,Ap,As,ep):
-        '''B 类预应力混凝土受弯构件'''
+        '''B 类预应力混凝土受弯构件(6.4.4-9)'''
         M = abs(Ms)+abs(Mp2)
         e = ep+M/Np0
         γf_=(bf_-b)*hf_/b/h0
         z = (0.87-0.12*(1-γf_)*(h0/e)**2)*h0
         σss=(M-Np0*(z-ep))/(Ap+As)/z
-        return σss
+        return (σss, e, z)
     
-    def f_σss(self):
+    def f_σss_rect(self):
         if self.force_type == 'BD':
             self.σss=self.f_σss_BD(self.Ms,self.As,self.h0)
         elif self.force_type == 'EC':
@@ -154,30 +158,7 @@ class crack_width(abacus):
         计算最大裂缝宽度
         '''
         # 计算有效配筋率和钢筋应力
-        if self.section == 'round':
-            # 圆形截面偏心受压构件钢筋应力按公式(6.4.4-9)、(6.4.4-10)计算
-            self.positive_check('r', 'a_s', 'As', 'c', 'd')
-            if self.Ns == 0: # 受弯构件
-                raise InputError(self, 'Ns','JTG规范不支持圆形截面受弯构件裂缝宽度计算')
-            if self.Ms == 0: # 受压构件
-                raise InputError(self, 'Ms', 'JTG规范不支持圆形截面轴心受压（拉）构件裂缝宽度计算')
-            if self.Ms > 0:
-                self.C2 = max(self.C2, 1+0.5*self.Ml/self.Ms)
-            self.rs = self.r-self.a_s
-            if self.force_type == 'EC':
-                self.ηs = self.f_ηs(self.e0,self.l0,2*self.r,2*self.r-self.a_s)
-                self.ρte,self.r1,self.β,self.ρ=self.f_ρte_round(self.As, self.r, self.ηs, self.e0, self.a_s)
-                self.σss = self.f_σss_round(
-                    self.l0,self.r,self.rs,self.As,self.a_s,self.Ns*1e3,self.e0,self.ηs)
-            elif self.force_type == 'BD':
-                # 规范没给出受弯的计算公式，根据公式(6.4.4-9)、(6.4.4-10)推导，
-                # 受弯构件：σss = 0.6/(0.45r+0.26rs)*Ms/As
-                # 因此，本结果仅为试验性质
-                fσss_BD = lambda r,rs,Ms,As:0.6/(0.45*r+0.26*rs)*Ms/As
-                self.σss = fσss_BD(self.r,self.rs,self.Ms,self.As)
-            else:
-                raise Exception('JTG 3362-2018规范不支持圆形截面{}构件的裂缝宽度计算'.format(self.force_type))
-        else:
+        if self.case == 'rect':
             self.h0 = self.h - self.a_s
             # 矩形、T 形和I 形截面的钢筋混凝土构件
             if self.force_type == 'AT':
@@ -188,12 +169,40 @@ class crack_width(abacus):
                 b = self.bf if self.bf > 0 else self.b
                 self.Ate=2*self.a_s*b
             self.ρte=self.As/self.Ate
-            self.σss = self.f_σss()
-        if self.Ap > 0:
+            self.σss = self.f_σss_rect()
+        elif self.case == 'round':
+            # 圆形截面偏心受压构件钢筋应力按公式(6.4.4-9)、(6.4.4-10)计算
+            self.positive_check('r', 'a_s', 'As', 'c', 'd')
+            if self.Ns == 0: # 受弯构件
+                raise InputError(self, 'Ns','JTG规范不支持圆形截面受弯构件裂缝宽度计算')
+            if self.Ms == 0: # 受压构件
+                raise InputError(self, 'Ms', 'JTG规范不支持圆形截面轴心受压（拉）构件裂缝宽度计算')
+            if self.Ms > 0:
+                self.C2 = max(self.C2, 1+0.5*self.Ml/self.Ms)
+            self.rs = self.r-self.a_s
+            self.ηs = self.f_ηs(self.e0,self.l0,2*self.r,2*self.r-self.a_s)
+            self.ρte,self.r1,self.β,self.ρ=self.f_ρte_round(self.As, self.r, self.ηs, self.e0, self.a_s)
+            if self.Ns > 0:
+                self.σss = self.f_σss_round(
+                    self.l0,self.r,self.rs,self.As,self.a_s,self.Ns*1e3,self.e0,self.ηs)
+            else:
+                # 规范没给出受弯的计算公式，根据公式(6.4.4-9)、(6.4.4-10)推导，
+                # 受弯构件：σss = 0.6/(0.45r+0.26rs)*Ms/As
+                # 因此，本结果仅为试验性质
+                fσss_BD = lambda r,rs,Ms,As:0.6/(0.45*r+0.26*rs)*Ms/As
+                self.σss = fσss_BD(self.r,self.rs,self.Ms,self.As)
+        elif self.case == 'ps':
             # B类预应力混凝土受弯构件
-            self.σss = self.f_σss_ps(
+            self.validate('positive', 'Np0')
+            self.h0 = self.h - self.a_s
+            b = self.bf if self.bf > 0 else self.b
+            self.Ate=2*self.a_s*b
+            self.ρte=self.As/self.Ate
+            self.σss,self.e,self.z = self.f_σss_ps(
                 self.b,self.bf_,self.hf_,self.h0, self.Ms*1e6,self.Mp2*1e6,self.Np0*1e3,
                 self.Ap,self.As,self.ep)
+        else:
+            raise InputError(self, 'case', '不支持的参数值')
         c = 50 if self.c > 50 else self.c
         self.Wcr=self.f_Wcr(self.C1,self.C2,self.C3,self.σss,self.Es, c, self.d,self.ρte)
         return self.Wcr
@@ -218,13 +227,15 @@ class crack_width(abacus):
         return self.As
     
     def solve(self):
-        if self.force_type == 'BD':
-            self.positive_check('Ms')
-            self.C2=1+0.5*self.Ml/self.Ms
-        else:
+        # 确定基本参数C2
+        if (self.case == 'rect' and self.force_type != 'BD') or self.case == 'round':
             self.positive_check('Ns')
             self.C2=1+0.5*self.Nl/self.Ns
             self.e0 = self.Ms/self.Ns*1e3 # mm
+        elif (self.case == 'rect' and self.force_type == 'BD') or self.case == 'ps':
+            self.positive_check('Ms')
+            self.C2=1+0.5*self.Ml/self.Ms
+        # 计算
         if self.option == 'review':
             self.positive_check('As')
             return self.solve_Wcr() 
@@ -234,47 +245,54 @@ class crack_width(abacus):
         return self._html_wmax(digits) if self.option == 'review' else self._html_As(digits)
         
     def _html_wmax(self,digits=2):
-        yield '构件受力类型: {}'.format(self.para_attrs('force_type').choices[self.force_type])
-        yield '构件截面形式: {}'.format(self.para_attrs('section').choices[self.section])
-        yield '构件尺寸:'
-        yield self.formatX('b','h','bf','hf','bf_','hf_','r','rs','ys','ys_',digits=None)
-        if self.section == 'rect':
-            yield self.format('h0', omit_name = True, digits=None)
-        yield '钢筋:'
-        yield self.formatX('d', 'As','Ap',digits=None)
-        yield '荷载长期效应组合的设计内力:'
-        yield self.formatX('Ml','Nl',toggled=True)
-        yield '荷载短期效应组合的设计内力:'
-        yield self.formatX('Ms','Ns',toggled=True)
-        yield '材料参数:'
-        yield self.format('Es',digits=None)
         yield '系数:'
-        yield self.formatX('C1', 'C2', 'C3', digits=None)
-        eq = 'β·As/π/(r<sup>2</sup>-r<sub>1</sub><sup>2</sup>)' if self.section == 'round' else 'As/Ate'
-        yield self.format('ρte',eq=eq, digits = 3)
-        if self.force_type == 'EC' or self.force_type == 'ET':
-            yield self.formatX('e0',digits=digits)
-            yield self.formatX('ηs',digits=digits)
-            if self.force_type == 'EC' and self.section=='rect':
-                yield self.format('ys',digits=digits,omit_name=True)
-                yield self.format('γf_',eq='(bf_-b)·hf_/b/h0',digits=digits,omit_name=True)
-                yield self.format('z',eq='(0.87-0.12·(1-γf_)·(h0/es)<sup>2</sup>)·h0',digits=digits,omit_name=True)
-            if self.section == 'ps':
-                yield self.formatX('e',digits=digits)
-        if self.section == 'rect':
-            if self.force_type == 'EC':
-                yield self.format('es',eq='ηs·e0+ys',digits=digits,omit_name=True)
-            elif self.force_type == 'ET':
-                yield self.format('es_',eq='ηs·e0+ys_',digits=digits,omit_name=True)
-            eq = 'Ns/As' if self.force_type=='AT' else 'Ms/0.87/As/h0' \
-            if self.force_type=='BD' else "Ns·es_/As/(h0-as_)" \
-            if self.force_type=='ET' else 'Ns·(es-z)/As/z'
-        elif self.section == 'round':
+        yield self.formatx('C1', 'C2', 'C3', digits=None)
+        yield self.formatx('c', 'd', digits=None)
+        if self.case == 'rect':
+            yield self.format('force_type')
+            yield '构件尺寸:'
+            yield self.formatx('b','h','bf','hf','bf_','hf_','ys','ys_',digits=None)
+            if self.case == 'rect':
+                yield self.format('h0', omit_name = True, digits=None)
+            yield '钢筋:'
+            yield self.formatx('d', 'As','Ap',digits=None)
+            yield '荷载长期效应组合的设计内力:'
+            yield self.formatx('Ml','Nl',toggled=True)
+            yield '荷载短期效应组合的设计内力:'
+            yield self.formatx('Ms','Ns',toggled=True)
+            yield '材料参数:'
+            yield self.format('Es',digits=None)
+            eq = 'β·As/π/(r<sup>2</sup>-r<sub>1</sub><sup>2</sup>)' if self.case == 'round' else 'As/Ate'
+            yield self.format('ρte',eq=eq, digits = 3)
+            if self.force_type == 'EC' or self.force_type == 'ET':
+                yield self.formatx('e0',digits=digits)
+                yield self.formatx('ηs',digits=digits)
+                if self.force_type == 'EC' and self.case=='rect':
+                    yield self.format('ys',digits=digits,omit_name=True)
+                    yield self.format('γf_',eq='(bf_-b)·hf_/b/h0',digits=digits,omit_name=True)
+                    yield self.format('z',eq='(0.87-0.12·(1-γf_)·(h0/es)<sup>2</sup>)·h0',digits=digits,omit_name=True)
+            if self.case == 'rect':
+                if self.force_type == 'EC':
+                    yield self.format('es',eq='ηs·e0+ys',digits=digits,omit_name=True)
+                elif self.force_type == 'ET':
+                    yield self.format('es_',eq='ηs·e0+ys_',digits=digits,omit_name=True)
+                eq = 'Ns/As' if self.force_type=='AT' else 'Ms/0.87/As/h0' \
+                if self.force_type=='BD' else "Ns·es_/As/(h0-as_)" \
+                if self.force_type=='ET' else 'Ns·(es-z)/As/z'
+        elif self.case == 'round':
+            yield self.formatx('r','rs','ys','ys_',digits=None)
             eq = '0.6·(ηs·e0/r-0.1)<sup>3</sup>/(0.45+0.26·rs/r)/(ηs·e0/r+0.2)<sup>2</sup>·Ns/As' if self.force_type == 'EC' \
                 else '0.6/(0.45·r+0.26·rs)·Ms/As (推导公式，非规范直接公式)' if self.force_type == 'BD' \
                 else '未知计算公式'
+        elif self.case == 'ps':
+            yield self.formatx('As','Ap',digits=None)
+            yield self.formatx('Ms','Mp2','Np0','ys_',digits=None)
+            yield self.format('ep')
+            yield self.format('e',eq='ep+(Ms&plusmn;Mp2)/Np0',digits=digits)
+            yield self.format('z',eq='(0.87-0.12·(1-γf_)·(h0/e)<sup>2</sup>)·h0',digits=digits,omit_name=True)
+            eq = '(M-Np0·(z-ep))/(Ap+As)/z'
         else:
-            eq = '未知计算公式'
+            raise InputError(self, 'case', '不支持的参数值')
         yield self.format('σss',eq=eq, digits=digits)
         ok = self.Wcr<self.wlim or abs(self.Wcr-self.wlim)<0.001
         if self.σss <= 0:
@@ -293,18 +311,18 @@ class crack_width(abacus):
         yield '构件受力类型: '
         yield self.__inputs__['force_type'][5][self.force_type]
         yield '构件尺寸:'
-        yield self.formatX('b','h','h0','r','rs','l0',digits=None)
+        yield self.formatx('b','h','h0','r','rs','l0',digits=None)
         yield '钢筋:'
-        yield self.formatX('d','As','Ap',digits=None)
+        yield self.formatx('d','As','Ap',digits=None)
         yield '荷载长期效应组合的设计内力:'
-        yield self.formatX('Ml','Nl',toggled=True)
+        yield self.formatx('Ml','Nl',toggled=True)
         yield '荷载短期效应组合的设计内力:'
-        yield self.formatX('Ms','Ns',toggled=True)
+        yield self.formatx('Ms','Ns',toggled=True)
         yield '材料参数:'
         yield self.format('Es',digits=None)
         yield '系数:'
-        yield self.formatX('C1', 'C2', 'C3', digits=None)
-        eq = 'As/Ate' if self.section == 'rect' else 'β*As/pi/(r**2-r1**2)'
+        yield self.formatx('C1', 'C2', 'C3', digits=None)
+        eq = 'As/Ate' if self.case == 'rect' else 'β*As/pi/(r**2-r1**2)'
         yield self.format('ρte', eq=eq, digits=3)
         yield self.format('σss')
         yield self.format('As',digits)

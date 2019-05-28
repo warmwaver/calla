@@ -139,17 +139,17 @@ class crack_width(abacus):
         yield '构件受力类型: '
         yield self.__inputs__['force_type'][5][self.force_type]
         yield '构件尺寸:'
-        yield self.formatX('b','h','h0',digits=None)
+        yield self.formatx('b','h','h0',digits=None)
         yield '钢筋:'
-        yield self.formatX('d', 'As','Ap',digits=None)
+        yield self.formatx('d', 'As','Ap',digits=None)
         yield '荷载长期效应组合的设计内力:'
-        yield self.formatX('Ml','Nl',toggled=True)
+        yield self.formatx('Ml','Nl',toggled=True)
         yield '荷载短期效应组合的设计内力:'
-        yield self.formatX('Ms','Ns',toggled=True)
+        yield self.formatx('Ms','Ns',toggled=True)
         yield '材料参数:'
         yield self.format('Es',digits=None)
         yield '系数:'
-        yield self.formatX('C1', 'C2', 'C3', digits=None)
+        yield self.formatx('C1', 'C2', 'C3', digits=None)
         ρ = self.para_attrs('ρ')
         yield '{} {} = {} = {:.3f}'.format(
             ρ.name, ρ.symbol,
@@ -169,17 +169,17 @@ class crack_width(abacus):
         yield '构件受力类型: '
         yield self.__inputs__['force_type'][5][self.force_type]
         yield '构件尺寸:'
-        yield self.formatX('b','h','h0',digits=None)
+        yield self.formatx('b','h','h0',digits=None)
         yield '钢筋:'
-        yield self.formatX('d','As','Ap',digits=None)
+        yield self.formatx('d','As','Ap',digits=None)
         yield '荷载长期效应组合的设计内力:'
-        yield self.formatX('Ml','Nl',toggled=True)
+        yield self.formatx('Ml','Nl',toggled=True)
         yield '荷载短期效应组合的设计内力:'
-        yield self.formatX('Ms','Ns',toggled=True)
+        yield self.formatx('Ms','Ns',toggled=True)
         yield '材料参数:'
         yield self.format('Es',digits=None)
         yield '系数:'
-        yield self.formatX('C1', 'C2', 'C3', digits=None)
+        yield self.formatx('C1', 'C2', 'C3', digits=None)
         ρ = self.para_attrs('ρ')
         yield '{} {} = {} = {:.3f}'.format(
             ρ.name, ρ.symbol,
@@ -284,19 +284,19 @@ class cw_round(abacus):
         
     def _html_wmax(self,digits=2):
         yield '构件尺寸:'
-        yield self.formatX('r','rs','l0')
+        yield self.formatx('r','rs','l0')
         yield self.format('d',digits=None)
         yield self.format('As')
         yield '荷载长期效应组合的设计内力:'
-        yield self.formatX('Ml','Nl',toggled=True)
+        yield self.formatx('Ml','Nl',toggled=True)
         yield '荷载短期效应组合的设计内力:'
-        yield self.formatX('Ms','Ns',toggled=True)
+        yield self.formatx('Ms','Ns',toggled=True)
         yield '材料参数:'
-        yield self.formatX('Es')
-        yield self.formatX('C1')
-        yield self.formatX('C2',digits=digits)
-        yield self.formatX('ηs',digits=digits)
-        yield self.formatX('e0',digits=digits)
+        yield self.formatx('Es')
+        yield self.formatx('C1')
+        yield self.formatx('C2',digits=digits)
+        yield self.formatx('ηs',digits=digits)
+        yield self.formatx('e0',digits=digits)
         yield self.format('ρ',eq='As/π/r<sup>2</sup>', digits = 3)
         yield self.format('σss')
         #yield '最大裂缝宽度: W<sub>tk</sub> = {1} = {2:.{0}f} mm'.format(digits,self.express('C1*C2*(0.03+σss/Es*(0.004*d/ρ+1.52*C))'), self.Wfk)
@@ -309,13 +309,13 @@ class cw_round(abacus):
             
     def _html_As(self,digits=2):
         yield '构件尺寸:'
-        yield self.formatX('r','rs','l0')
+        yield self.formatx('r','rs','l0')
         yield self.format('d',digits=None)
         yield self.format('As',digits)
         yield '荷载长期效应组合的设计内力:'
-        yield self.formatX('Ml','Nl',toggled=True)
+        yield self.formatx('Ml','Nl',toggled=True)
         yield '荷载短期效应组合的设计内力:'
-        yield self.formatX('Ms','Ns',toggled=True)
+        yield self.formatx('Ms','Ns',toggled=True)
         yield '材料参数:'
         yield '钢筋弹性模量: Es = {} MPa'.format(self.Es)
         yield '钢筋表面形状系数: C<sub>1</sub> = {:.3f}'.format(self.C1)

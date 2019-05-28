@@ -89,10 +89,10 @@ class axial_compression(abacus):
         self.Nd = axial_compression._Nd(self.φ, self.fc, self.A, self.fy_, self.As_)*1e-3
         self.轴压比 = axial_compression.compression_ratio(self.N, self.A, self.fc)*1e3
     def _html(self,digits=2):
-        yield self.formatX('轴压比')
-        yield self.formatX('φ')
-        yield self.formatX('Nd')
-        yield '{} {} Nd, {}满足规范要求。'.format(self.formatX('N', sep=''),'&lt;' if self.N<self.Nd else '&gt;', '' if self.N<self.Nd else '不')
+        yield self.formatx('轴压比')
+        yield self.formatx('φ')
+        yield self.formatx('Nd')
+        yield '{} {} Nd, {}满足规范要求。'.format(self.formatx('N', sep=''),'&lt;' if self.N<self.Nd else '&gt;', '' if self.N<self.Nd else '不')
         
 def query_beta1(fcuk):
     if fcuk<50:
@@ -140,6 +140,7 @@ class eccentric_compression(abacus):
         ('Ap_',('<i>A</i><sub>p</sub><sup>\'</sup>','mm<sup>2</sup>',0,'受压预应力筋面积')),
         ('ap_',('<i>a</i><sub>p</sub><sup>\'</sup>','mm',60,'受压区纵向预应力筋合力点至受拉边缘的距离')),
         ('Es',('<i>E</i><sub>s</sub>','MPa',2E5,'钢筋弹性模量')),
+        ('σp0_',('<i>σ</i><sub>p0</sub><sup>\'</sup>','MPa',1320,'受压预应力钢筋初始应力','截面受压区纵向预应力钢筋合力点处混凝土法向应力等于零时，预应力钢筋中的应力')),
         ))
     __deriveds__ = OrderedDict((
         ('A',('<i>A</i>','mm<sup>2</sup>',0,'构件截面面积')),
@@ -171,7 +172,15 @@ class eccentric_compression(abacus):
     #f_e = lambda e0,ea,h,a: e0+ea+h/2-a
     f_σsi = lambda Es,epsilon_cu,beta1,h0i,x: Es*epsilon_cu*(beta1*h0i/x-1)
     f_εcu = lambda fcuk:0.0033-(fcuk-50)*1E-5
-    f_ξb = lambda β1,fy,Es,εcu:β1/(1+fy/Es/εcu)
+
+    @staticmethod
+    def fξb(β1,fy,Es,εcu,fpy=0,σp0=0):
+        '''通常使用的热轧钢筋HPB235、HRB335、HRB400都有屈服点，
+        因此暂不考虑无屈服点钢筋(冷拉钢筋)的情况(6.2.7-2)'''
+        if fpy<=0:
+            return β1/(1+fy/Es/εcu) # (6.2.7-1)
+        return β1/(1+0.002/εcu+(fpy-σp0)/Es/εcu) # (6.2.7-3)
+
     f_As_ = lambda N,e,α1,fc,b,x,h0,fy_,as_: (N*e-α1*fc*b*x*(h0-x/2))/(fy_*(h0-as_))
     f_x = lambda N,e,alpha1,fc,b,x,h0,fy_,as_,Es,εcu,beta1:\
         (N-(fy_-eccentric_compression.f_σsi(Es,εcu,beta1,h0,x))*
@@ -271,7 +280,7 @@ class eccentric_compression(abacus):
         if self.x < 0:
             raise Exception('截面受压区高度无正数解')
         self.ξ = self.x/self.h0
-        self.ξb = self.f_ξb(self.fc, self.fy) #TODO: 增加预应力计算
+        self.ξb = self.fξb(self.fc, self.fy) #TODO: 增加预应力计算
         self.xb = self.ξb*self.h0
         if self.ξ <= self.ξb: # 大偏心受压
             self.type = '大偏心'
@@ -302,7 +311,7 @@ class eccentric_compression(abacus):
         nac = eccentric_compression
         self.εcu = min(nac.f_εcu(self.fcuk),0.0033)
         self.β1 = query_beta1(self.fcuk)
-        self.ξb = nac.f_ξb(self.β1,self.fy,self.Es,self.εcu)
+        self.ξb = nac.fξb(self.β1,self.fy,self.Es,self.εcu)
         self.xb = self.ξb*self.h0
         self.Asmin = self.ρmin*self.b*self.h
         if self.symmetrical == False:
@@ -404,16 +413,20 @@ class eccentric_compression(abacus):
         # strictly, a = (σs*As*a_s+σp*Ap*ap)/(σs*As+σp*Ap)
         self.a = self.a_s if self.Ap == 0 else (self.a_s+self.ap)/2
         self.e = self.ei+self.h/2-self.a # (6.2.17-3)
+        self.es = self.ei+self.h/2-self.a_s
+        self.ep = self.ei+self.h/2-self.ap
+        self.es_ = self.ei-self.h/2+self.as_
+        self.ep_ = self.ei-self.h/2+self.ap_
         return self.solve_Nu() if self.option == 'review' else self.solve_As()
 
     def _html(self, digits = 2):
         return self._html_Nu(digits) if self.option == 'review' else self._html_As(digits)
 
     def _html_Nu(self, digits = 2):
-        yield '截面尺寸:{}'.format(self.formatX('b','h','h0',digits=None,omit_name=True))
-        yield '设计内力:{}'.format(self.formatX('Nd','Md',digits=None,omit_name=True))
+        yield '截面尺寸:{}'.format(self.formatx('b','h','h0',digits=None,omit_name=True))
+        yield '设计内力:{}'.format(self.formatx('Nd','Md',digits=None,omit_name=True))
         yield '材料特性:'
-        yield self.formatX('fc','fcuk','fy','fy_',omit_name=True, toggled = False)
+        yield self.formatx('fc','fcuk','fy','fy_',omit_name=True, toggled = False)
         yield self.format('Es',digits=None)
         yield self.format('e',digits=digits)
         yield self.format('xb', digits)
@@ -431,10 +444,10 @@ class eccentric_compression(abacus):
             '' if ok else '不')
         
     def _html_As(self, digits = 2):
-        yield '截面尺寸:{}'.format(self.formatX('b','h','h0',digits=None,omit_name=True))
-        yield '设计内力:{}'.format(self.formatX('N','M',digits=None,omit_name=True))
+        yield '截面尺寸:{}'.format(self.formatx('b','h','h0',digits=None,omit_name=True))
+        yield '设计内力:{}'.format(self.formatx('N','M',digits=None,omit_name=True))
         yield '材料特性:'
-        yield self.formatX('fc','fcuk','fy','fy_',omit_name=True)
+        yield self.formatx('fc','fcuk','fy','fy_',omit_name=True)
         yield self.format('Es',digits=None)
         yield self.format('ei',digits=digits)
         yield self.format('xb', digits)

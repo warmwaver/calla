@@ -175,13 +175,13 @@ class crack_width(abacus):
         yield '验算依据：混凝土结构设计规范（GB 50010-2010）第7.1节'
         yield self.format('force_type')
         yield '构件尺寸:'
-        yield self.formatX('b','h','h0','cs',digits=None)
+        yield self.formatx('b','h','h0','cs',digits=None)
         yield '钢筋面积:'
-        yield self.formatX('As','Ap',digits=None)
+        yield self.formatx('As','Ap',digits=None)
         yield '荷载准永久组合的设计内力:'
-        yield self.formatX('Mq','Nq',digits=None)
+        yield self.formatx('Mq','Nq',digits=None)
         yield '材料参数:'
-        yield self.formatX('ftk','Es',digits=None)
+        yield self.formatx('ftk','Es',digits=None)
         yield self.format('αcr')
         yield self.format('Ate')
         yield self.format('ρte',eq='(As + Ap)/ Ate')

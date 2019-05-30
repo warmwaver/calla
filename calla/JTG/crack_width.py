@@ -32,7 +32,7 @@ class crack_width(abacus):
         ('hf_',('<i>h</i><sub>f</sub><sup>\'</sup>','mm',0,'受压区翼缘计算高度')),
         # 圆形截面
         ('r',('<i>r</i>','mm',500,'圆形截面半径')),
-        ('a_s',('<i>a</i><sub>s</sub>','mm',30,'单根钢筋中心到构件边缘的距离')),
+        ('a_s',('<i>a</i><sub>s</sub>','mm',60,'受拉钢筋重心至受拉边缘的距离','圆形截面为单根钢筋中心到构件边缘的距离')),
         # ('l',('<i>l</i>','mm',0,'构件长度')),
         ('l0',('<i>l</i><sub>0</sub>','mm',0,'构件计算长度')),
         ('as_',('<i>a</i><sub>s</sub><sup>\'</sup>','mm',0,'受压区钢筋合力点至受压区边缘距离')),
@@ -80,8 +80,9 @@ class crack_width(abacus):
             'ps':('force_type', 'b','h','bf','hf','bf_','hf_','ys','ys_','r','rs','l0','Nl','Ns')
             },
         'force_type':{
-            'BD':('b', 'h','l0','Nl','Ns','ys','ys_','as_'),
-            'EC':('ys_',),'ET':('l0','ys'),
+            'BD':('l0','Nl','Ns','ys','ys_','as_'),
+            'EC':('ys_',),
+            'ET':('l0','ys'),
             'AT':('Ml','Ms','l0','ys','ys_','as_')},
         }
 
@@ -247,21 +248,22 @@ class crack_width(abacus):
     def _html_wmax(self,digits=2):
         yield '系数:'
         yield self.formatx('C1', 'C2', 'C3', digits=None)
-        yield self.formatx('c', 'd', digits=None)
+        yield '钢筋:'
+        yield self.formatx('c', 'a_s', 'd', 'As','Ap',digits=None)
         if self.case == 'rect':
             yield self.format('force_type')
             yield '构件尺寸:'
             yield self.formatx('b','h','bf','hf','bf_','hf_','ys','ys_',digits=None)
             if self.case == 'rect':
                 yield self.format('h0', omit_name = True, digits=None)
-            yield '钢筋:'
-            yield self.formatx('d', 'As','Ap',digits=None)
             yield '荷载长期效应组合的设计内力:'
             yield self.formatx('Ml','Nl',toggled=True)
             yield '荷载短期效应组合的设计内力:'
             yield self.formatx('Ms','Ns',toggled=True)
             yield '材料参数:'
             yield self.format('Es',digits=None)
+            if self.case == 'rect':
+                yield self.format('Ate',eq='2*a_s*{}'.format('bf' if self.bf>0 else 'b'))
             eq = 'β·As/π/(r<sup>2</sup>-r<sub>1</sub><sup>2</sup>)' if self.case == 'round' else 'As/Ate'
             yield self.format('ρte',eq=eq, digits = 3)
             if self.force_type == 'EC' or self.force_type == 'ET':
@@ -280,13 +282,14 @@ class crack_width(abacus):
                 if self.force_type=='BD' else "Ns·es_/As/(h0-as_)" \
                 if self.force_type=='ET' else 'Ns·(es-z)/As/z'
         elif self.case == 'round':
+            yield '构件尺寸:'
             yield self.formatx('r','rs','ys','ys_',digits=None)
-            eq = '0.6·(ηs·e0/r-0.1)<sup>3</sup>/(0.45+0.26·rs/r)/(ηs·e0/r+0.2)<sup>2</sup>·Ns/As' if self.force_type == 'EC' \
-                else '0.6/(0.45·r+0.26·rs)·Ms/As (推导公式，非规范直接公式)' if self.force_type == 'BD' \
+            eq = '0.6·(ηs·e0/r-0.1)<sup>3</sup>/(0.45+0.26·rs/r)/(ηs·e0/r+0.2)<sup>2</sup>·Ns/As' if self.Ns > 0 \
+                else '0.6/(0.45·r+0.26·rs)·Ms/As (推导公式)' if self.force_type == 'BD' \
                 else '未知计算公式'
         elif self.case == 'ps':
-            yield self.formatx('As','Ap',digits=None)
-            yield self.formatx('Ms','Mp2','Np0','ys_',digits=None)
+            for para in ('Ms','Mp2','Np0','ys_'):
+                yield self.format(para,digits=None)
             yield self.format('ep')
             yield self.format('e',eq='ep+(Ms&plusmn;Mp2)/Np0',digits=digits)
             yield self.format('z',eq='(0.87-0.12·(1-γf_)·(h0/e)<sup>2</sup>)·h0',digits=digits,omit_name=True)

@@ -441,7 +441,7 @@ class eccentric_compression(abacus, material_base):
         ('x',('<i>x</i>','mm',0,'截面受压区高度')),
         ('xb',('<i>x</i><sub>b</sub>','mm',0,'截面界限受压区高度')),
         ('Nu',('<i>N</i><sub>u</sub>','kN',0,'截面受压承载力')),
-        ('Mu',('<i>M</i><sub>u</sub>','kN',0,'截面受压承载力')),
+        ('Mu',('<i>M</i><sub>u</sub>','kN',0,'截面受弯承载力')),
         ))
     __toggles__ = {
         'option':{'review':(),'design':('As')},
@@ -1097,8 +1097,9 @@ class shear_capacity(abacus, material_base):
         ('Vpb',('<i>V</i><sub>pb</sub>','kN',0,'','与斜截面相交的体内预应力弯起钢筋抗剪承载力设计值')),
         ('Vpbex',('<i>V</i><sub>pb,ex</sub>','kN',0,'','与斜截面相交的体外预应力弯起钢筋抗剪承载力设计值')),
         ('Vu',('<i>V</i><sub>u</sub>','kN',0,'斜截面抗剪承载力')),
-        ('V11',('<i>V</i><sub>11</sub>','kN',0,'按公式5.2.11计算的抗剪承载力')),
-        ('V12',('<i>V</i><sub>12</sub>','kN',0,'按公式5.2.12计算的抗剪承载力')),
+        ('V11',('','kN',0,'按公式5.2.11计算的抗剪承载力')),
+        ('V12',('','kN',0,'按公式5.2.12计算的抗剪承载力')),
+        ('γ0Vd',('','kN',0,'')),
         ))
     __toggles__ = {
         'concrete': material_base.material_toggles['concrete'],
@@ -1117,6 +1118,7 @@ class shear_capacity(abacus, material_base):
     
     def solve(self):
         self.positive_check('b')
+        self.γ0Vd = self.γ0*self.Vd
         # 斜截面抗剪承载力，5.2.9节
         self.P = self.ρ * 100
         self.ρsv = 0 if self.sv == 0 else self.Asv/self.sv/self.b
@@ -1136,34 +1138,28 @@ class shear_capacity(abacus, material_base):
     def _html(self, digits = 2):
         yield self.format('γ0')
         yield self.format('Vd')
-        ok = self.V11 >= self.γ0*self.Vd
-        V11 = self.para_attrs('V11')
-        yield '{} {} {} = {} {}'.format(
-            self.replace_by_symbols('γ0·Vd'), '≤' if ok else '&gt;',
-            self.replace_by_symbols('0.51e-3·√(fcuk)·b·h0'),
-            '{1:.{0}f}'.format(digits, self.V11), V11.unit)
-        yield '抗剪截面{}满足规范5.2.11条规定。'.format('' if ok else '不')
-        ok = self.V12 >= self.γ0*self.Vd
-        V12 = self.para_attrs('V12')
-        yield '{} {} {} = {} {}'.format(
-            self.replace_by_symbols('γ0·Vd'), '≤' if ok else '&gt;',
-            self.replace_by_symbols('0.5e-3·α2·ftd·b·h0'), 
-            '{1:.{0}f}'.format(digits, self.V12), V12.unit)
-        yield '{}满足规范5.2.12条规定，{}进行抗剪承载力的验算。'.format(
-            '' if ok else '不', '可不' if ok else '需')
+        ok = self.V11 >= self.γ0Vd
+        yield '{} {} {}， {}'.format(
+            self.format('γ0Vd', eq='γ0·Vd'), '≤' if ok else '&gt;',
+            self.format('V11', eq='0.51e-3·√(fcuk)·b·h0',omit_name=True),
+            '抗剪截面{}满足规范5.2.11条规定。'.format('' if ok else '不'))
+        ok = self.V12 >= self.γ0Vd
+        yield '{} {} {}， {}'.format(
+            self.format('γ0Vd', eq='γ0·Vd'), '≤' if ok else '&gt;',
+            self.format('V12', eq='0.5e-3·α2·ftd·b·h0',omit_name=True), 
+            '{}满足规范5.2.12条规定，{}进行抗剪承载力的验算。'.format(
+            '' if ok else '不', '可不' if ok else '需'))
         if ok:
             return
         yield self.format('Vcs', eq='0.45e-3·α1·α2·α3·b·h0·√((2+0.6·P)·√(fcuk)·(ρsv·fsv+0.6·ρpv·fpv))')
         yield self.format('Vsb', eq='0.75e-3·fsd·Asb·sinθs')
         yield self.format('Vpb', eq='0.75e-3·fpd·Apb·sinθp')
         yield self.format('Vpbex', eq='0.75e-3·σpeex·Aex·sinθex')
-        ok = self.Vu >= self.γ0*self.Vd
-        Vu = self.para_attrs('Vu')
-        yield '{} {} {} = {} {}'.format(
-            self.replace_by_symbols('γ0·Vd'), '≤' if ok else '&gt;',
-            self.replace_by_symbols('Vcs+Vsb+Vpb+Vpbex'),
-            '{1:.{0}f}'.format(digits, self.Vu), Vu.unit)
-        yield '抗剪承载力{}满足规范5.2.9条规定。'.format('' if ok else '不')
+        ok = self.Vu >= self.γ0Vd
+        yield '{} {} {}， {}'.format(
+            self.format('γ0Vd', eq='γ0·Vd'), '≤' if ok else '&gt;',
+            self.format('Vu', eq='Vcs+Vsb+Vpb+Vpbex',omit_name=True),
+            '抗剪承载力{}满足规范5.2.9条规定。'.format('' if ok else '不'))
 
 class torsion(abacus, material_base):
     """ 抗扭承载力计算

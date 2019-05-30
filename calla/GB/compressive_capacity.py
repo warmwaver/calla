@@ -9,7 +9,7 @@ __all__ = [
 
 from collections import OrderedDict
 from math import sqrt
-from calla import abacus
+from calla import abacus, numeric
 
 class axial_compression(abacus):
     """
@@ -18,7 +18,7 @@ class axial_compression(abacus):
 
     >>> axial_compression._phi(4610,b=400)
     0.95
-    >>> axial_compression._Nd(0.95, 16.7, 400**2)/1000
+    >>> axial_compression.fNu(0.95, 16.7, 400**2)/1000
     2284.56
     >>> axial_compression.compression_ratio(140.8*1000, 400**2, 16.7)
     0.05269461077844311
@@ -37,7 +37,7 @@ class axial_compression(abacus):
         ))
     __deriveds__ = OrderedDict((
         ('φ',('<i>φ</i>','',0,'稳定系数')),
-        ('Nd',('<i>N</i><sub>d</sub>','kN',0,'抗压承载力')),
+        ('Nu',('<i>N</i><sub>u</sub>','kN',0,'抗压承载力')),
         ('轴压比',('轴压比','',0)),
         ))
     
@@ -47,7 +47,7 @@ class axial_compression(abacus):
                 return i
             elif value > array[i] and value <= array[i+1]:
                 return i+1
-    def _Nd(phi, fc, A, fy_=300, As_=0):
+    def fNu(phi, fc, A, fy_=300, As_=0):
         """
         Args:
             phi: 稳定系数
@@ -86,15 +86,15 @@ class axial_compression(abacus):
     
     def solve(self):
         self.φ = axial_compression._phi(self.l0, self.b,self.d,self.i)
-        self.Nd = axial_compression._Nd(self.φ, self.fc, self.A, self.fy_, self.As_)*1e-3
+        self.Nu = axial_compression.fNu(self.φ, self.fc, self.A, self.fy_, self.As_)*1e-3
         self.轴压比 = axial_compression.compression_ratio(self.N, self.A, self.fc)*1e3
     def _html(self,digits=2):
-        yield self.formatx('轴压比')
-        yield self.formatx('φ')
-        yield self.formatx('Nd')
-        yield '{} {} Nd, {}满足规范要求。'.format(self.formatx('N', sep=''),'&lt;' if self.N<self.Nd else '&gt;', '' if self.N<self.Nd else '不')
+        yield self.format('轴压比')
+        yield self.format('φ')
+        yield self.format('Nu')
+        yield '{} {} Nu, {}满足规范要求。'.format(self.formatx('N', sep=''),'&lt;' if self.N<self.Nu else '&gt;', '' if self.N<self.Nu else '不')
         
-def query_beta1(fcuk):
+def fβ1(fcuk):
     if fcuk<50:
         return 0.8
     if fcuk>80:
@@ -140,6 +140,7 @@ class eccentric_compression(abacus):
         ('Ap_',('<i>A</i><sub>p</sub><sup>\'</sup>','mm<sup>2</sup>',0,'受压预应力筋面积')),
         ('ap_',('<i>a</i><sub>p</sub><sup>\'</sup>','mm',60,'受压区纵向预应力筋合力点至受拉边缘的距离')),
         ('Es',('<i>E</i><sub>s</sub>','MPa',2E5,'钢筋弹性模量')),
+        ('σp0',('<i>σ</i><sub>p0</sub>','MPa',1320,'受拉预应力钢筋初始应力','受拉区纵向预应力筋合力点处混凝土法向应力等于零时的预应力筋应力')),
         ('σp0_',('<i>σ</i><sub>p0</sub><sup>\'</sup>','MPa',1320,'受压预应力钢筋初始应力','截面受压区纵向预应力钢筋合力点处混凝土法向应力等于零时，预应力钢筋中的应力')),
         ))
     __deriveds__ = OrderedDict((
@@ -153,6 +154,8 @@ class eccentric_compression(abacus):
         ('ei',('<i>e</i><sub>i</sub>','mm',20,'初始偏心距')),
         ('e',('<i>e</i>','mm',0,'轴向压力作用点至纵向受拉普通钢筋和受拉预应力筋的合力点的距离')),
         ('x',('<i>x</i>','mm',0,'截面受压区高度')),
+        ('Nu',('<i>N</i><sub>u</sub>','kN',0,'截面受压承载力')),
+        ('Mu',('<i>M</i><sub>u</sub>','kN',0,'截面受弯承载力')),
         ))
     __toggles__ = {
         #'option':{'0':(),'1':('As')},
@@ -164,19 +167,24 @@ class eccentric_compression(abacus):
     # Options
     #symmetrical = False # True-对称配筋;False-不对称配筋
     #Asp_known = False # True-已知受压钢筋面积;False-受压钢筋面积未知
-    
-    f_Nd = lambda alpha1,fc,b,x,fy_,As_,sigma_s,As:\
-        alpha1*fc*b*x+fy_*As_-sigma_s*As
-    f_Md = lambda alpha1,fc,b,x,h0,fy_,As_,as_:\
-        alpha1*fc*b*x*(h0-x/2)+fy_*As_*(h0-as_)
+
+    @staticmethod
+    def fNu(α1,fc,b,x,fy_,As_,σs,As,σp0_,fpy_,Ap_,σp,Ap):
+        return α1*fc*b*x+fy_*As_-σs*As-(σp0_-fpy_)*Ap_-σp*Ap
+
+    f_Md = lambda α1,fc,b,x,h0,fy_,As_,as_:\
+        α1*fc*b*x*(h0-x/2)+fy_*As_*(h0-as_)
     #f_e = lambda e0,ea,h,a: e0+ea+h/2-a
     f_σsi = lambda Es,epsilon_cu,beta1,h0i,x: Es*epsilon_cu*(beta1*h0i/x-1)
-    f_εcu = lambda fcuk:0.0033-(fcuk-50)*1E-5
+
+    @staticmethod
+    def f_εcu(fcuk):
+        return 0.0033-(fcuk-50)*1E-5
 
     @staticmethod
     def fξb(β1,fy,Es,εcu,fpy=0,σp0=0):
         '''通常使用的热轧钢筋HPB235、HRB335、HRB400都有屈服点，
-        因此暂不考虑无屈服点钢筋(冷拉钢筋)的情况(6.2.7-2)'''
+        因此暂不考虑无屈服点钢筋(如冷扎钢筋)的情况(6.2.7-2)'''
         if fpy<=0:
             return β1/(1+fy/Es/εcu) # (6.2.7-1)
         return β1/(1+0.002/εcu+(fpy-σp0)/Es/εcu) # (6.2.7-3)
@@ -280,20 +288,20 @@ class eccentric_compression(abacus):
         if self.x < 0:
             raise Exception('截面受压区高度无正数解')
         self.ξ = self.x/self.h0
-        self.ξb = self.fξb(self.fc, self.fy) #TODO: 增加预应力计算
+        self.εcu = self.f_εcu(self.fcuk)
+        self.ξb = self.fξb(self.β1,self.fy,self.Es,self.εcu,self.fpy,self.σp0)
         self.xb = self.ξb*self.h0
         if self.ξ <= self.ξb: # 大偏心受压
             self.type = '大偏心'
             if self.x >= 2*self.as_:
-                self.Nu = self.f_Nu(self.α1*self.fc,self.b,self.x,self.fy_,self.As_,self.fy,self.As,
-                self.fpy_,self.σp0_,self.fpy,self.Ap_,self.Ap)
+                self.Nu = self.fNu(self.α1,self.fc,self.b,self.x,self.fy_,self.As_,self.fy,self.As,
+                self.σp0_,self.fpy_,self.Ap_,self.fpy,self.Ap)
             else:
                 self.Mu = self.fy*self.As*(self.h0-self.as_) #N·mm
                 self.Nu = self.Mu/self.es_/1000 #kN
             return self.Nu
         else: # 小偏心受压
             self.type = '小偏心'
-            self.εcu = self.f_εcu(self.fcuk)
             self.xb = self.ξb*self.h0
             self.x = numeric.iteration_method_solve(f_x, self.xb, β=self.β, εcu=self.εcu, fc=self.α1*self.fc, 
             b=self.b, e=self.e, h0=self.h0, Es=self.Es, Ep=self.Ep, fy_=self.fy_, As_=self.As_, as_=self.as_, es_=self.es_, 
@@ -301,8 +309,8 @@ class eccentric_compression(abacus):
             σp0=self.σp0, Ap=self.Ap, ep=self.ep)
             self.σs = self.f_σsi(self.β,self.Es,self.εcu,self.h0,self.x)
             self.σp = self.f_σpi(self.β,self.Ep,self.εcu,self.h0,self.x, self.σp0)
-            self.Nu = self.f_Nu(self.α1*self.fc,self.b,self.x,self.fy_,self.As_,self.σs,self.As,
-            self.fpy_,self.σp0_,self.σp,self.Ap_,self.Ap)/1000 #kN
+            self.Nu = self.fNu(self.α1*self.fc,self.b,self.x,self.fy_,self.As_,self.σs,self.As,
+            self.σp0_,self.fpy_,self.Ap_,self.σp,self.Ap)/1000 #kN
             return self.Nu
             
     def solve_As(self):
@@ -310,7 +318,6 @@ class eccentric_compression(abacus):
         N = self.N*1E3
         nac = eccentric_compression
         self.εcu = min(nac.f_εcu(self.fcuk),0.0033)
-        self.β1 = query_beta1(self.fcuk)
         self.ξb = nac.fξb(self.β1,self.fy,self.Es,self.εcu)
         self.xb = self.ξb*self.h0
         self.Asmin = self.ρmin*self.b*self.h
@@ -417,6 +424,7 @@ class eccentric_compression(abacus):
         self.ep = self.ei+self.h/2-self.ap
         self.es_ = self.ei-self.h/2+self.as_
         self.ep_ = self.ei-self.h/2+self.ap_
+        self.β1 = fβ1(self.fcuk)
         return self.solve_Nu() if self.option == 'review' else self.solve_As()
 
     def _html(self, digits = 2):
@@ -424,7 +432,7 @@ class eccentric_compression(abacus):
 
     def _html_Nu(self, digits = 2):
         yield '截面尺寸:{}'.format(self.formatx('b','h','h0',digits=None,omit_name=True))
-        yield '设计内力:{}'.format(self.formatx('Nd','Md',digits=None,omit_name=True))
+        yield '设计内力:{}'.format(self.formatx('N','M',digits=None,omit_name=True))
         yield '材料特性:'
         yield self.formatx('fc','fcuk','fy','fy_',omit_name=True, toggled = False)
         yield self.format('Es',digits=None)
@@ -438,9 +446,9 @@ class eccentric_compression(abacus):
         yield '{} {} {}'.format(self.format('x'), '&gt;' if ok else '&lt;', self.format('as_', omit_name = True))
         if not ok:
             yield '少筋，需增加受拉钢筋面积。'
-        ok = self.Nu > self.Nd
+        ok = self.Nu > self.N
         yield '{} {} {}，{}满足规范要求'.format(
-            self.format('Nu'), '&gt;' if ok else '&lt;', self.para_attrs('Nd').symbol,
+            self.format('Nu'), '&gt;' if ok else '&lt;', self.format('N',omit_name=True),
             '' if ok else '不')
         
     def _html_As(self, digits = 2):

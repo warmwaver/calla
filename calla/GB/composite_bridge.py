@@ -60,11 +60,12 @@ class deck_effective_width(abacus):
             self.bc2 = min(self.Lc/6, self.b2)
             self.bc = self.b0+self.bc1+self.bc2
         else:
+            self.validate('positive', 'b1', 'b2')
             self.Lc = self.L1
             self.bc1 = min(self.Lc/6, self.b1)
             self.bc2 = min(self.Lc/6, self.b2)
-            self.β1 = min(0.55+0.025*Lc/self.b1,1.0)
-            self.β2 = min(0.55+0.025*Lc/self.b2,1.0)
+            self.β1 = min(0.55+0.025*self.Lc/self.b1,1.0)
+            self.β2 = min(0.55+0.025*self.Lc/self.b2,1.0)
             self.bc = self.b0+self.β1*self.bc1+self.β2*self.bc2
 
     def _html(self, digits=2):
@@ -338,16 +339,18 @@ class connector_shear_capacity(abacus):
         fNvc2 = lambda η,Astd,fcd,Ec:0.43*η*Astd*sqrt(fcd*Ec)
         self.Nvc1 = fNvc1(self.Astd,self.Ec,self.Es,self.fcu,self.fstd)
         ratio = self.ld/self.d
-        fcuk = material.concrete.fcuk(self.concrete)
         ld = self.ld
         d = self.d
+        self.η = 1.0
         if ratio < 13:
-            if fcuk <= 40:
-                self.η = 0.021*ld/d+0.73
-            elif fcuk <= 50:
-                self.η = 0.016*ld/d+0.80
-            else:
-                self.η = 0.013*ld/d+0.84
+            if self.concrete != '其它':
+                fcuk = material.concrete.fcuk(self.concrete)
+                if fcuk <= 40:
+                    self.η = 0.021*ld/d+0.73
+                elif fcuk <= 50:
+                    self.η = 0.016*ld/d+0.80
+                else:
+                    self.η = 0.013*ld/d+0.84
         self.Nvc2 = fNvc2(self.η,self.Astd,self.fcd,self.Ec)
         self.Nvc = min(self.Nvc1, self.Nvc2)
 
@@ -635,6 +638,7 @@ class shear_connector_fatigue(abacus):
         if self.option == '0':
             self.ΔNp = self.Npmax-self.Npmin
         else:
+            self.validate('positive', 'I0')
             self.ΔNp = self.ΔVd*self.S0c/self.I0*self.ld/self.nd
         self.ΔNL = 0.2*self.Nvc
         self.eql = self.γFf*self.ΔNp

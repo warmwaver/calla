@@ -462,7 +462,7 @@ class support_rib(abacus):
             self.format('fcd', digits=digits, omit_name=True),
             '' if ok else '不')
         ok = self.eql2 <= self.fd
-        eq = 'γ0·Rv/(As+Beb·tw)'
+        eq = 'γ0·2Rv/(As+Bev·tw)'
         yield '{} {} {}，{}满足规范要求。'.format(
             self.format('eql2', digits,eq=eq), '≤' if ok else '&gt;', 
             self.format('fd', digits=digits, omit_name=True),

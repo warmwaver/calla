@@ -121,7 +121,7 @@ class fc_rect(abacus):
         yield '正截面受弯承载力弯矩值: <i>M</i><sub>d</sub> = {:.2f} kN·m'.format(self.Mfc)
         
     def _html_As(self, digits=2):
-        yield '根据正截面受弯承载力设计值计算普通钢筋面积，已知弯矩，暂未考虑受压钢筋和预应力筋'
+        yield '根据正截面受弯承载力设计值计算普通钢筋面积，已知弯矩，不考虑受压钢筋和预应力筋。'
         yield '截面尺寸:'
         yield "<i>b</i> = {} mm, <i>h</i><sub>0</sub> = {} mm".format(self.b,self.h0)
         yield self.format('M')
@@ -140,14 +140,14 @@ class fc_rect(abacus):
                     yield self.format('εcu')
                     yield self.format('β1')
                     yield self.format('σs')
-                    yield '截面受压区高度过大，钢筋出现压应力，弯矩无法平衡,应增大截面尺寸，或提高混凝土强度'
+                    yield '截面受压区高度过大，钢筋出现压应力，弯矩无法平衡,应增大截面尺寸，或提高混凝土强度。'
                 else:
                     yield '{0} &gt; ξb*h = {1:.0f} mm，'.format(self.format('x'), self.xb)
-                    yield '需增大截面尺寸，或提高混凝土强度，或增加钢筋层数'
+                    yield '需增大截面尺寸，或提高混凝土强度，或增加钢筋层数。'
                     attrs = self.para_attrs('As')
                     yield '计算配筋面积:\nAs = {0:.0f} {1} (超筋)'.format(self.As,attrs.unit)
         else:
-            yield '弯矩无法平衡，需增大截面尺寸'
+            yield '弯矩无法平衡，需增大截面尺寸。'
 
 class fc_T(fc_rect):
     """

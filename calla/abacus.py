@@ -75,13 +75,21 @@ class abacus:
     @inputs.setter
     def inputs(self, values):
         """ Set value for inputs """
+        def _setvalue(cls, values, key):
+            v = values[key]
+            t = type(getattr(cls,key))
+            if t is bool and not isinstance(v, bool):
+                v = True if str(v) == 'True' else False 
+            setattr(cls, key, v)
+
         for key in values:
             if hasattr(self, key):
-                v = values[key]
-                t = type(getattr(self,key))
-                if t is bool and not isinstance(v, bool):
-                    v = True if str(v) == 'True' else False 
-                setattr(self, key, v)
+                _setvalue(self, values, key)
+        # toggles may reset the value of some disabled inputs
+        if (hasattr(self, '__toggles__')):
+            for key in self.__toggles__:
+                if key in values:
+                    _setvalue(self, values, key)
 
     def deriveds(self):
         """ Get a dictionary of derived parameters. """
@@ -160,16 +168,10 @@ class abacus:
                 continue
             choices = self.__toggles__[key]
             v = getattr(self,key)
-            # if v not in choices:
-            #     v = self.para_attrs(key).default_value
             if v not in choices:
                 continue
             items = choices[v]
-            if isinstance(items,tuple):
-                for item in items:
-                    r.append(item)
-            else:
-                r.append(items)
+            r.extend(items)
         return r
                         
     def format(self, parameter, digits = 2, value=None, sep=' ', omit_name=False, eq=None):
@@ -321,10 +323,12 @@ class abacus:
         e.g. 'alpha*beta-gamma' -> 'α*β-γ'
         """
         if hasattr(self, '__inputs__'):
-            s = replace_by_aliases(expression, self.__inputs__)
-        if hasattr(self, '__deriveds__'):
-            s = replace_by_aliases(s, self.__deriveds__)
-        return s
+            params = self.__inputs__.copy()
+            if hasattr(self, '__deriveds__'):
+                params.update(self.__deriveds__)
+            s = replace_by_aliases(expression, params)
+            return s
+        return expression
     
     def _html(self, digits = 2):
         """

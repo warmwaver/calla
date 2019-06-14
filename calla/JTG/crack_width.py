@@ -72,19 +72,21 @@ class crack_width(abacus):
         ('es_',('<i>e</i><sub>s</sub><sup>\'</sup>','mm','轴向拉力作用点至受压区或受拉较小边纵向钢筋合力点的距离')),
         ('Wcr',('<i>W</i><sub>cr</sub>','mm',0,'最大裂缝宽度')),
         ))
-    __toggles__ = {
-        'option':{'review':(),'design':('As')},
-        'case':{
+    __toggles__ = OrderedDict((
+        ('option',{'review':(),'design':('As')}),
+        ('case',{
             'rect':('r','rs', 'Ap','Np0','ep','Mp2'),
             'round':('force_type', 'b','h','bf','hf','bf_','hf_','ys','ys_','as_', 'Ap','Np0','ep','Mp2'),
             'ps':('force_type', 'b','h','bf','hf','bf_','hf_','ys','ys_','r','rs','l0','Nl','Ns')
-            },
-        'force_type':{
+            }),
+        # 'force_type' can be disabled by 'case'
+        ('force_type',{
             'BD':('l0','Nl','Ns','ys','ys_','as_'),
             'EC':('ys_',),
             'ET':('l0','ys'),
-            'AT':('Ml','Ms','l0','ys','ys_','as_')},
-        }
+            'AT':('Ml','Ms','l0','ys','ys_','as_')
+            }),
+        ))
 
     @staticmethod
     def f_Wcr(C1,C2,C3,σss,Es,c,d,ρte):

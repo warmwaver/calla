@@ -3,6 +3,7 @@ __all__ = [
     'binary_search_solve',
     'iteration_method_solve',
     'secant_method_solve',
+    'query_table',
     ]
 
 class NumericError(Exception):
@@ -72,6 +73,26 @@ def secant_method_solve(function, start, end, **kwargs):
         x0 = x1
         x1 = x2
         count += 1
+
+def query_table(table, rh, ch: int):
+    """表格数据插值查询
+    Args:
+        table: 要查询的数据表格
+        rh: 行表头
+        ch: 列表头
+    """
+    for i in range(len(table)):
+        row = table[i]
+        if rh == row[0]:
+            return row[ch]
+        if rh < row[0] and i>0:
+            r1 = table[i-1][0]
+            v1 = table[i-1][ch]
+            r2 = row[0]
+            v2 = row[ch]
+            v = v1 + (rh-r1)*(v2-v1)/(r2-r1)
+            return v
+    return None
 
 def test():
     from math import sin,pi

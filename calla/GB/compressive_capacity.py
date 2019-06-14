@@ -9,7 +9,7 @@ __all__ = [
 
 from collections import OrderedDict
 from math import sqrt
-from calla import abacus, numeric
+from calla import abacus, numeric, InputError
 
 class axial_compression(abacus):
     """
@@ -61,7 +61,7 @@ class axial_compression(abacus):
         return 0.9*phi*(fc*A+fy_*As_)
     def _phi(l0, b=0,d=0,i=0):
         if b<=0 and d<=0 and i<=0:
-            raise Exception('输入值必须大于0')
+            raise InputError('输入值必须大于0')
         n = 22
         _b = (8,10,12,14,16,18,20,22,24,26,28,30,32,34,36,38,40,42,44,46,48,50)
         _d = (7,8.5,10.5,12,14,15.5,17,19,21,22.5,24,26,28,29.5,31,33,34.5,36.5,38,40,41.5,43)
@@ -208,7 +208,7 @@ class eccentric_compression(abacus):
             x1 = cls.f_x(N,e,alpha1,fc,b,x0,h0,fy_,as_,Es,εcu,beta1)
             count += 1
         if count > 99:
-            raise Exception('No real solution.')
+            raise numeric.NumericError('No real solution.')
         return x1
     
     @classmethod
@@ -222,7 +222,7 @@ class eccentric_compression(abacus):
             x1 = cls.f_x_As_known(N,e,alpha1,fc,b,x0,h0,fy_,as_,Es,εcu,beta1,As)
             count += 1
         if count > 99:
-            raise Exception('No real solution.')
+            raise numeric.NumericError('No real solution.')
         return x1
     
     @staticmethod
@@ -235,7 +235,7 @@ class eccentric_compression(abacus):
             x1 = (-b+sqrt(b**2-4*a*c))/2/a
             x2 = (-b-sqrt(b**2-4*a*c))/2/a
         except:
-            raise Exception('No proper solution.')
+            raise numeric.NumericError('No proper solution.')
         if x1 > 0 and x1 < h0:
             if x2 > 0 and x2 < h0:
                 if x1 < x2:
@@ -248,7 +248,7 @@ class eccentric_compression(abacus):
             if x2 > 0 and x2 < h0:
                     return x2
             else:
-                raise Exception('No proper solution.')
+                raise numeric.NumericError('No proper solution.')
 
     def solve_Nu(self):
         '''
@@ -286,7 +286,7 @@ class eccentric_compression(abacus):
         self.x = solve_x(self.α1*self.fc, self.b, self.e, self.h0, self.fy_, self.As_, self.es_, 
         self.fpy_, self.σp0_, self.Ap_, self.ep_, self.fy, self.As, self.es, self.fpy, self.Ap, self.ep)
         if self.x < 0:
-            raise Exception('截面受压区高度无正数解')
+            raise numeric.NumericError('截面受压区高度无正数解')
         self.ξ = self.x/self.h0
         self.εcu = self.f_εcu(self.fcuk)
         self.ξb = self.fξb(self.β1,self.fy,self.Es,self.εcu,self.fpy,self.σp0)
@@ -349,7 +349,7 @@ class eccentric_compression(abacus):
                         # 受压区钢筋已知
                         self.x = nac.solve_x_Asp_known(self.α1,self.fc,self.b,self.h0,N,self.e,self.fy_,self.As_,self.as_)
                         if self.x > self.xb:
-                            raise Exception('给定的受压区钢筋面积偏小，请增大后再计算，或不给出受压区钢筋面积.')
+                            raise numeric.NumericError('给定的受压区钢筋面积偏小，请增大后再计算，或不给出受压区钢筋面积.')
                         if self.x < 2*self.as_:
                             self.As = N*self.e/(self.fy*(self.h0-self.as_))
                         else:

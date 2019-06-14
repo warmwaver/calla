@@ -10,6 +10,7 @@ __all__ = [
 from collections import OrderedDict
 from math import pi, sin, cos, tan, atan
 from calla import abacus, InputError, html
+import calla.JTG.pile_cap as cap
 
 class pile_cap(abacus):
     """
@@ -68,17 +69,12 @@ class pile_cap(abacus):
     def solve(self):
         self.positive_check('As')
 
-        nx = len(self.xi)
-        ny = len(self.yi)
-        n = nx*ny
-        sumx2 = sum([x**2 for x in self.xi])
-        sumy2 = sum([y**2 for y in self.yi])
-
-        def Nd(ix, iy):
-            # 计算ix,iy位置的单桩竖向力
-            xi = self.xi[ix]
-            yi = self.yi[iy]
-            return self.Fd/n + self.Mxd*yi/sumy2 + self.Myd*xi/sumx2
+        pvf = cap.pile_vertical_force(**self.inputs)
+        pvf.solve()
+        Nd = pvf.fNid
+        n = pvf.npile
+        nx = pvf.nx
+        ny = pvf.ny
 
         for ix in range(nx):
             for iy in range(ny):

@@ -3,13 +3,12 @@ GB 50936-2014 钢管混凝土结构技术规范 第5.3.1节
 """
 
 __all__ = [
-    #'axial_compression',
     'bearing_capacity',
     ]    
 
 from collections import OrderedDict
 from math import pi
-from calla import abacus
+from calla import abacus, InputError
     
 class bearing_capacity(abacus):
     """
@@ -113,7 +112,7 @@ class bearing_capacity(abacus):
         return (φ,λsc_,fsc,fsv,Esc,αsc,Nu,Mu,Tu,Vu,f)
     
     def solve(self):
-        self.positive_check('As','Ac','fc','r0')
+        self.validate('positive', 'As','Ac','fc','r0')
         _kE = {'Q235':918.9,'Q345':719.6,'Q390':657.5,'Q420':626.9} # 表5.1.7
         self.kE = _kE[self.steel]
         (self.φ, self.λsc_, self.fsc, self.fsv, self.Esc, self.αsc,

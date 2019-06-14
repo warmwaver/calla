@@ -1,6 +1,6 @@
 import unittest
-import calla.unittest
-TestCase = calla.unittest.TestCase
+import calla.test
+TestCase = calla.test.TestCase
 from math import pi
 from calla.TB.RC_strength import *
 

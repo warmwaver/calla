@@ -402,16 +402,18 @@ class shear_connector_uls_check(abacus):
         fNvc2 = lambda η,Astd,fcd,Ec:0.43*η*Astd*sqrt(fcd*Ec)
         self.Nvc1 = fNvc1(self.Astd,self.Ec,self.Es,self.fcu,self.fstd)
         ratio = self.ld/self.d
-        fcuk = material.concrete.fcuk(self.concrete)
         ld = self.ld
         d = self.d
+        self.η = 1.0
         if ratio < 13:
-            if fcuk <= 40:
-                self.η = 0.021*ld/d+0.73
-            elif fcuk <= 50:
-                self.η = 0.016*ld/d+0.80
-            else:
-                self.η = 0.013*ld/d+0.84
+            if self.concrete != '其它':
+                fcuk = material.concrete.fcuk(self.concrete)
+                if fcuk <= 40:
+                    self.η = 0.021*ld/d+0.73
+                elif fcuk <= 50:
+                    self.η = 0.016*ld/d+0.80
+                else:
+                    self.η = 0.013*ld/d+0.84
         self.Nvc2 = fNvc2(self.η,self.Astd,self.fcd,self.Ec)
         self.Nvc = min(self.Nvc1, self.Nvc2)
         # 抗剪连接件的数量计算(第7.5节)

@@ -3,7 +3,7 @@
 from setuptools import setup, find_packages
 
 setup(name='calla',
-      version='0.1',
+      version='0.2',
       description='Calculation for structural engineers',
       url='https://github.com/warmwaver/calla',
       author='warmwaver',

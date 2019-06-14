@@ -5,8 +5,8 @@
 """
 
 import unittest
-import calla.unittest
-TestCase = calla.unittest.TestCase
+import calla.test
+TestCase = calla.test.TestCase
 from calla.GB import crack_width, compressive_capacity
 
 class test_crack_width(TestCase):

@@ -6,8 +6,8 @@
 """
 
 import unittest
-import calla.unittest
-TestCase = calla.unittest.TestCase
+import calla.test
+TestCase = calla.test.TestCase
 from calla.JTG import bearing_capacity, crack_width
 
 class test_bearing_capacity(TestCase):

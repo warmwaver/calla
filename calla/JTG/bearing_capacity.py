@@ -88,7 +88,7 @@ class fc_rect(abacus, material_base):
         material_base.rebar_item,
         ('fsd',('<i>f</i><sub>sd</sub>','MPa',330,'钢筋抗拉强度设计值')),
         ('As',('<i>A</i><sub>s</sub>','mm<sup>2</sup>',0,'受拉钢筋面积')),
-        ('fsd_',('<i>f</i><sub>sd</sub><sup>\'</sup>','MPa',360,'受压区普通钢筋抗压强度设计值')),
+        ('fsd_',('<i>f</i><sub>sd</sub><sup>\'</sup>','MPa',330,'受压区普通钢筋抗压强度设计值')),
         ('As_',('<i>A</i><sub>s</sub><sup>\'</sup>','mm<sup>2</sup>',0,'受压区钢筋面积', '受压区纵向普通钢筋的截面面积')),
         ('as_',('<i>a</i><sub>s</sub><sup>\'</sup>','mm',30,'受压钢筋合力点边距','受压区纵向普通钢筋合力点至截面受压边缘的距离')),
         material_base.ps_item,
@@ -116,16 +116,16 @@ class fc_rect(abacus, material_base):
     __toggles__.update(material_base.material_toggles)
 
     # (5.2.2-1)
-    f_M = lambda fcd,b,x,h0,fsd_,As_,as_,σp0_,fpd_,Ap_,ap_:\
+    fMu = lambda fcd,b,x,h0,fsd_,As_,as_,σp0_,fpd_,Ap_,ap_:\
          fcd*b*x*(h0-x/2)+fsd_*As_*(h0-as_)+(fpd_-σp0_)*Ap_*(h0-ap_)
 
     # (5.2.2-2)
-    f_x = lambda fcd,b,fsd,As,fsd_,As_,fpd,Ap,σp0_,fpd_,Ap_:\
+    fx = lambda fcd,b,fsd,As,fsd_,As_,fpd,Ap,σp0_,fpd_,Ap_:\
           (fsd*As-fsd_*As_+fpd*Ap+(σp0_-fpd_)*Ap_)/(fcd*b)
 
     def solve_Mu(self):
         """计算正截面抗弯承载力设计值"""
-        self.x=fc_rect.f_x(
+        self.x=fc_rect.fx(
             self.fcd,self.b,self.fsd,self.As,self.fsd_,self.As_,
             self.fpd,self.Ap,self.σp0_,self.fpd_,self.Ap_)
         self.xmin = 2*self.as_
@@ -134,7 +134,7 @@ class fc_rect(abacus, material_base):
             self._x = self.xmin
         else:
             self._x = self.x
-        self.Mu = fc_rect.f_M(
+        self.Mu = fc_rect.fMu(
             self.fcd,self.b,self._x,self.h0,self.fsd_,self.As_,self.as_,
             self.σp0_,self.fpd_,self.Ap_,self.ap_)
         self.Mu=self.Mu/1E6
@@ -305,10 +305,10 @@ class axial_compression(abacus):
         ('r',('<i>r</i>','mm',0,'圆形截面的半径')),
         ('i',('<i>i</i>','mm',0,'截面的最小回转半径')),
         ('l0',('<i>l</i><sub>0</sub>','mm',1000,'构件的计算长度','对钢筋混凝土柱可按本规范第6.2.20 条的规定取用')),
-        ('A',('<i>A</i>','mm<sup>2</sup>',500*500,'构件截面面积')),
+        ('A',('<i>A</i>','mm<sup>2</sup>',0,'构件截面面积')),
         ('fcd',('<i>f</i><sub>cd</sub>','MPa',18.4,'混凝土轴心抗压强度设计值')),
         ('fsd_',('<i>f</i><sub>sd</sub><sup>\'</sup>','MPa',330,'受压区普通钢筋抗压强度设计值')),
-        ('As_',('<i>A</i><sub>s</sub><sup>\'</sup>','mm<sup>2</sup>',60,'受压区钢筋面积', '受压区纵向普通钢筋的截面面积')),
+        ('As_',('<i>A</i><sub>s</sub><sup>\'</sup>','mm<sup>2</sup>',0,'受压区钢筋面积', '受压区纵向普通钢筋的截面面积')),
         ))
     __deriveds__ = OrderedDict((
         ('φ',('<i>φ</i>','',0,'稳定系数')),
@@ -409,10 +409,10 @@ class eccentric_compression(abacus, material_base):
         material_base.rebar_item,
         ('fsk',('<i>f</i><sub>sk</sub>','MPa',400,'钢筋抗拉强度标准值')),
         ('fsd',('<i>f</i><sub>sd</sub>','MPa',360,'钢筋抗拉强度设计值')),
-        ('As',('<i>A</i><sub>s</sub>','mm<sup>2</sup>',5*490.9,'受拉钢筋面积')),
+        ('As',('<i>A</i><sub>s</sub>','mm<sup>2</sup>',0,'受拉钢筋面积')),
         ('a_s',('<i>a</i><sub>s</sub>','mm',60,'受拉区纵向普通钢筋合力点至受拉边缘的距离')),
         ('fsd_',('<i>f</i><sub>sd</sub><sup>\'</sup>','MPa',360,'钢筋抗压强度设计值')),
-        ('As_',('<i>A</i><sub>s</sub><sup>\'</sup>','mm<sup>2</sup>',60,'受压区钢筋面积', '受压区纵向普通钢筋的截面面积')),
+        ('As_',('<i>A</i><sub>s</sub><sup>\'</sup>','mm<sup>2</sup>',0,'受压区钢筋面积', '受压区纵向普通钢筋的截面面积')),
         ('as_',('<i>a</i><sub>s</sub><sup>\'</sup>','mm',60,'受压区纵向钢筋合力点至受压边缘的距离')),
         material_base.ps_item,
         ('fpd',('<i>f</i><sub>pd</sub>','MPa',1320,'受拉区预应力筋抗压强度设计值')),
@@ -441,7 +441,8 @@ class eccentric_compression(abacus, material_base):
         ('x',('<i>x</i>','mm',0,'截面受压区高度')),
         ('xb',('<i>x</i><sub>b</sub>','mm',0,'截面界限受压区高度')),
         ('Nu',('<i>N</i><sub>u</sub>','kN',0,'截面受压承载力')),
-        ('Mu',('<i>M</i><sub>u</sub>','kN',0,'截面受弯承载力')),
+        ('Mu',('<i>M</i><sub>u</sub>','kN·m',0,'截面受弯承载力')),
+        ('γ0Nd',('','kN',0,'')),
         ))
     __toggles__ = {
         'option':{'review':(),'design':('As')},
@@ -722,12 +723,14 @@ class eccentric_compression(abacus, material_base):
         self.ep = ei+self.h/2-self.ap
         self.es_ = ei-self.h/2+self.as_
         self.ep_ = ei-self.h/2+self.ap_
+        self.γ0Nd = self.γ0*self.Nd
         return self.solve_Nu() if self.option == 'review' else self.solve_As()
         
     def _html(self, digits = 2):
         return self._html_Nu(digits) if self.option == 'review' else self._html_As(digits)
     
     def _html_Nu(self, digits = 2):
+        yield self.format('γ0')
         yield '截面尺寸:{}'.format(self.formatx('b','h','h0',digits=None,omit_name=True))
         yield self.format('l0')
         yield '设计内力:{}'.format(self.formatx('Nd','Md',digits=digits,omit_name=True))
@@ -745,9 +748,12 @@ class eccentric_compression(abacus, material_base):
         yield '{} {} {}'.format(self.format('x'), '&gt;' if ok else '&lt;', self.format('as_', omit_name = True))
         if not ok:
             yield '少筋，需增加受拉钢筋面积。'
-        ok = self.Nu > self.Nd
-        yield '{} {} {}，{}满足规范要求'.format(
-            self.format('Nu'), '&gt;' if ok else '&lt;', self.para_attrs('Nd').symbol,
+        yield self.format('Nu', digits)
+        ok = self.γ0Nd < self.Nu
+        yield '{} {} {}，{}满足规范要求。'.format(
+            self.format('γ0Nd',digits=digits,eq='γ0*Nd'), 
+            '&le;' if ok else '&gt;', 
+            self.format('Nu',digits=digits,omit_name=True),
             '' if ok else '不')
 
     def _html_As(self, digits = 2):
@@ -1505,6 +1511,8 @@ class local_pressure(abacus, material_base):
         ok = Fl <= self.Flud1
         yield self.format('ηs',digits)
         yield self.format('β',digits)
+        yield self.format('fcd')
+        yield self.format('fsd')
         yield '{} {} {} = {} kN， {}满足规范第5.7.1条要求。'.format(
             self.replace_by_symbols('γ0·Fld'), '≤' if ok else '&gt;',
             self.replace_by_symbols('1.3·ηs·β·fcd·Aln'), 
@@ -1520,8 +1528,4 @@ class local_pressure(abacus, material_base):
 if __name__ == '__main__':
     import doctest
     doctest.testmod()
-    # f = local_pressure(γ0=1.0,Fld=1200,Ab=500**2,Al=500**2,Aln=500**2,concrete='C30',rebar='HRB400',Acor=500**2,rebar_shape='方格网',l1=400,n1=5,As1=113.1,l2=400,n2=5,As2=113.1,s=80)
-    f = torsion()
-    f.solve()
-    print(f.text())
     

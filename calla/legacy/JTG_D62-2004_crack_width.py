@@ -162,7 +162,7 @@ class crack_width(abacus):
             self.Wtk)
         ok = self.Wtk<self.wlim or abs(self.Wtk-self.wlim)<0.001
         yield '{} {} {}，{}{}满足规范要求。'.format(
-            wtk.symbol, '<=' if ok else '>',
+            wtk.symbol, '&le;' if ok else '&gt;',
             self.format('wlim', omit_name=True), wtk.name, '' if ok else '不')
             
     def _html_As(self,digits=2):
@@ -304,7 +304,7 @@ class cw_round(abacus):
         wfk = self.para_attrs('Wfk')
         ok = self.Wfk<self.wlim or abs(self.Wfk-self.wlim)<0.001
         yield '{} {} {}，{}{}满足规范要求。'.format(
-            wfk.symbol, '<=' if ok else '>',
+            wfk.symbol, '&le;' if ok else '&gt;',
             self.format('wlim', omit_name=True), wfk.name, '' if ok else '不')
             
     def _html_As(self,digits=2):

@@ -24,7 +24,7 @@ class fc_rect(abacus):
     """
     __title__ = '矩形或倒T形截面受弯承载力'
     __inputs__ = OrderedDict((
-        ('option',('选项','','1','','',{'0':'计算承载力','1':'计算钢筋面积'})),
+        ('option',('选项','','design','','',{'review':'计算承载力','design':'计算钢筋面积'})),
         ('γ0',('<i>γ</i><sub>0</sub>','',1.0,'重要性系数')),
         ('β1',('<i>β</i><sub>1</sub>','',0.8,'系数','按本规范第6.2.6条的规定计算')),
         ('α1',('<i>α</i><sub>1</sub>','',1,'系数')),
@@ -52,9 +52,11 @@ class fc_rect(abacus):
         ('x',('<i>x</i>','mm',0,'截面受压区高度')),
         ('xb',('<i>x</i><sub>b</sub>','mm',0,'界限受压区高度')),
         ('ξb',('<i>ξ</i><sub>b</sub>','',0,'相对界限受压区高度')),
+        ('eql',('','kN·m',0,'')),
+        ('Mu',('','kN·m',0,'正截面抗弯承载力设计值')),
         ))
     __toggles__ = {
-        'option':{'0':(), '1':('As', 'fy_','As_','as_','fpy','Ap','ap','fpy_','Ap_','ap_','σp0_')},
+        'option':{'review':(), 'design':('As', 'fy_','As_','as_','fpy','Ap','ap','fpy_','Ap_','ap_','σp0_')},
         }
 
     # (6.2.10-1)
@@ -70,8 +72,31 @@ class fc_rect(abacus):
     # (6.2.10-2)
     f_x = lambda α1,fc,b,fy,As,fy_,As_,fpy,Ap,σp0_,fpy_,Ap_:\
           (fy*As-fy_*As_+fpy*Ap+(σp0_-fpy_)*Ap_)/(α1*fc*b)
+
+    def solve_Mu(self):
+        """计算正截面抗弯承载力设计值"""
+        self.x=fc_rect.f_x(
+            self.α1,self.fc,self.b,self.fy,self.As,self.fy_,self.As_,
+            self.fpy,self.Ap,self.σp0_,self.fpy_,self.Ap_)
+        if (self.x > self.xb):
+            # 超筋，参考叶见曙《混凝土结构设计原理》（第二版）P56，式（3-22）
+            x = self.xb # self._x表示修正以后的受压区高度，下同
+            self.Mu = self.fc*self.b*x*(self.h0-x/2)/1E6
+            self._x = x
+            return
+        self.xmin = 2*self.as_
+        if self.x < self.xmin:
+            # 受压钢筋达不到强度设计值
+            self._x = self.xmin
+        else:
+            self._x = self.x
+        self.Mu = fc_rect.f_M(
+                self.α1,self.fc,self.b,self.x,self.h0,self.fy_,self.As_,self.as_,
+                self.σp0_,self.fpy_,self.Ap_,self.ap_)
+        self.Mu=self.Mu/1E6
+        return self.Mu
     
-    def f_As(self):
+    def solve_As(self):
         '''计算普通钢筋面积，已知弯矩，按单筋截面计算，暂未考虑受压钢筋和预应力筋'''
         self.delta = self.h0**2-2*self.γ0*self.M*1E6/self.α1/self.fc/self.b
         if self.delta>0:
@@ -93,32 +118,47 @@ class fc_rect(abacus):
             raise InputError(self, 'h0', '弯矩无法平衡，需增大截面尺寸')
         
     def solve(self):
-        if self.option == '0':
-            self.x=fc_rect.f_x(
-                self.α1,self.fc,self.b,self.fy,self.As,self.fy_,self.As_,
-                self.fpy,self.Ap,self.σp0_,self.fpy_,self.Ap_)
-            self.Mfc = fc_rect.f_M(
-                self.α1,self.fc,self.b,self.x,self.h0,self.fy_,self.As_,self.as_,
-                self.σp0_,self.fpy_,self.Ap_,self.ap_)
-            self.Mfc=self.Mfc/self.γ0/1E6
-            return self.Mfc
-        else:
-            return self.f_As()
+        self.ξb = self.f_ξb()
+        self.xb=self.ξb*self.h0
+        self.solve_Mu() if self.option == 'review' else self.solve_As()
+        self.eql = self.γ0*self.M
     
     def _html(self,digits=2):
-        return self._html_M(digits) if self.option == '0' else self._html_As(digits)
+        return self._html_M(digits) if self.option == 'review' else self._html_As(digits)
     
     def _html_M(self, digits = 2):
-        yield '正截面受弯承载力计算'
-        yield '截面尺寸:'
-        yield self.formatx('b','h0')
-        yield self.format('As')
         yield '计算系数:'
-        yield self.formatx('γ0','α1')
-        yield '材料力学特性:'
-        yield self.formatx('fc','fcuk','fy')
-        yield self.format('x')
-        yield '正截面受弯承载力弯矩值: <i>M</i><sub>d</sub> = {:.2f} kN·m'.format(self.Mfc)
+        yield self.formatx('γ0','α1', digits=None)
+        yield '截面尺寸：'
+        yield self.formatx('b','h0')
+        yield '配筋面积：'
+        yield self.formatx('As','As_')
+        yield '材料力学特性：'
+        yield self.formatx('fc','fcuk','fy', toggled = False)
+        yield self.format('M')
+        ok = self.x<self.xb
+        yield '{} {} {}'.format(
+            self.format('x'), '&lt;' if ok else '&gt;', 
+            self.format('xb', omit_name = True))
+        if not ok:
+            yield '超筋，受压区高度按界限受压区高度计算，即'+self.format('x', omit_name = True, value=self._x)
+            eq = 'α1*fcd*b*x*(h0-x/2)'
+        else:
+            ok = self.x >= self.xmin
+            yield '{} {} {}'.format(
+                self.format('x'), '≥' if ok else '&lt;', 
+                self.format('xmin', eq = '2as_'))
+            if not ok:
+                if self.As_ <= 0:
+                    yield '少筋，需增加受拉钢筋面积。'
+                else:
+                    yield '受压钢筋达不到强度设计值，取{}。'.format(self.format('x', value=self._x))
+            eq = 'α1*fc*b*x*(h0-x/2)+fy_*As_*(h0-as_)+(fpy_-σp0_)*Ap_*(h0-ap_)'
+        ok = self.eql <= self.Mu
+        yield '{} {} {}，{}满足规范要求。'.format(
+            self.format('eql', eq='γ0 Md'), '≤' if ok else '&gt;', 
+            self.format('Mu', omit_name=True, eq=eq),
+            '' if ok else '不')
         
     def _html_As(self, digits=2):
         yield '根据正截面受弯承载力设计值计算普通钢筋面积，已知弯矩，不考虑受压钢筋和预应力筋。'

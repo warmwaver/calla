@@ -248,22 +248,22 @@ class crack_width(abacus):
         return self._html_wmax(digits) if self.option == 'review' else self._html_As(digits)
         
     def _html_wmax(self,digits=2):
+        if self.case != 'ps':
+            yield '作用准永久组合的内力设计值:'
+            yield self.formatx('Ml','Nl',toggled=True)
+            yield '作用频遇组合的内力设计值:'
+            yield self.formatx('Ms','Ns',toggled=True)
         yield '系数:'
         yield self.formatx('C1', 'C2', 'C3', digits=None)
         yield '钢筋:'
         yield self.formatx('c', 'a_s', 'd', 'As','Ap',digits=None)
+        yield self.format('Es',digits=None)
         if self.case == 'rect':
             yield self.format('force_type')
             yield '构件尺寸:'
             yield self.formatx('b','h','bf','hf','bf_','hf_','ys','ys_',digits=None)
             if self.case == 'rect':
                 yield self.format('h0', omit_name = True, digits=None)
-            yield '荷载长期效应组合的设计内力:'
-            yield self.formatx('Ml','Nl',toggled=True)
-            yield '荷载短期效应组合的设计内力:'
-            yield self.formatx('Ms','Ns',toggled=True)
-            yield '材料参数:'
-            yield self.format('Es',digits=None)
             if self.case == 'rect':
                 yield self.format('Ate',eq='2*a_s*{}'.format('bf' if self.bf>0 else 'b'))
             eq = 'β·As/π/(r<sup>2</sup>-r<sub>1</sub><sup>2</sup>)' if self.case == 'round' else 'As/Ate'

@@ -216,9 +216,9 @@ class bc_round(abacus):
         for item in abacus._html(self, digits):
             yield item
         if self.option == '0':
-            ok = self.Mbc > self._M
+            ok = self.Mbc >= self._M
             yield '抗弯承载力{1:.{0}f} kN·m {2} 偏心弯矩{3:.{0}f} kN·m，{4}满足规范要求。'.format(
-                digits, self.Mbc, '>' if ok else '<', self._M,'' if ok else '不')
+                digits, self.Mbc, '&ge;' if ok else '&lt;', self._M,'' if ok else '不')
         else:
             yield self.format('As')
 

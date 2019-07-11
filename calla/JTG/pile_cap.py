@@ -218,7 +218,7 @@ class punching_capacity(abacus):
         ok = γ0Fld <= self.Flu
         yield '{1} = {2:.{0}f} {3} {4} {5}，{6}满足规范要求。'.format(
             digits, self.replace_by_symbols('γ0·Fld'), γ0Fld, fld.unit,
-            '≤' if ok else '>', self.para_attrs('Flu').symbol,
+            '≤' if ok else '&gt;', self.para_attrs('Flu').symbol,
             '' if ok else '不')
 
 if __name__ == '__main__':

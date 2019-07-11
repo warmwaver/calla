@@ -108,7 +108,7 @@ class fc_rect(abacus, material_base):
         ('ξb',('<i>ξ</i><sub>b</sub>','',0,'相对界限受压区高度')),
         ('eql',('','kN·m',0,'')),
         ('xmin',('','mm',0,'')),
-        ('Mu',('<i>M</i><sub>u</sub>','kN·m',0,'正截面抗弯承载力设计值')),
+        ('Mu',('','kN·m',0,'正截面抗弯承载力设计值')),
         ))
     __toggles__ = {
         'option':{'review':(), 'design':('As', 'fsd_','As_','as_','ps','fpd','Ap','ap','fpd_','Ap_','ap_','σp0_')},
@@ -128,6 +128,12 @@ class fc_rect(abacus, material_base):
         self.x=fc_rect.fx(
             self.fcd,self.b,self.fsd,self.As,self.fsd_,self.As_,
             self.fpd,self.Ap,self.σp0_,self.fpd_,self.Ap_)
+        if (self.x > self.xb):
+            # 超筋，参考叶见曙《混凝土结构设计原理》（第二版）P56，式（3-22）
+            x = self.xb # self._x表示修正以后的受压区高度，下同
+            self.Mu = self.fcd*self.b*x*(self.h0-x/2)/1E6
+            self._x = x
+            return
         self.xmin = 2*self.as_
         if self.x < self.xmin:
             # 受压钢筋达不到强度设计值
@@ -182,20 +188,23 @@ class fc_rect(abacus, material_base):
             self.format('x'), '&lt;' if ok else '&gt;', 
             self.format('xb', omit_name = True))
         if not ok:
-            yield '超筋，需减小受拉钢筋面积。'
-        ok = self.x >= self.xmin
-        yield '{} {} {}'.format(
-            self.format('x'), '≥' if ok else '&lt;', 
-            self.format('xmin', eq = '2as_'))
-        if not ok:
-            if self.As_ <= 0:
-                yield '少筋，需增加受拉钢筋面积。'
-            else:
-                yield '受压钢筋达不到强度设计值，取{}。'.format(self.format('x', value=self._x))
+            yield '超筋，受压区高度按界限受压区高度计算，即'+self.format('x', omit_name = True, value=self._x)
+            eq = 'fcd*b*x*(h0-x/2)'
+        else:
+            ok = self.x >= self.xmin
+            yield '{} {} {}'.format(
+                self.format('x'), '≥' if ok else '&lt;', 
+                self.format('xmin', eq = '2as_'))
+            if not ok:
+                if self.As_ <= 0:
+                    yield '少筋，需增加受拉钢筋面积。'
+                else:
+                    yield '受压钢筋达不到强度设计值，取{}。'.format(self.format('x', value=self._x))
+            eq = 'fcd*b*x*(h0-x/2)+fsd_*As_*(h0-as_)+(fpd_-σp0_)*Ap_*(h0-ap_)'
         ok = self.eql <= self.Mu
         yield '{} {} {}，{}满足规范要求。'.format(
             self.format('eql', eq='γ0 Md'), '≤' if ok else '&gt;', 
-            self.format('Mu', omit_name=True),
+            self.format('Mu', omit_name=True, eq=eq),
             '' if ok else '不')
         
     def _html_As(self, digits=2):
@@ -378,7 +387,7 @@ class axial_compression(abacus):
         ok = self.eql <= self.Nud
         eq = 'γ0·Nd'
         yield '{} {} {}，{}满足规范要求。'.format(
-            self.format('eql', digits,eq=eq), '≤' if ok else '>', 
+            self.format('eql', digits,eq=eq), '≤' if ok else '&gt;', 
             self.format('Nud', digits=digits, eq='0.9 φ (fcd A+fsd_ As_)', omit_name=True),
             '' if ok else '不')     
 
@@ -847,7 +856,7 @@ class biaxial_eccentric(abacus):
             yield self.format(para, digits=None)
         ok = self.eql <= self.Nu
         yield '{} {} {}，{}满足规范要求。'.format(
-            self.format('eql', digits,eq='γ0·Nd'), '≤' if ok else '>', 
+            self.format('eql', digits,eq='γ0·Nd'), '≤' if ok else '&gt;', 
             self.format('Nu', digits=digits, eq='1/(1/Nux+1/Nuy-1/Nu0)', omit_name=True),
             '' if ok else '不')
     
@@ -880,7 +889,7 @@ class axial_tension(abacus):
         ok = self.eql <= self.Nu
         eq = 'γ0·Nd'
         yield '{} {} {}，{}满足规范要求。'.format(
-            self.format('eql', digits,eq=eq), '≤' if ok else '>', 
+            self.format('eql', digits,eq=eq), '≤' if ok else '&gt;', 
             self.format('Nu', digits=digits, eq='fsd As', omit_name=True),
             '' if ok else '不')
 

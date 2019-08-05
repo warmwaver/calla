@@ -256,7 +256,7 @@ class crack_width(abacus):
         yield '系数:'
         yield self.formatx('C1', 'C2', 'C3', digits=None)
         yield '钢筋:'
-        yield self.formatx('c', 'a_s', 'd', 'As','Ap',digits=None)
+        yield self.formatx('c', 'a_s', 'd', 'As','Ap',digits=digits)
         yield self.format('Es',digits=None)
         if self.case == 'rect':
             yield self.format('force_type')

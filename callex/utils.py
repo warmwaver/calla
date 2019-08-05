@@ -1,20 +1,26 @@
 
 
-class forces:
+class wrapforces:
     """
     使用符号包装内力列表
     """
+    force_names = ('Fx', 'Fy', 'Fz', 'Mx', 'My', 'Mz')
     def __init__(self, forces):
         '''
         force: tuple or list of (Fx, Fy, Fz, Mx, My, Mz).
         '''
-        self._forces = forces
-        self._force_names = ('Fx', 'Fy', 'Fz', 'Mx', 'My', 'Mz')
-    
-    def __getattr__(self, attr):
-        if attr in self._force_names:
-            i = self._force_names.index(attr)
-            return self._forces[i]
+        n1 = len(self.force_names)
+        n2 = len(forces)
+        for i in range(n1):
+            v = forces[i] if i<n2 else 0
+            setattr(self, self.force_names[i], v)
+
+    def __str__(self):
+        return str(self.forces)
+
+    @property
+    def forces(self):
+        return tuple(getattr(self, name, 0) for name in self.force_names)
 
 def V(A1, A2, t, t1):
     '''箱梁横隔板位置额外重量计算

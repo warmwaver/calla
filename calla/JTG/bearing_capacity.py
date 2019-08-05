@@ -68,7 +68,7 @@ def f_η(N, M, h, h0, l0):
     if ζ2 > 1:
         ζ2 = 1
     η = 1+1/(1300*e0/h0)*(l0/h)**2*ζ1*ζ2 # (5.3.9-1)
-    return (e0, η)
+    return (e0, η, ζ1, ζ2)
         
 
 class fc_rect(abacus, material_base):
@@ -380,8 +380,8 @@ class axial_compression(abacus):
 
     def _html(self,digits=2):
         #yield self.formatx('轴压比')
-        for para in ('γ0','fcd','fsd_','As_'):
-            yield self.format(para, digits=None)
+        for para in ('γ0','Nd','fcd','A','fsd_','As_'):
+            yield self.format(para, digits)
         for para in ('φ'):
             yield self.format(para, digits)
         ok = self.eql <= self.Nud
@@ -389,7 +389,7 @@ class axial_compression(abacus):
         yield '{} {} {}，{}满足规范要求。'.format(
             self.format('eql', digits,eq=eq), '≤' if ok else '&gt;', 
             self.format('Nud', digits=digits, eq='0.9 φ (fcd A+fsd_ As_)', omit_name=True),
-            '' if ok else '不')     
+            '' if ok else '不')
 
 class eccentric_compression(abacus, material_base):
     """
@@ -430,7 +430,7 @@ class eccentric_compression(abacus, material_base):
         ('ap',('<i>a</i><sub>p</sub><sup>\'</sup>','mm',200,'受拉区纵向预应力筋合力点至受拉边缘的距离')),
         ('fpd_',('<i>f</i><sub>pd</sub><sup>\'</sup>','MPa',1320,'受压区预应力筋抗压强度设计值')),
         ('σp0_',('<i>σ</i><sub>p0</sub><sup>\'</sup>','MPa',1320,'受压预应力钢筋初始应力','截面受压区纵向预应力钢筋合力点处混凝土法向应力等于零时，预应力钢筋中的应力')),
-        ('Ap_',('<i>A</i><sub>p</sub></sub><sup>\'</sup>','mm<sup>2</sup>',0,'受拉预应力筋面积')),
+        ('Ap_',('<i>A</i><sub>p</sub><sup>\'</sup>','mm<sup>2</sup>',0,'受拉预应力筋面积')),
         ('ap_',('<i>a</i><sub>p</sub><sup>\'</sup>','mm',200,'受压区纵向预应力筋合力点至受压边缘的距离')),
         ('Es',('<i>E</i><sub>s</sub>','MPa',2E5,'钢筋弹性模量')),
         ('Ep',('<i>E</i><sub>p</sub>','MPa',1.95E5,'预应力钢筋弹性模量')),
@@ -447,11 +447,15 @@ class eccentric_compression(abacus, material_base):
         ('e0',('<i>e</i><sub>0</sub>','mm',0,'轴向压力对截面重心的偏心距','e0=Md/Nd')),
         #('ei',('<i>e</i><sub>i</sub>','mm',20,'初始偏心距')),
         ('e',('<i>e</i>','mm',0,'轴向压力作用点至截面受拉边或受压较小边纵向钢筋As和Ap合力点的距离')),
+        ('ζ1',('<i>ζ</i><sub>1</sub>','',0,'荷载偏心率对截面曲率的影响系数')),
+        ('ζ2',('<i>ζ</i><sub>2</sub>','',0,'构件长细比对截面曲率的影响系数')),
         ('x',('<i>x</i>','mm',0,'截面受压区高度')),
         ('xb',('<i>x</i><sub>b</sub>','mm',0,'截面界限受压区高度')),
         ('Nu',('<i>N</i><sub>u</sub>','kN',0,'截面受压承载力')),
         ('Mu',('<i>M</i><sub>u</sub>','kN·m',0,'截面受弯承载力')),
         ('γ0Nd',('','kN',0,'')),
+        ('σs', ('<i>σ</i><sub>s</sub>','',0,'')),
+        ('σp', ('<i>σ</i><sub>p</sub>','',0,''))
         ))
     __toggles__ = {
         'option':{'review':(),'design':('As')},
@@ -602,12 +606,12 @@ class eccentric_compression(abacus, material_base):
         if self.ξ <= self.ξb: # 大偏心受压
             self.type = '大偏心'
             if self.x >= 2*self.as_:
-                self.Nu = self.f_Nu(self.fcd,self.b,self.x,self.fsd_,self.As_,self.fsd,self.As,
+                Nu = self.f_Nu(self.fcd,self.b,self.x,self.fsd_,self.As_,self.fsd,self.As,
                 self.fpd_,self.σp0_,self.fpd,self.Ap_,self.Ap)
             else:
-                self.Mu = self.fsd*self.As*(self.h0-self.as_) #N·mm
-                self.Nu = self.Mu/self.es_/1000 #kN
-            return self.Nu
+                Mu = self.fsd*self.As*(self.h0-self.as_) #N·mm
+                Nu = self.Mu/self.es_ #N
+                #self.Mu = Mu/1e6
         else: # 小偏心受压
             self.type = '小偏心'
             self.εcu = self.f_εcu(self.fcuk)
@@ -618,9 +622,10 @@ class eccentric_compression(abacus, material_base):
             σp0=self.σp0, Ap=self.Ap, ep=self.ep)
             self.σs = self.f_σsi(self.β,self.Es,self.εcu,self.h0,self.x)
             self.σp = self.f_σpi(self.β,self.Ep,self.εcu,self.h0,self.x, self.σp0)
-            self.Nu = self.f_Nu(self.fcd,self.b,self.x,self.fsd_,self.As_,self.σs,self.As,
-            self.fpd_,self.σp0_,self.σp,self.Ap_,self.Ap)/1000 #kN
-            return self.Nu
+            Nu = self.f_Nu(self.fcd,self.b,self.x,self.fsd_,self.As_,self.σs,self.As,
+            self.fpd_,self.σp0_,self.σp,self.Ap_,self.Ap)
+        self.Nu = Nu/1000 #kN
+        return self.Nu
 
     def solve_As(self):
         '''根据内力设计值计算配筋'''
@@ -723,7 +728,7 @@ class eccentric_compression(abacus, material_base):
         self.A = self.b*self.h
         self.I = self.b*self.h**3/12
         self.i = sqrt(self.I/self.A)
-        self.e0, self.η = f_η(self.Nd*1e3, self.Md*1e6,self.h,self.h0,self.l0)
+        self.e0, self.η, self.ζ1, self.ζ2 = f_η(self.Nd*1e3, self.Md*1e6,self.h,self.h0,self.l0)
         if self.l0/self.i < 17.5:
             self.η = 1
         ei = self.η*self.e0
@@ -757,7 +762,7 @@ class eccentric_compression(abacus, material_base):
         yield '{} {} {}'.format(self.format('x'), '&gt;' if ok else '&lt;', self.format('as_', omit_name = True))
         if not ok:
             yield '少筋，需增加受拉钢筋面积。'
-        yield self.format('Nu', digits)
+        yield self.format('Nu', digits, eq='fcd*b*x+fsd_*As_+(fpd_-σp0_)*Ap_-σs*As-σp*Ap')
         ok = self.γ0Nd < self.Nu
         yield '{} {} {}，{}满足规范要求。'.format(
             self.format('γ0Nd',digits=digits,eq='γ0*Nd'), 
@@ -853,7 +858,7 @@ class biaxial_eccentric(abacus):
 
     def _html(self,digits=2):
         for para in ('γ0','Nd','Nu0','Nux','Nuy'):
-            yield self.format(para, digits=None)
+            yield self.format(para, digits)
         ok = self.eql <= self.Nu
         yield '{} {} {}，{}满足规范要求。'.format(
             self.format('eql', digits,eq='γ0·Nd'), '≤' if ok else '&gt;', 
@@ -923,6 +928,10 @@ class bc_round(abacus, material_base):
         ))
     __deriveds__ = OrderedDict((
         ('e0',('<i>e</i><sub>0</sub>','mm',0,'轴向压力对截面重心的偏心距')),
+        ('h0',('<i>h</i><sub>0</sub>','mm',0,'截面有效高度')),
+        ('h',('<i>h</i>','mm',0,'截面高度')),
+        ('ζ1',('<i>ζ</i><sub>1</sub>','',0,'荷载偏心率对截面曲率的影响系数')),
+        ('ζ2',('<i>ζ</i><sub>2</sub>','',0,'构件长细比对截面曲率的影响系数')),
         ('η',('<i>η</i>','',0,'偏心距增大系数')),
         #('ρ',('<i>ρ</i>','',0,'纵向钢筋配筋率','ρ=As/πr^2')),
         ('A',('<i>A</i>','mm<sup>2</sup>',0,'圆形截面面积')),
@@ -1015,8 +1024,10 @@ class bc_round(abacus, material_base):
             
     def solve(self):
         self.M = self.Md
+        self.h0 = self.r+self.rs
+        self.h = 2*self.r
         if not (self.Nd == 0 or self.Md == 0):
-            self.e0, self.η = f_η(self.Nd*1e3, self.Md*1e6, 2*self.r, self.r+self.rs, self.l0)
+            self.e0, self.η, self.ζ1, self.ζ2 = f_η(self.Nd*1e3, self.Md*1e6, self.h, self.h0, self.l0)
             self.M = self.Nd*self.η*self.e0*1e-3 # kNm
         self.A = pi*self.r**2
         if self.option == 'review':
@@ -1035,11 +1046,19 @@ class bc_round(abacus, material_base):
     def _html_Mud(self,digits=2):
         for item in ('γ0', 'fcd', 'fsd'):
             yield self.format(item, digits=None)
-        for item in ('As', 'A', 'Nd', 'Md', 'α'):
+        for item in ('r', 'rs', 'As', 'A', 'Nd', 'Md', 'l0'):
             yield self.format(item, digits=digits)
-        if hasattr(self,'e0') and self.e0>0:
+        ec = hasattr(self,'e0') and self.e0>0
+        if ec:
             yield self.format('e0', digits=digits)
-            yield self.format('η', digits=digits)
+            yield self.format('h0', digits=digits, eq='r+rs')
+            yield self.format('h', digits=digits, eq='2r')
+            yield self.format('ζ1', digits=digits, eq='0.2+2.7*e0/h0')
+            yield self.format('ζ2', digits=digits, eq='1.15-0.01*l0/h')
+            yield self.format('η', digits=digits, eq='1+1/(1300*e0/h0)*(l0/h)**2*ζ1*ζ2')
+        yield '根据5.3.8节内力平衡方程求解得：'
+        yield self.format('α',digits=digits)
+        if ec:
             self.eql1 = self.γ0*self.Nd
             ok = self.eql1 <= self.Nud
             yield '{0} {1} {2}，{3}满足规范要求。'.format(
@@ -1195,11 +1214,11 @@ class torsion(abacus, material_base):
         material_base.rebar_item,
         ('fsd',('<i>f</i><sub>sd</sub>','N/mm<sup>2</sup>',330,'普通钢筋抗拉强度设计值')),
         ('Asv',('<i>A</i><sub>sv</sub>','mm<sup>2</sup>',0,'箍筋面积','斜截面内配置在同一截面内的箍筋总截面面积')),
-        ('Asv1',('<i>A</i><sub>sv1</sub>','mm<sup>2</sup>',113.1,'纯扭计算中箍筋的单肢截面面积',\
+        ('Asv1',('<i>A</i><sub>sv1</sub>','mm<sup>2</sup>',0,'纯扭计算中箍筋的单肢截面面积',\
             '纯扭计算中箍筋的单肢截面面积')),
         ('fsv',('<i>f</i><sub>sv</sub>','N/mm<sup>2</sup>',250,'箍筋抗拉强度设计值')),
         ('section_type',('截面类型','','rect','','',{
-            'rect':'矩形截面','box':'箱形截面','other':'T形、I形和带翼缘箱形'})),
+            'rect':'矩形','box':'箱形','fbox':'带翼缘箱形','I':'T形或I形'})),
             # 'rect':'矩形截面','box':'箱形截面','fbox':'带翼缘箱形','T':'T形','I':'I形'})),
         ('b',('<i>b</i>','mm',1000,'截面宽度')),
         ('h',('<i>h</i>','mm',1600,'截面高度')),
@@ -1209,23 +1228,24 @@ class torsion(abacus, material_base):
         ('t2',('<i>t</i><sub>2</sub>','mm',180,'箱形截面底板壁厚')),
         ('bcor',('<i>b</i><sub>cor</sub>','mm',1500,'核芯面积的短边边长')),
         ('hcor',('<i>h</i><sub>cor</sub>','mm',1500,'核芯面积的长边边长')),
-        ('bf',('<i>b</i><sub>f</sub>','mm',1000,'翼缘宽度')),
-        ('hf',('<i>h</i><sub>f</sub>','mm',1000,'翼缘厚度')),
-        ('bf_',('<i>b</i><sub>f</sub><sup>\'</sup>','mm',1000,'翼缘宽度')),
-        ('hf_',('<i>h</i><sub>f</sub><sup>\'</sup>','mm',1000,'翼缘厚度')),
-        ('Ast',('<i>A</i><sub>st</sub>','mm<sup>2</sup>',pi/4*800**2,'纵向钢筋截面面积',\
+        ('bf',('<i>b</i><sub>f</sub>','mm',0,'受拉翼缘宽度')),
+        ('hf',('<i>h</i><sub>f</sub>','mm',0,'受拉翼缘厚度')),
+        ('bf_',('<i>b</i><sub>f</sub><sup>\'</sup>','mm',0,'受压翼缘宽度')),
+        ('hf_',('<i>h</i><sub>f</sub><sup>\'</sup>','mm',0,'受压翼缘厚度')),
+        ('Ast',('<i>A</i><sub>st</sub>','mm<sup>2</sup>',0,'纵向钢筋截面面积',\
             '纯扭计算中沿截面周边对称配置的全部普通纵向钢筋截面面积')),
         ('εcu',('<i>ε</i><sub>cu</sub>','mm',0.0033,'混凝土极限压应变')),
         ('sv',('<i>s</i><sub>v</sub>','mm',100,'箍筋间距','沿构件长度方向的箍筋间距')),
         ('ρ',('<i>ρ</i>','',0,'纵向钢筋配筋率')),
         ('ep0',('<i>e</i><sub>p0</sub>','mm',100,'受力筋对换算截面重心轴的偏心距',\
             '预应力钢筋和普通钢筋的合力对换算截面重心轴的偏心距')),
-        ('Np0',('<i>N</i><sub>p0</sub>','mm',100,'预应力和普通钢筋的合力',\
+        ('Np0',('<i>N</i><sub>p0</sub>','kN',100,'预应力和普通钢筋的合力',\
             '混凝土法向预应力等于零时预应力钢筋和普通钢筋的合力')),
         ('A0',('<i>A</i><sub>0</sub>','mm<sup>2</sup>',0,'构件的换算截面面积')),
         ))
     __deriveds__ = OrderedDict((
         ('Wt',('<i>W</i><sub>t</sub>','mm<sup>3</sup>',0,'截面受扭塑性抵抗矩')),
+        ('Wtw',('<i>W</i><sub>tw</sub>','mm<sup>3</sup>',0,'腹板或矩形箱体受扭塑性抵抗矩')),
         ('Acor',('<i>A</i><sub>cor</sub>','mm<sup>2</sup>',0,'由箍筋内表面包围的截面核芯面积')),
         ('Ucor',('<i>U</i><sub>cor</sub>','mm',0,'截面核心面积的周长')),
         ('ζ',('<i>ζ</i>','',0,'纵筋与箍筋的配筋强度比','纯扭构件纵向钢筋与箍筋的配筋强度比')),
@@ -1306,19 +1326,33 @@ class torsion(abacus, material_base):
         self.Ucor=2*(self.bcor+self.hcor)
         self.P = self.ρ * 100
         # 5.5.2 截面受扭塑形抵抗矩
-        b = self.b
-        h = self.h
+        b = self.b; h = self.h; t1  =self.t1; t2=self.t2
         if self.b > self.h:
-            b = self.h
-            h = self.b
-        self.Wt = self.fWt(b,h,self.t1,self.t2)
+            b = self.h; h = self.b; t1 = self.t2; t2 = self.t1
+        box = (self.section_type == 'box' or self.section_type == 'fbox')
+        if not box:
+            t1 = t2 = 0
+        self.Wt = self.fWt(b,h,t1,t2)
+        withflange = (self.section_type == 'fbox' or self.section_type == 'I')
+        if withflange:
+            self.Wtw = self.Wt
+            if self.hf_>=0 and self.bf_>=self.b:
+                self.Wtf_ = self.hf_**2/2*(self.bf_-self.b)
+            else:
+                self.Wtf_ = 0
+            if self.hf>=0 and self.bf>=self.b:
+                self.Wtf = self.hf**2/2*(self.bf-self.b)
+            else:
+                self.Wtf = 0
+            self.Wt = self.Wtw+self.Wtf_+self.Wtf
         # 5.5.1 抗扭承载力
         self.βa = 1.0
         if (self.t2 >= 0.1*self.b and self.t2 <= 0.25*self.b) or \
             (self.t1 >= 0.1*self.h and self.t2 <= 0.25*self.h):
             self.βa = 4*min(self.t2/self.b, self.t1/self.h)
-        self.γ0Td = self.γ0*self.Td
-        ζ = self.fζ(self.fsd, self.Ast, self.sv, self.fsv, self.Asv1, self.Ucor)
+        Td = self.Td*(self.Wtw/self.Wt if withflange else 1)
+        self.γ0Td = self.γ0*Td
+        ζ = self._ζ = self.fζ(self.fsd, self.Ast, self.sv, self.fsv, self.Asv1, self.Ucor)
         if self.Np0 <= 0:
             if ζ < 0.6:
                 ζ = 0.6
@@ -1335,7 +1369,9 @@ class torsion(abacus, material_base):
         self.τ1 = 0.5*self.α2*self.ftd # (5.5.3-2)
         # 5.5.4 抗剪扭承载力
         self.γ0Vd = self.γ0*self.Vd
-        self.βt = self.fβt(Vd,Td,b,self.h0,self.Wt)
+        Wt = self.Wtw if withflange else self.Wt
+        Wt = (self.βa if box else 1)*Wt
+        self.βt = self.fβt(Vd,Td,b,self.h0,Wt)
         if self.βt < 0.5:
             self.βt = 0.5
         if self.βt >1.0:
@@ -1343,44 +1379,48 @@ class torsion(abacus, material_base):
         self.ρsv = 0 if self.sv == 0 else self.Asv/self.sv/b
         self.Vut = self.fVut(
             self.α1,self.α2,self.α3, self.βt, b,self.h0,self.fcuk, self.P, self.ρsv, self.fsv)
+        Np0 = self.Np0; A0=self.A0
+        if self.ep0 <= self.h/6 and self.ζ >= 1.7:
+            Np0 = 0; A0=1
         self.Tut = self.fTut(
-            self.βt, self.βa,self.ftd,self.Wt, self.ζ, self.fsv, self.Asv1,
-            self.Acor, self.sv, self.Np0, self.A0)/1e6
+            self.βt, self.βa,self.ftd, Wt, self.ζ, self.fsv, self.Asv1,
+            self.Acor, self.sv, Np0, A0)/1e6
         # 5.5.5 T形、I形和带翼缘箱形
         # if self.section_type == 'fbox' or self.section_type == 'T' or self.section_type == 'I':
-        self.other = self.section_type == 'other' and self.hf_>=0 and self.bf_>=self.b and self.hf>=0 and self.bf>=self.b
-        if self.section_type == 'other':
-            self.Wtw = self.Wt
-            if self.hf_>=0 and self.bf_>=self.b:
-                self.Wtf_ = self.hf_/2*(self.bf_-self.b)
-            else:
-                self.Wtf_ = 0
-            if self.hf>=0 and self.bf>=self.b:
-                self.Wtf = self.hf/2*(self.bf-self.b)
-            else:
-                self.Wtf = 0
-            self.Wt = self.Wtw+self.Wtf_+self.Wtf
+        #self.other = self.section_type == 'other' and self.hf_>=0 and self.bf_>=self.b and self.hf>=0 and self.bf>=self.b
+        if withflange:
             self.Twd = self.Wtw/self.Wt*self.Td
             self.Tfd_ = self.Wtf_/self.Wt*self.Td
             self.Tfd = self.Wtf/self.Wt*self.Td
             self.γ0Tfd_ = self.γ0*self.Tfd_
             self.γ0Tfd = self.γ0*self.Tfd
             self.Tfu_ = self.fTu(0, self.βa,self.ftd,self.Wtf_, self.ζ, self.fsv, self.Asv1,
-            self.Acor, self.sv, 0, 0, 0)/1e6
+            self.Acor, self.sv, 0, 0, 1)/1e6
             self.Tfu = self.fTu(0, self.βa,self.ftd,self.Wtf, self.ζ, self.fsv, self.Asv1,
-            self.Acor, self.sv, 0, 0, 0)/1e6
+            self.Acor, self.sv, 0, 0, 1)/1e6
 
     def _html(self, digits=2):
+        box = self.section_type == 'box' or self.section_type == 'fbox'
         inputs = self.inputs
         for para in inputs:
             yield self.format(para, digits=None)
-        yield self.format('Acor', digits)
-        yield self.format('Ucor', digits)
-        yield self.format('ζ', digits)
-        yield self.format('Wt', digits)
-        yield self.format('βa', digits)
+        yield self.format('Acor', digits, eq='bcor*hcor')
+        yield self.format('Ucor', digits, eq='2*(bcor+hcor)')
+        yield self.format('ζ', digits, eq='fsd*Ast*sv/fsv/Asv1/Ucor', value=self._ζ)
+        if self._ζ<=0.6:
+            yield '{0}值不满足5.5.1条要求({0}&ge;0.6)，需增加纵筋面积。按{0}=0.6计算。'.format(
+                self.para_attrs('ζ').symbol)
+        elif self._ζ>1.7:
+            yield '{0}&gt;1.7，取{0}=1.7。'.format(self.para_attrs('ζ').symbol)
+        yield self.format('βa', digits, eq='4*min(t2/b, t1/h)' if box else None)
+        eq = 'b**2/6*(3*h-b)' if (self.section_type == 'rect' or self.section_type == 'I')\
+            else 'b**2/6*(3*h-b)-(b-2*t1)**2/6*(3*(h-2*t2)-(b-2*t1))'
+        yield self.format('Wt', digits, eq=eq)
         if self.Vd == 0:
             ok = self.γ0Td <= self.Tu
+            eq = '0.35*βa*ftd*Wt+1.2*sqrt(ζ)*fsv*Asv1*Acor/sv'
+            if self.ep0<=self.h/6 and self.ζ>=1.7:
+                eq += '0.05*Np0/A0*Wt'
             yield '{} {} {}，{}满足规范要求。'.format(
                 self.format('γ0Td', digits, eq='γ0 Td'), '&le;' if ok else '&gt;', 
                 self.format('Tu', digits=digits, eq = '0.35*βa*ftd*Wt+1.2*sqrt(ζ)*fsv*Asv1*Acor/sv', omit_name=True),
@@ -1401,19 +1441,29 @@ class torsion(abacus, material_base):
                 '' if ok else '不', '可不' if ok else '需')
             if not ok:
                 yield '按规范5.5.4节：'
-                yield self.formatx('βt','P','ρsv')
+                eq = '1.5/(1+0.5*Vd*{}Wt/Td/b/h0)'.format('βa*' if box else '')
+                yield self.format('βt', digits, eq=eq)
+                yield self.formatx('P','ρsv')
                 eq = '0.5e-4*α1*α2*α3*(10-2*βt)*{}*h0*sqrt((2+0.6*P)*sqrt(fcuk)*ρsv*fsv)'.format('b' if self.section_type == 'rect' else 'bw')
                 ok = self.γ0Vd <= self.Vut
-                yield '{} {} {}，{}满足规范要求。'.format(
+                yield '{} {} {}，{}满足式(5.5.4-1)的要求。'.format(
                     self.format('γ0Vd', digits, eq='γ0 Vd'), '&le;' if ok else '&gt;', 
                     self.format('Vut', digits, eq=eq, omit_name=True),
                     '' if ok else '不')
+                withflange = (self.section_type == 'fbox' or self.section_type == 'I')
+                if withflange:
+                    yield self.format('Wtw', digits)
                 ok = self.γ0Td <= self.Tut
-                yield '{} {} {}，{}满足规范要求。'.format(
+                withps = self.ep0 <= self.h/6 and self.ζ >= 1.7
+                eq = 'βt*(0.35*βa*ftd{})*{}Wt{}+1.2*sqrt(ζ)*fsv*Asv1*Acor/sv'.format(
+                    '+0.05*Np0/A0' if withps else '',
+                    'βa*' if box else '',
+                    'w' if withflange else '')
+                yield '{} {} {}，{}满足式(5.5.4-2)的要求。'.format(
                     self.format('γ0Td', digits, eq='γ0 Td'), '&le;' if ok else '&gt;', 
-                    self.format('Tut', digits, eq='βt*(0.35*βa*ftd+0.05*Np0/A0)*Wt+1.2*sqrt(ζ)*fsv*Asv1*Acor/sv', omit_name=True),
+                    self.format('Tut', digits, eq=eq, omit_name=True),
                     '' if ok else '不')
-        if self.section_type == 'other' and self.Wt > self.Wtw:
+        if (self.section_type == 'fbox' or self.section_type == 'I') and self.Wt > self.Wtw:
             yield '按规范5.5.5节：'
             if self.Wtf_ > 0:
                 yield self.format('Wtf_', digits, eq='hf_/2*(bf_-b)')

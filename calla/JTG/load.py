@@ -38,7 +38,6 @@ class load_combination:
         荷载组合
         forces: (type, (FX, FY, FZ, MX, MY, MZ))
         type: dead, live, wind, temperature, 
-        坐标系：  X - 水平顺桥向, Y - 水平横桥向, Z - 竖直方向（重力）
         """
         result = [0,0,0,0,0,0]
         for force in forces:

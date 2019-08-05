@@ -122,13 +122,13 @@ class bearing_capacity(abacus):
             self.kE,self.f,self.fc,self.As,self.Ac,self.Ah,
             self.r0,self.rci,self.λ,self.βm
             )
-        self.Nu/=1e3; self.Mu/=1e6; self.Tu/=1e6; self.Vu/=1e3;
+        self.Nu/=1e3; self.Mu/=1e6; self.Tu/=1e6; self.Vu/=1e3
         
     def _html(self, digits = 2):
         yield '偏心受压承载力计算'
         for row in super()._html():
             yield row
-        yield '构件内力与承载力比例系数={:.3f} {} 1, {}满足规范要求。'.format(self.result, '<' if self.result < 1 else '>', '' if self.result < 1 else '不')
+        yield '构件内力与承载力比例系数={:.3f} {} 1, {}满足规范要求。'.format(self.result, '&le;' if self.result <= 1 else '&gt;', '' if self.result < 1 else '不')
 
 def _test():
     f = bearing_capacity(

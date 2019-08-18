@@ -13,30 +13,30 @@ from math import pi, sqrt, sin, cos, tan
 class load_combination:
     # ULS
     # 基本组合(fundamental combination)
-    uls_fu = {'dead':1.2, 'live':1.4, 'braking':0.75*1.4, 'settlement':1.0, 'wind':0.75*1.1, 
+    uls_fu = {'dead':1.2, 'soil':1.4, 'live':1.4, 'braking':0.75*1.4, 'settlement':1.0, 'wind':0.75*1.1, 
     'temperature':0.75*1.4, 'accident':0, 'earthquake':0}
     # 偶然组合(accidental combination)
-    uls_ac = {'dead':1.0, 'live':0.4, 'braking':0.7, 'settlement':1.0, 'wind':0.75, 
+    uls_ac = {'dead':1.0, 'soil':1.0, 'live':0.4, 'braking':0.7, 'settlement':1.0, 'wind':0.75, 
     'temperature':0.8, 'accident':1.0, 'earthquake':0}
     # 地震组合(earthquake combination)
-    uls_ea = {'dead':1.0, 'live':0.5, 'braking':0.0, 'settlement':1.0, 'wind':1.0, 
+    uls_ea = {'dead':1.0, 'soil':1.0, 'live':0.5, 'braking':0.0, 'settlement':1.0, 'wind':1.0, 
     'temperature':1.0, 'accident':0, 'earthquake':1.0}
     # SLS
     # 标准组合(characteristic combination)
-    sls_ch = {'dead':1.0, 'live':1.0, 'braking':1.0, 'settlement':1.0, 'wind':1.0, 
+    sls_ch = {'dead':1.0, 'soil':1.0, 'live':1.0, 'braking':1.0, 'settlement':1.0, 'wind':1.0, 
     'temperature':1.0, 'accident':0, 'earthquake':0}
     # 频遇组合(frequent combination)
-    sls_fr = {'dead':1.0, 'live':0.7, 'braking':1.0, 'settlement':1.0, 'wind':0.75, 
+    sls_fr = {'dead':1.0, 'soil':1.0, 'live':0.7, 'braking':1.0, 'settlement':1.0, 'wind':0.75, 
     'temperature':0.8, 'accident':0, 'earthquake':0}
     # 准永久组合(quasi-permanent combination)
-    sls_qp = {'dead':1.0, 'live':0.4, 'braking':1.0, 'settlement':1.0, 'wind':0.75, 
+    sls_qp = {'dead':1.0, 'soil':1.0, 'live':0.4, 'braking':1.0, 'settlement':1.0, 'wind':0.75, 
     'temperature':0.8, 'accident':0, 'earthquake':0}
 
     @staticmethod
     def combinate(forces, combination_factors):
         """
         荷载组合
-        forces: (type, (FX, FY, FZ, MX, MY, MZ))
+        forces: [(type, (FX, FY, FZ, MX, MY, MZ)),...]
         type: dead, live, wind, temperature, 
         """
         result = [0,0,0,0,0,0]
@@ -49,7 +49,7 @@ class load_combination:
 class earth_pressure(abacus):
     """
     土压力计算
-    《公路桥涵设计通用规范》（JTG D60-2015）4.2.3节
+    《公路桥涵设计通用规范》（JTG D60-2015）4.2.3、4.3.4节
     """
     __title__ = '土压力计算'
     __inputs__ = OrderedDict([
@@ -69,6 +69,7 @@ class earth_pressure(abacus):
             ('q',('<i>q</i>','kN/m',0,'汽车荷载产生的侧压力')),
             ('μ',('<i>μ</i>','',0,'主动土压力系数')),
             ('aep',('<i>E</i>','kN',0,'主动土压力')),
+            ('C',('<i>C</i>','m',0,'主动土压力着力点','自计算土层底面算起')),
             ])
 
     @staticmethod
@@ -88,7 +89,8 @@ class earth_pressure(abacus):
     def active_earth_pressure(cls, φ, α, β, B, γ, H, δ = None):
         μ = cls.fμ(φ, α, β, δ)
         E = 0.5*B*μ*γ*H**2 # (4.2.3-4)
-        return (μ, E)
+        C = H/3
+        return (μ, E, C)
 
     @classmethod
     def active_earth_pressure_live(cls, φ, α, B, γ, H, G, δ = None):
@@ -100,17 +102,18 @@ class earth_pressure(abacus):
         β = 0
         μ = cls.fμ(φ, α, β, δ)
         E = 1/2*B*μ*γ*H*(H+2*h) # (4.2.3-6)
-        return (l0, h, E)
+        C = H/3*(H+3*h)/(H+2*h)
+        return (l0, h, E, C)
     
     def solve(self):
         self.ξ, self.sep = earth_pressure.static_earth_pressure(
             self.φ*pi/180, self.B, self.γ, self.H)
         φ = self.φ*pi/180
         α = self.α*pi/180
-        self.μ, self.aep = self.active_earth_pressure(
+        self.μ, self.aep, self.C = self.active_earth_pressure(
             φ, α, self.β*pi/180, self.B, self.γ, self.H)
         if self.G > 0:
-            self.l0,self.h,self.aep = self.active_earth_pressure_live(φ, α, self.B, self.γ, self.H, self.G)
+            self.l0,self.h,self.aep, self.C = self.active_earth_pressure_live(φ, α, self.B, self.γ, self.H, self.G)
             self.q = self.μ*self.γ*self.h
 
 class wind(abacus):

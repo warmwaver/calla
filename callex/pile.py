@@ -10,7 +10,7 @@ from calla.JTG import material, load
 from calla.JTG.bearing_capacity import bc_round
 from calla.JTG.crack_width import crack_width
 from calla.JTG.pile_capacity import friction_pile_capacity, end_bearing_pile_capacity, pile_effects
-from callex.utils import forces
+from callex.utils import wrapforces
 
 material_base = material.material_base
 
@@ -88,7 +88,7 @@ class Pile(abacus, material_base):
         # 基本组合
         p = pile_effects(**params)
         lc = load.load_combination
-        forces_fu = forces(self.forces_fu)
+        forces_fu = wrapforces(self.forces_fu)
         choseX = forces_fu.Fy > forces_fu.Fz
         if choseX:
             p.H0 = forces_fu.Fy # FX
@@ -103,8 +103,8 @@ class Pile(abacus, material_base):
         # 偏心受压承载力
         r=1000*self.d/2 # mm
         bc = bc_round(
-            option='review',r=r,rs=r-60,l0=0, Md=M,
-            Nd = forces_fu.Fx+ lc.uls_fu['dead']*(z*pi/4*self.d**2*material.concrete.density),
+            option='review',r=r,rs=r-60,l0=0, Md=abs(M),
+            Nd = abs(forces_fu.Fx)+ lc.uls_fu['dead']*(z*pi/4*self.d**2*material.concrete.density),
             **params)
         bc.As=self.As
         bc.solve()
@@ -113,7 +113,7 @@ class Pile(abacus, material_base):
         # 偶然组合
         if tuple(self.forces_ac) != (0,0,0,0,0,0):
             # forces_ac = lc.combinate(bottom_forces, lc.uls_ac)
-            forces_ac = forces(self.forces_ac)
+            forces_ac = wrapforces(self.forces_ac)
             if forces_ac.Fy > forces_ac.Fz:
                 p.H0 = forces_ac.Fy # FX
                 p.M0 = forces_ac.Mz # MY
@@ -128,7 +128,7 @@ class Pile(abacus, material_base):
             r=1000*self.d/2 # mm
             bc = bc_round(
                 option='review',r=r,rs=r-60,l0=0, Md=M,
-                Nd = forces_ac.Fx+ lc.uls_ac['dead']*(z*pi/4*self.d**2*material.concrete.density),
+                Nd = abs(forces_ac.Fx)+ lc.uls_ac['dead']*(z*pi/4*self.d**2*material.concrete.density),
                 **params)
             bc.As=self.As
             bc.solve()
@@ -137,7 +137,7 @@ class Pile(abacus, material_base):
 
         # 长期作用(准永久组合)
         # forces_l = lc.combinate(bottom_forces, lc.sls_qp)
-        forces_l = forces(self.forces_qp)
+        forces_l = wrapforces(self.forces_qp)
         if choseX:
             p.H0 = forces_l.Fy
             p.M0 = forces_l.Mz
@@ -150,7 +150,7 @@ class Pile(abacus, material_base):
 
         # 短期作用(频遇组合)
         # forces_s = lc.combinate(bottom_forces, lc.sls_fr)
-        forces_s = forces(self.forces_fr)
+        forces_s = wrapforces(self.forces_fr)
         if choseX:
             p.H0 = forces_s.Fy
             p.M0 = forces_s.Mz
@@ -162,15 +162,15 @@ class Pile(abacus, material_base):
 
         # 裂缝宽度计算
         cw = crack_width(
-            option='review', section='round', force_type='EC',
+            option='review', case='round', force_type='EC',
             Es=material.rebar.Es(self.rebar),
             fcuk=material.concrete.fcuk(self.concrete),
             d=28,C=30,r=r,rs=r-60,l=1000,l0=1000,
             As=self.As,
-            Nl=forces_l.Fx, # 暂不考虑桩基重力
-            Ml=Ml,
-            Ns=forces_s.Fx,
-            Ms=Ms,
+            Nl=abs(forces_l.Fx), # 暂不考虑桩基重力
+            Ml=abs(Ml),
+            Ns=abs(forces_s.Fx),
+            Ms=abs(Ms),
             wlim=0.2,C1=1.0)
         cw.solve()
 
@@ -182,7 +182,7 @@ class Pile(abacus, material_base):
         pc.L = self.h
         # 标准组合
         # forces = lc.combinate(bottom_forces, lc.sls_ch)
-        pc.Rt = forces(self.forces_ch).Fx
+        pc.R0 = abs(wrapforces(self.forces_ch).Fx)
         pc.solve()
         
         self.bc = bc
@@ -190,11 +190,11 @@ class Pile(abacus, material_base):
         self.pc = pc
 
     def html(self, digits=2):
-        doc = '<h4>竖向承载力计算</h4>'
+        doc = '（1）竖向承载力计算'
         doc += self.pc.html(digits)
-        doc += '<h4>桩基偏心受压承载力计算</h4>'
+        doc += '（2）桩基偏心受压承载力计算'
         doc += self.bc.html(digits)
-        doc += '<h4>桩基裂缝宽度计算</h4>'
+        doc += '（3）桩基裂缝宽度计算'
         doc += self.cw.html(digits)
         return doc
 

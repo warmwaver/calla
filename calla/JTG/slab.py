@@ -17,15 +17,18 @@ class vehicle_load(abacus):
             ('l',('<i>l</i>','m',3,'板的计算跨径')),
             ('h',('<i>h</i>','m',0.1,'铺装层厚度')),
             ('t',('<i>t</i>','m',0.3,'板的跨中厚度')),
-            ('d',('<i>d</i>','',1.4,'多个车轮时外轮之间的中距','垂直于板跨方向')),
+            ('d',('<i>d</i>','m',1.4,'多个车轮时外轮之间的中距','垂直于板跨方向')),
             ('d1',('<i>d</i><sub>1</sub>','m',1.4,'垂直于板跨方向的相邻车轮中距')),
             ('a1',('<i>a</i><sub>1</sub>','m',0.2,'垂直于板跨方向的车轮着地尺寸')),
             ('b1',('<i>b</i><sub>1</sub>','m',0.6,'平行于板跨方向的车轮着地尺寸')),
+            ('lc',('<i>l</i><sub>c</sub>','m',0,'车轮分布线外缘至腹板外边缘的距离',
+            '平行于悬臂板跨径的车轮着地尺寸的外缘，通过铺装层45°分布线的外边线至腹板外边缘的距离(图4.2.5)')),
             ])
     __deriveds__ = OrderedDict([
             ('overlaped',('','',False,'车轮重叠')),
             ('a',('<i>a</i>','m',0,'垂直于板跨方向的荷载分布宽度')),
             ('b',('<i>b</i>','m',0,'平行于板跨方向的荷载分布宽度')),
+            ('a2',('<i>a</i>','m',0,'悬臂板垂直于板跨方向的车轮荷载分布宽度')),
             ])
     __toggles__ = {
         #'bridge_type':{'0':('CH','truss_type','实面积比','间距比','d'),'1':('CH', 'B','D','βd')},
@@ -53,6 +56,7 @@ class vehicle_load(abacus):
     def solve(self):
         self.b = self.b1 + 2*self.h
         self.a, self.overlaped = self.fa(self.l, self.h, self.t, self.d, self.d1, self.a1)
+        self.a2 = (self.a1+2*self.h)+2*self.lc
 
     def _html(self, digits=2):
         for para in self.inputs:
@@ -63,6 +67,7 @@ class vehicle_load(abacus):
         yield '距板跨端部的距离(m): 荷载分布宽度(m)'
         for i in self.a:
             yield '{1:.{0}f}: {2:.{0}f}'.format(digits, i, self.a[i])
+        yield self.format('a2', digits, eq='(a1+2*h)+2*lc')
 
 if __name__ == '__main__':
     f = vehicle_load(l=4.15, h=0.09, t=0.25, d=1.4, d1=1.4, a1=0.2, b1=0.6)

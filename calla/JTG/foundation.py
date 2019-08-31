@@ -211,7 +211,7 @@ class sliding(abacus):
     def solve(self):
         self.validate('positive', 'μ')
         μ=self.μ; Pi = self.Pi; HiP = self.HiP; Hia=self.Hia
-        self.kc = (μ*Pi+HiP)/Hia
+        self.kc = (μ*Pi+HiP)/Hia if Hia > 0 else float('inf')
     
     def _html(self, digits=2):
         for para in ('μ','Pi','HiP','Hia'):

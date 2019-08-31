@@ -20,7 +20,7 @@ class longitudinal_force_distribution(abacus):
         ('Pk',('<i>P</i><sub>k</sub>','kN',360,'车道荷载集中力','2*(L0+130)')),
         ('nlane',('车道数','',4,'车道数')),
         ('Fmin',('<i>F</i><sub>min</sub>','',165,'制动力荷载')),
-        ('ratio',('多车道放大系数','mm',500,'','同向三车道2.34，同向四车道2.68')),
+        ('ratio',('多车道放大系数','',2.68,'','同向三车道2.34，同向四车道2.68')),
         ('nb',('<i>n</i><sub>b</sub>','',7,'每个墩台支座个数')),
         ('kb',('<i>k</i><sub>b</sub>','kN/m',1714,'支座刚度')),
         ('a_s',('<i>a</i><sub>s</sub>','mm',60,'受拉钢筋距边缘距离','受拉区纵向普通钢筋合力点至受拉边缘的距离')),
@@ -116,6 +116,8 @@ class longitudinal_force_distribution(abacus):
             2.不动点可能无解
         解决办法：
             存储不动点位置xsp和滑动状态
+        问题（20190822）：
+            如果所有支座都发生滑动呢？
         '''
         def f_Fs(xs, ks, Ws, Δt, α, μ, xsp, move_status):
             # 计算墩顶水平力
@@ -157,16 +159,27 @@ class longitudinal_force_distribution(abacus):
                     a += k*α*Δt
                     b += a*x
                     move_status[i] = False
-            xsp1 = b/a
-            if xsp1 == xsp:
-                break
-            Fs = f_Fs(xs, ks, Ws, Δt, α, μ, xsp, move_status)
-            if abs(sum(Fs)) < 0.001:
-                if xsp in xsplist:
+            # 如果所有支座都滑动，即a=0。
+            if a > 0:
+                xsp1 = b/a
+                if xsp1 == xsp:
                     break
+                Fs = f_Fs(xs, ks, Ws, Δt, α, μ, xsp, move_status)
+                if abs(sum(Fs)) < 0.001:
+                    if xsp in xsplist:
+                        break
+                    else:
+                        xsplist.append(xsp)
+                        mslist.append(move_status)
+            else:
+                n = len(xs)
+                index = int(n/2)
+                if n%2 == 0:
+                    xsp1 = (xs[index-1]+xs[index])/2
                 else:
-                    xsplist.append(xsp)
-                    mslist.append(move_status)
+                    xsp1 = xs[index]
+                if xsp1 == xsp:
+                    break
             xsp = xsp1
             print('不动点坐标：xsp = ',xsp)
             print('[迭代步结束]'.format(i))
@@ -192,6 +205,7 @@ class longitudinal_force_distribution(abacus):
         # 温度作用水平力分配
         self.xsp,self.move_status,self.Fs = self.temperature_force_distribution(
             xs, ks, self.Ws, self.fixeds, self.Δt, self.α, self.μ)
+        # TODO: 制动力分配
         return
 
     # def _html(self, digits=2):

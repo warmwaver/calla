@@ -158,12 +158,12 @@ class fc_rect(abacus, material_base):
                 self.εcu = self.f_εcu()
                 self.σs = self.Es*self.εcu*(self.β1*self.h0/self.x-1)
                 if self.σs<0:
-                    raise '截面受压区高度过大，钢筋出现压应力，弯矩无法平衡\n'
+                    raise Exception('截面受压区高度过大，钢筋出现压应力，弯矩无法平衡\n')
                 else:
                     self.As = self.fcd*self.b*self.x/self.σs
                     return self.As
         else:
-            raise '弯矩无法平衡，需增大截面尺寸'
+            raise Exception('弯矩无法平衡，需增大截面尺寸')
         
     def solve(self):
         self.ξb = f_ξb(self.fcuk, self.fsd)

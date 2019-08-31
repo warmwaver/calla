@@ -175,9 +175,9 @@ class effective_section(abacus):
         ('k',('<i>k</i>','',0.425,'加劲板的弹性屈曲系数','加劲肋尺寸符合本规范第5.1.5条规定时，可参考附录B计算')),
         ('bi',('<i>b</i><sub>i</sub>','mm',1800,'第i块受压板段或板元的宽度')),
         ('l',('<i>l</i>','mm',90,'等效跨径')),
-        ('option',('适用公式','','A','','',{'A':'(5.1.8-3)','B':'(5.1.8-4)'})),
-        #('case',('适用情况','','3','','附录B.0.1列出的四种情况',['1','2','3','4'])),
-        #('rigid',('刚性','',False,'','',{True:'是',False:'否'})),
+        # ('option',('适用公式','','A','','',{'A':'(5.1.8-3)','B':'(5.1.8-4)'})),
+        ('beam_type',('梁类别','','simple','','',{'simple':'简支梁','continuous':'连续梁','cantilever':'悬臂梁'})),
+        ('location',('截面位置','','middle_span','','',{'side_span':'边跨','middle_span':'中跨','middle_support':'中支点'})),
         ))
     __deriveds__ = OrderedDict((
         ('λp',('<span style="text-decoration:overline;"><i>λ</i></span><sub>p</sub>','',0,'相对宽厚比')),
@@ -189,7 +189,7 @@ class effective_section(abacus):
         ('bei',('<i>b</i><sub>e,i</sub>','mm',0,'同时考虑剪力滞和局部稳定影响的第i块板段的翼缘有效宽度')),
         ))
     __toggles__ = {
-        #'option':{True:(),False:('ht','tt','at')},
+        'beam_type':{'simple':('location')},
         }
         
     @staticmethod
@@ -225,6 +225,12 @@ class effective_section(abacus):
     def solve(self):
         self.λp,self.ε0,self.ρip= self.fρ(self.bp,self.t,self.fy,self.E,self.k)
         self.beip = self.ρip*self.bi
+        if self.beam_type == 'simple':
+            option = 'A'
+        elif self.beam_type == 'continuous':
+            option = 'A' if (self.location == 'side_span' or self.location == 'middle_span') else 'B'
+        elif self.beam_type == 'cantilever':
+            option = 'A'
         self.beis = self.fbeis(self.bi,self.l, self.option)
         self.ρis = self.beis/self.bi
         self.bei = self.ρis*self.beip

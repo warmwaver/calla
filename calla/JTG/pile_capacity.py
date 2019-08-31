@@ -734,6 +734,16 @@ def _test3():
         Qz = f._Qz(f.z)
         print(h, f.z, Mz, Qz)
     
+def _test4():
+    f = pile_group_effects(
+    L1=5, d=1.5, h=20, l0=0, h2=10, hc=0, b2=1, kf=0.9, Ec=30000, m=5000, C0=300000, P=4200+20000, H=6480, M=6480*4.06, 
+    bottom_fixed="False", z=1, xi=[-2.5,2.5], Ki=[3,3], ξ=1, ψ=1)
+    f.solve()
+    print(f.text())
+    M = f.a*f.γaβ+f.c*f.γβc+f.β*f.γββ
+    print('M = ', M)
+    assert M == f.M0
+
 if __name__ == '__main__':
     # _test2()
     f = pile_group_effects()

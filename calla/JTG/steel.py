@@ -174,12 +174,15 @@ class effective_section(abacus):
         ('E',('<i>E</i>','MPa',2.06E5,'钢材弹性模量')),
         ('k',('<i>k</i>','',0.425,'加劲板的弹性屈曲系数','加劲肋尺寸符合本规范第5.1.5条规定时，可参考附录B计算')),
         ('bi',('<i>b</i><sub>i</sub>','mm',1800,'第i块受压板段或板元的宽度')),
-        ('l',('<i>l</i>','mm',90,'等效跨径')),
-        # ('option',('适用公式','','A','','',{'A':'(5.1.8-3)','B':'(5.1.8-4)'})),
         ('beam_type',('梁类别','','simple','','',{'simple':'简支梁','continuous':'连续梁','cantilever':'悬臂梁'})),
         ('location',('截面位置','','middle_span','','',{'side_span':'边跨','middle_span':'中跨','middle_support':'中支点'})),
+        ('L',('<i>L</i>','mm',0,'跨径')),
+        ('L1',('<i>L</i><sub>1</sub>','mm',0,'跨径')),
+        ('L2',('<i>L</i><sub>2</sub>','mm',0,'跨径')),
         ))
     __deriveds__ = OrderedDict((
+        ('l',('<i>l</i>','mm',0,'等效跨径')),
+        # ('option',('适用公式','','A','','',{'A':'(5.1.8-3)','B':'(5.1.8-4)'})),
         ('λp',('<span style="text-decoration:overline;"><i>λ</i></span><sub>p</sub>','',0,'相对宽厚比')),
         ('ε0',('<i>ε</i><sub>0</sub>','',0,'')),
         ('ρip',('<i>ρ</i><sub>i</sub><sup>p</sup>','',0,'第i块受压板段或板元的局部稳定折减系数')),
@@ -189,7 +192,15 @@ class effective_section(abacus):
         ('bei',('<i>b</i><sub>e,i</sub>','mm',0,'同时考虑剪力滞和局部稳定影响的第i块板段的翼缘有效宽度')),
         ))
     __toggles__ = {
-        'beam_type':{'simple':('location')},
+        'beam_type':{
+            'simple':('location','L1','L2'), 
+            'continuous':('L'), 
+            'cantilever':('L')
+        },
+        'location':{
+            'side_span':('L2'),
+            'middle_span':('L1'),
+        },
         }
         
     @staticmethod
@@ -227,11 +238,28 @@ class effective_section(abacus):
         self.beip = self.ρip*self.bi
         if self.beam_type == 'simple':
             option = 'A'
+            self.l = self.L
         elif self.beam_type == 'continuous':
             option = 'A' if (self.location == 'side_span' or self.location == 'middle_span') else 'B'
+            if self.location == 'side_span':
+                self.l = 0.8*self.L1
+            elif self.location == 'middle_span':
+                self.l = 0.6*self.L2
+            elif self.location == 'middle_support':
+                self.l = 0.2*(self.L1+self.L2)
+            else:
+                raise InputError(self, 'location', '未知的输入参数')
         elif self.beam_type == 'cantilever':
             option = 'A'
-        self.beis = self.fbeis(self.bi,self.l, self.option)
+            if self.location == 'side_span':
+                self.l = 2*self.L1
+            elif self.location == 'middle_span':
+                self.l = 0.6*self.L2
+            elif self.location == 'middle_support':
+                self.l = 2*self.L1
+            else:
+                raise InputError(self, 'location', '未知的输入参数')
+        self.beis = self.fbeis(self.bi, self.l, option)
         self.ρis = self.beis/self.bi
         self.bei = self.ρis*self.beip
 

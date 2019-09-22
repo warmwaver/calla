@@ -380,6 +380,10 @@ class pile_effects(abacus):
         ('α',('<i>α</i>','m<sup>-1</sup>',0,'桩的变形系数')),
         ('b1',('<i>b</i><sub>1</sub>','m',20,'桩的计算宽度')),
         ('kh',('<i>k</i><sub>h</sub>','',1.0,'土抗力对变形的影响系数')),
+        ('δHH',('<i>δ</i><sub>HH</sub>','',0,'地面处单位水平力产生的水平位移')),
+        ('δHM',('<i>δ</i><sub>HM</sub>','',0,'地面处单位力矩产生的水平位移')),
+        ('δMH',('<i>δ</i><sub>MH</sub>','',0,'地面处单位水平力产生的转角')),
+        ('δMM',('<i>δ</i><sub>MM</sub>','',0,'地面处单位力矩产生的转角')),
         ('x0',('<i>x</i><sub>0</sub>','m',0,'水平位移')),
         ('φ0',('<i>φ</i><sub>0</sub>','rad',0,'转角')),
         ('Mmax',('<i>M</i><sub>max</sub>','kN·m',0,'桩身最大弯矩')),
@@ -500,7 +504,7 @@ class pile_effects(abacus):
                 α, E, I, x0, φ0, M0, H0, factors['A4'], 
                 factors['B4'], factors['C4'], factors['D4'])
 
-        return (b1, α, kh, x0, φ0, _Mz, _Qz)
+        return (b1, α, kh, δHH, δMH, δHM, δMM, x0, φ0, _Mz, _Qz)
 
     def solve(self):
         self.validate('non-negative', 'h1')
@@ -508,7 +512,7 @@ class pile_effects(abacus):
         self.I0 = self.I
         # self.M0 = self.M+self.H*(self.h2+self.h1)
         # self.H0 = self.H
-        self.b1, self.α, self.kh, self.x0, self.φ0, self._Mz, self._Qz = self._solve(
+        self.b1, self.α, self.kh, self.δHH, self.δMH, self.δHM, self.δMM, self.x0, self.φ0, self._Mz, self._Qz = self._solve(
             self.L1, self.d, self.h, self.h1, self.b2, self.kf, self.Ec*1e3, self.I, self.I0, 
             self.m, self.C0, self.M0, self.H0, self.bottom_fixed)
         self.Mz = self._Mz(self.z)

@@ -3,6 +3,7 @@
 __all__ = [
     'load_combination',
     'earth_pressure',
+    'column_earth_pressure_width',
     'wind',
     ]
 
@@ -115,6 +116,29 @@ class earth_pressure(abacus):
         if self.G > 0:
             self.l0,self.h,self.aep, self.C = self.active_earth_pressure_live(φ, α, self.B, self.γ, self.H, self.G)
             self.q = self.μ*self.γ*self.h
+
+class column_earth_pressure_width(abacus):
+    """
+    柱上土压力计算宽度
+    《公路桥涵设计通用规范》（JTG D60-2015）4.2.3节第5条
+    """
+    __title__ = '柱上土压力计算宽度'
+    __inputs__ = OrderedDict([
+            # ('B',('<i>B</i>','m',4,'端柱最外侧距离')),
+            ('D',('<i>D</i>','m',1,'柱的直径或宽度')),
+            ('li',('<i>l</i><sub>i</sub>','m',2,'柱间平均净距')),
+            ('n',('<i>n</i>','',2,'柱数')),
+            ])
+    __deriveds__ = OrderedDict([
+            ('b',('<i>b</i>','m',1,'土压力计算宽度')),
+            ])
+    def solve(self):
+        n = self.n; D=self.D
+        if self.li < D:
+            B = n*D+(n-1)*li
+            self.b = B/n
+        else:
+            self.b = D*(2*n-1)/n if D < 1.0 else D+1-1/n
 
 class wind(abacus):
     '''风荷载计算

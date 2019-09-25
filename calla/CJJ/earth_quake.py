@@ -15,6 +15,7 @@ class pier_displacement(abacus):
     __title__ = 'E2地震墩顶位移验算'
     __inputs__ = OrderedDict((
         ('H',('<i>H</i>','m',0,'墩高','悬臂墩的高度或塑性铰截面到反弯点的距离')),
+        ('section',('截面形状','','round','','',{'rectangle':'矩形','round':'圆形'})),
         ('D',('<i>D</i>','m',1,'桩径')),
         ('b',('<i>b</i>','mm',500,'矩形截面的短边尺寸')),
         ('h0',('<i>h</i><sub>0</sub>','mm',900,'截面有效高度')),
@@ -42,10 +43,10 @@ class pier_displacement(abacus):
         ('Δu',('<i>Δ</i><sub>u</sub>','cm',0,'单柱墩容许位移')),
         ('θu',('<i>θ</i><sub>u</sub>','',0,'塑性铰区域的最大容许转角')),
         ('eql',('','cm',0,'')),
-        ('Mu',('','kN·m',0,'正截面抗弯承载力设计值')),
+        # ('Mu',('','kN·m',0,'正截面抗弯承载力设计值')),
         ))
     __toggles__ = {
-        'option':{'review':(), 'design':('As', 'fy_','As_','as_','fpy','Ap','ap','fpy_','Ap_','ap_','σp0_')},
+        'section':{'rectangle':('D'), 'round':('b')},
         }
 
     @staticmethod
@@ -83,8 +84,10 @@ class pier_displacement(abacus):
 
     def _html(self, digits=2):
         yield 'E2地震作用下墩顶位移验算'
+        disableds = self.disableds()
         for para in self.inputs:
-            yield self.format(para, digits = None)
+            if para not in disableds:
+                yield self.format(para, digits = None)
         yield '根据CJJ 166-2011第7.3.4条，桥墩墩顶验算结果如下：'
         yield self.format('φy',digits+3)
         yield self.format('φu',digits+3)
@@ -99,47 +102,99 @@ class pier_displacement(abacus):
         yield 'E2地震作用下墩顶位移{0}满足规范要求。'.format('' if tf else '不')
         return
 
-def shear_strength():
-    # 能力保护构件验算
-    # 计算参数
-    #V=3226 # kN 不需要计算模型提取剪力
-    Mu=1950 # kNm
-    φ0=1.2 # MPa
-    Pc = 725 # kN
-    fcd=13.8 # MPa
-    fyh=360 # MPa, 箍筋抗拉强度设计值
-    Av=2*113.1 # mm^2
-    h0=1000*D-65 # mm
-    s=100 # mm
-    φ=0.85 # 抗剪强度折减系数
-    # 计算过程
-    My0 = φ0*Mu
-    Vc0=My0/H
-    λ=ρs*fyh/10+0.38-0.1*μd
-    λ=0.03 if λ<0.03 else λ
-    λ=0.3 if λ>0.3 else λ
-    νc=0 if Pc<=0 else λ*(1+Pc/1.38/(1E4*Ag))*fcd**0.5
-    Ae=0.8*1E4*Ag
-    Vc=0.1*νc*Ae
-    Vs=0.001*Av*fyh*h0/s #kN
-    _V = φ*(Vc+Vs)
-    print('能力保护构件验算')
-    print('根据CJJ 166-2011第7.4.2条，墩柱塑性铰区域斜截面抗剪强度验算结果如下：')
-    print('Mu={0} kNm'.format(Mu))
-    print('My0={0} kNm'.format(My0))
-    print('λ={1:.{0}f}'.format(digits,λ))
-    print('νc={1:.{0}f} MPa'.format(digits,νc))
-    print('Vc={1:.{0}f} kN'.format(digits,Vc))
-    print('Vs={1:.{0}f} kN'.format(digits,Vs))
-    print('Vc0={1:.{0}f} kN'.format(digits,Vc0))
-    tf = Vc0<_V
-    print('Vc0={1:.{0}f} kN {3} φ(Vc+Vs)={2:.{0}f} kN'.format(digits,Vc0,_V,'<' if tf else '>'))
-    print('墩柱塑性铰区域斜截面抗剪强度{0}满足规范要求。'.format('' if tf else '不'))
 
-if __name__ == '__main__':
+class pier_shear_strength(abacus):
+    """
+    E2地震作用下墩柱抗剪强度验算
+    《城市桥梁抗震设计规范》（CJJ 166-2011）第7.4.2条
+    """
+    __title__ = 'E2地震墩柱抗剪强度验算'
+    __inputs__ = OrderedDict((
+        ('Vc0',('<i>V</i><sub>c0</sub>','kN',0,'剪力设计值')),
+        # ('H',('<i>H</i>','m',0,'墩高','悬臂墩的高度或塑性铰截面到反弯点的距离')),
+        ('section',('截面形状','','round','','',{'rectangle':'矩形','round':'圆形'})),
+        ('D',('<i>D</i>','cm',120,'桩径')),
+        ('b',('<i>b</i>','cm',0,'墩柱的宽度')),
+        ('h0',('<i>h</i><sub>0</sub>','cm',0,'核芯混凝土受压边缘至受拉侧钢筋重心的距离')),
+        ('fcd',('<i>f</i><sub>cd</sub>','MPa',13.8,'混凝土抗压强度设计值')),
+        ('Ae',('<i>A</i><sub>e</sub>','cm<sup>2</sup>',0,'核芯混凝土面积')),
+        ('Ag',('<i>A</i><sub>g</sub>','cm<sup>2</sup>',0,'墩柱塑性铰区域截面全而积')),
+        ('μΔ',('<i>μ</i><sub>Δ</sub>','',3,'墩柱位移延性系数')),
+        ('Pc',('<i>P</i><sub>c</sub>','kN',0,'墩柱截面最小轴压力')),
+        ('Asp',('<i>A</i><sub>sp</sub>','cm<sup>2</sup>',0,'螺旋箍筋面积')),
+        ('Av',('<i>A</i><sub>v</sub>','cm<sup>2</sup>',0,'计算方向上箍筋面积总和')),
+        ('s',('<i>s</i>','cm',10,'箍筋的间距')),
+        ('fyh',('<i>f</i><sub>yh</sub>','MPa',360,'箍筋抗拉强度设计值')),
+        ('D_',('<i>D</i><sup>\'</sup>','cm',100,'螺旋箍筋环的直径')),
+        ('φ',('<i>φ</i>','1/cm',0.85,'抗剪强度折减系数')),
+        ))
+    __deriveds__ = OrderedDict((
+        ('ρs',('<i>ρ</i><sub>s</sub>','',0,'体积配箍率')),
+        ('λ',('<i>λ</i>','',0,'')),
+        ('Vc',('<i>V</i><sub>c</sub>','kN',0,'朔性铰区域混凝土的杭剪能力贡献')),
+        ('Vs',('<i>V</i><sub>s</sub>','kN',0,'横向钢筋的抗剪能力贡献')),
+        ('νc',('<i>ν</i><sub>c</sub>','MPa',0,'朔性铰区域混凝土抗剪强度')),
+        ('eqr',('','kN',0,'')),
+        ))
+    __toggles__ = {
+        'section':{'rectangle':('D'), 'round':('b')},
+        }
+    def solve(self):
+        # 能力保护构件验算
+        Vc0=self.Vc0; Pc = self.Pc; fcd=self.fcd; fyh=self.fyh; Av=self.Av 
+        D = self.D; b=self.b; h0=self.h0; s=self.s; D_=self.D_
+        φ=self.φ; μΔ=self.μΔ
+        Ag=self.Ag; Asp=self.Asp
+        # 计算过程
+        ρs = 4*Asp/s/D if self.section == 'round' else 2*Av/b/s
+        λ=ρs*fyh/10+0.38-0.1*μΔ
+        λ=0.03 if λ<0.03 else λ
+        λ=0.3 if λ>0.3 else λ
+        νc=0 if Pc<=0 else λ*(1+Pc/1.38/Ag)*sqrt(fcd)
+        Ae=0.8*Ag
+        Vc=0.1*νc*Ae
+        Vs=0.1*pi/2*Asp*fyh*D_/s if self.section == 'round' else 0.1*Av*fyh*h0/s #kN
+        self.eqr = φ*(Vc+Vs)
+        self.ρs = ρs; self.λ = λ; self.νc=νc; self.Vc=Vc; self.Vs=Vs
+        return self.eqr
+
+    def _html(self, digits=2):
+        yield 'E2地震作用下墩柱抗剪强度验算'
+        disableds = self.disableds()
+        for para in self.inputs:
+            if para not in disableds:
+                yield self.format(para, digits = None)
+        yield '根据CJJ 166-2011第7.4.2条：'
+        yield self.format('λ',digits, eq='ρs*fyh/10+0.38-0.1*μΔ')
+        yield self.format('νc',digits)
+        yield self.format('Vc', digits, eq='0.1*νc*Ae')
+        eq = '0.1*π/2*Asp*fyh*D_/s' if self.section == 'round' else '0.1*Av*fyh*h0/s'
+        yield self.format('Vs', digits, eq=eq)
+        # yield self.format('Vc0', digits)
+        tf = self.Vc0 < self.eqr
+        yield '{} {} {}'.format(
+            self.format('Vc0'),
+            '&le;' if tf else '&gt;',
+            self.format('eqr', eq='φ(Vc+Vs)')
+            )
+        yield '墩柱塑性铰区域斜截面抗剪强度{}满足规范要求。'.format('' if tf else '不')
+        return
+
+def _test1():
     f = pier_displacement(
         H=3,D=1.2,fck=20.1,fy=400,Es=2E5,dbl=22,fkh=400,ρs=0.0027,εs = 0.09,εsuR=0.09,
         Δd=2.35,P=930,K=2.0,Tg = 0.45,T=0.46,μd = 3
         )
     f.solve()
     print(f.text())
+
+def _test2():
+    f = pier_shear_strength(
+        Vc0=1.2*1950/3,D=120,fcd=13.8,fyh=360,h0=120-6.5 ,Asp=113.1/100,s=10,φ=0.85,
+        Pc=725, Ag=3.14/4*120**2
+        )
+    f.solve()
+    print(f.text())
+
+if __name__ == '__main__':
+    _test2()

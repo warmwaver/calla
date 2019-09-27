@@ -1,6 +1,7 @@
 
 __all__ = [
     'pier_displacement',
+    'pier_shear_strength'
     ]
 
 from math import pi, sin, sqrt
@@ -14,17 +15,17 @@ class pier_displacement(abacus):
     """
     __title__ = 'E2地震墩顶位移验算'
     __inputs__ = OrderedDict((
-        ('H',('<i>H</i>','m',0,'墩高','悬臂墩的高度或塑性铰截面到反弯点的距离')),
+        ('H',('<i>H</i>','cm',0,'墩高','悬臂墩的高度或塑性铰截面到反弯点的距离')),
         ('section',('截面形状','','round','','',{'rectangle':'矩形','round':'圆形'})),
-        ('D',('<i>D</i>','m',1,'桩径')),
-        ('b',('<i>b</i>','mm',500,'矩形截面的短边尺寸')),
-        ('h0',('<i>h</i><sub>0</sub>','mm',900,'截面有效高度')),
+        ('D',('<i>D</i>','cm',100,'桩径')),
+        ('b',('<i>b</i>','cm',50,'矩形截面的短边尺寸')),
+        ('h0',('<i>h</i><sub>0</sub>','cm',90,'截面有效高度')),
         ('fck',('<i>f</i><sub>ck</sub>','MPa',20.1,'混凝土抗压强度标准值')),
         # ('E',('<i>E</i><sub>s</sub>','MPa',3.0E4,'混凝土弹性模量')),
         ('Es',('<i>E</i><sub>s</sub>','MPa',2.0E5,'钢筋弹性模量')),
         ('fy',('<i>f</i><sub>y</sub>','MPa',360,'纵筋抗拉强度标准值')),
         # ('As',('<i>A</i><sub>s</sub>','mm<sup>2</sup>',0,'受拉钢筋面积')),
-        ('dbl',('<i>d</i><sub>bl</sub>','mm',25,'纵向钢筋的直径')),
+        ('dbl',('<i>d</i><sub>bl</sub>','cm',2.5,'纵向钢筋的直径')),
         ('ρs',('<i>ρ</i><sub>s</sub>','',0,'体积配箍率')),
         ('εs',('<i>ε</i><sub>s</sub>','',0.09,'钢筋极限拉应变')),
         ('fkh',('<i>f</i><sub>kh</sub>','MPa',400,'箍筋抗拉强度标准值')),
@@ -68,7 +69,7 @@ class pier_displacement(abacus):
         φy=2.213*εy/D # 1/m
         fcck=1.25*fck
         εcu=0.004+1.4*ρs*fkh*εsuR/fcck
-        φu1=1/D*((2.826E-3+6.850*εcu)-(8.575E-3+18.638*εcu)*P/(1000*fck)/Ag)
+        φu1=1/D*((2.826E-3+6.850*εcu)-(8.575E-3+18.638*εcu)*P/(1000*fck)/Ag) # 
         φu2=1/D*((1.635E-3+1.179*εs)+(28.739*εs**2+0.656*εs+0.01)*P/(1000*fck)/Ag)
         φu=φu1 if φu1<φu2 else φu2 # 1/m
         Lp=0.08*H+0.022*fy*dbl # m

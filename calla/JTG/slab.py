@@ -4,7 +4,7 @@ __all__ = [
     'vehicle_load',
     ]
 
-from calla import abacus
+from calla import abacus, html
 from collections import OrderedDict
 from math import pi, sqrt, sin, cos, tan
 
@@ -64,9 +64,11 @@ class vehicle_load(abacus):
         yield self.format('b',digits)
         yield '垂直于板跨方向相邻车轮分布宽度范围{}重叠'.format('' if self.overlaped else '不')
         yield '垂直于板跨方向的荷载分布宽度：'
-        yield '距板跨端部的距离(m): 荷载分布宽度(m)'
+        t = []
+        t.append(['距板跨端部的距离(m)', '荷载分布宽度(m)'])
         for i in self.a:
-            yield '{1:.{0}f}: {2:.{0}f}'.format(digits, i, self.a[i])
+            t.append([i, self.a[i]])
+        yield html.table2html(t, digits, True)
         yield self.format('a2', digits, eq='(a1+2*h)+2*lc')
 
 if __name__ == '__main__':

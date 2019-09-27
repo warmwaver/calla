@@ -3,7 +3,7 @@ __all__ = [
     ]
 
 from collections import OrderedDict
-from math import pi
+from math import pi, sqrt
 
 from calla import abacus,InputError
 from calla.JTG import material, load
@@ -25,12 +25,13 @@ class Pile(abacus, material_base):
 
     __title__ = '弹性桩验算'
     __inputs__ = OrderedDict((
-        ('γ0',('<i>γ</i><sub>0</sub>','',1.0,'重要性系数')),
+        ('γ0',('<i>γ</i><sub>0</sub>','',1.1,'重要性系数')),
+        ('R0',('<i>R</i><sub>0</sub>','kN',0,'桩顶反力标准值')),
         ('forces_fu', ('', 'kN,m', _forces_sample_, '桩顶基本组合内力',_forces_notes_)),
         ('forces_ac', ('', 'kN,m', _forces_sample_, '桩顶偶然组合内力',_forces_notes_)),
         ('forces_fr', ('', 'kN,m', _forces_sample_, '桩顶频遇组合内力',_forces_notes_)),
         ('forces_qp', ('', 'kN,m', _forces_sample_, '桩顶准永久组合内力',_forces_notes_)),
-        ('forces_ch', ('', 'kN,m', _forces_sample_, '桩顶标准组合内力',_forces_notes_)),
+        # ('forces_ch', ('', 'kN,m', _forces_sample_, '桩顶标准组合内力',_forces_notes_)),
         material_base.concrete_item,
         material_base.rebar_item,
         ('L1',('<i>L</i><sub>1</sub>','m',2,'平行于水平力作用方向的桩间净距')),
@@ -86,24 +87,32 @@ class Pile(abacus, material_base):
         #self.positive_check('As')
         params = self.inputs
         # 基本组合
-        p = pile_effects(**params)
+        pe = pile_effects(**params)
         lc = load.load_combination
         forces_fu = wrapforces(self.forces_fu)
-        choseX = forces_fu.Fy > forces_fu.Fz
-        if choseX:
-            p.H0 = forces_fu.Fy # FX
-            p.M0 = forces_fu.Mz # MY
-        else:
-            p.H0 = forces_fu.Fz # FY
-            p.M0 = forces_fu.My # MX
-        p.solve()
-        M = p.Mmax
-        z = p.z_Mmax
+        def _fMax(force):
+            # y方向
+            pe.H0 = force.Fy
+            pe.M0 = force.Mz
+            pe.solve()
+            Mymax = pe.Mmax
+            zy = pe.z_Mmax
+            # z方向
+            pe.H0 = force.Fz
+            pe.M0 = force.My
+            pe.solve()
+            Mzmax = pe.Mmax
+            zz = pe.z_Mmax
+            Mmax = sqrt(Mymax**2 + Mzmax**2)
+            z = min(zy, zz)
+            return (Mmax,z)
+        M,z = _fMax(forces_fu)
 
         # 偏心受压承载力
-        r=1000*self.d/2 # mm
+        r = self.d/2*1e3 # mm
+        l0 = 4/pe.α*1e3 # mm
         bc = bc_round(
-            option='review',r=r,rs=r-60,l0=0, Md=abs(M),
+            option='review',r=r,rs=r-60,l0=l0, Md=abs(M),
             Nd = abs(forces_fu.Fx)+ lc.uls_fu['dead']*(z*pi/4*self.d**2*material.concrete.density),
             **params)
         bc.As=self.As
@@ -114,20 +123,11 @@ class Pile(abacus, material_base):
         if tuple(self.forces_ac) != (0,0,0,0,0,0):
             # forces_ac = lc.combinate(bottom_forces, lc.uls_ac)
             forces_ac = wrapforces(self.forces_ac)
-            if forces_ac.Fy > forces_ac.Fz:
-                p.H0 = forces_ac.Fy # FX
-                p.M0 = forces_ac.Mz # MY
-            else:
-                p.H0 = forces_ac.Fz # FY
-                p.M0 = forces_ac.My # MX
-            p.solve()
-            M = p.Mmax
-            z = p.z_Mmax
+            M,z = _fMax(forces_ac)            
 
             # 偏心受压承载力
-            r=1000*self.d/2 # mm
             bc = bc_round(
-                option='review',r=r,rs=r-60,l0=0, Md=M,
+                option='review',r=r,rs=r-60,l0=l0, Md=M,
                 Nd = abs(forces_ac.Fx)+ lc.uls_ac['dead']*(z*pi/4*self.d**2*material.concrete.density),
                 **params)
             bc.As=self.As
@@ -138,27 +138,12 @@ class Pile(abacus, material_base):
         # 长期作用(准永久组合)
         # forces_l = lc.combinate(bottom_forces, lc.sls_qp)
         forces_l = wrapforces(self.forces_qp)
-        if choseX:
-            p.H0 = forces_l.Fy
-            p.M0 = forces_l.Mz
-        else:
-            p.H0 = forces_l.Fz # FY
-            p.M0 = forces_l.My # MX
-        
-        p.solve()
-        Ml = p.Mmax
+        Ml,z = _fMax(forces_l)
 
         # 短期作用(频遇组合)
         # forces_s = lc.combinate(bottom_forces, lc.sls_fr)
         forces_s = wrapforces(self.forces_fr)
-        if choseX:
-            p.H0 = forces_s.Fy
-            p.M0 = forces_s.Mz
-        else:
-            p.H0 = forces_s.Fz
-            p.M0 = forces_s.My
-        p.solve()
-        Ms = p.Mmax
+        Ms,z = _fMax(forces_s)
 
         # 裂缝宽度计算
         cw = crack_width(
@@ -181,8 +166,7 @@ class Pile(abacus, material_base):
         pc.Ap = pi/4*self.d**2
         pc.L = self.h
         # 标准组合
-        # forces = lc.combinate(bottom_forces, lc.sls_ch)
-        pc.R0 = abs(wrapforces(self.forces_ch).Fx)
+        # pc.R0 = abs(wrapforces(self.forces_ch).Fx)
         pc.solve()
         
         self.bc = bc

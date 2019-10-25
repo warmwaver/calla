@@ -162,8 +162,8 @@ class Column(abacus):
         #('fc',('<i>f</i>c','MPa',16.7)),
         #('fcuk',('<i>f</i><sub>cu,k</sub>','MPa',35)),
         # 矩形截面：
-        ('b',('<i>b</i>','mm',500,'矩形截面宽度', '沿顺桥向尺寸')),
-        ('h',('<i>h</i>','mm',1000,'矩形截面高度', '沿横桥向尺寸')),
+        ('b',('<i>b</i>','mm',500,'矩形截面宽度', '沿x向尺寸')),
+        ('h',('<i>h</i>','mm',1000,'矩形截面高度', '沿y向尺寸')),
         #('h0',('h<sub>0</sub>','mm')),
         # T形截面：
         ('bf',('<i>b</i><sub>f</sub>','mm',0,'受拉区翼缘计算宽度')),
@@ -272,20 +272,26 @@ class Column(abacus):
         else:
             raise NameError('section type {} is not defined'.format(self.section))
 
-        # 轴心受压承载力
-        ac = calla.JTG.bearing_capacity.axial_compression(**paras)
-        ac.Nd = forces_uls.Fx
-        ac.A = self.A
-        ac.solve()
-
-        # 偏心受压承载力
-        bc.fcuk = calla.JTG.concrete.fcuk(self.concrete)
-        # bc.fcd = calla.JTG.concrete.fcd(self.concrete)
-        # bc.fsd=bc.fsd_=calla.JTG.rebar.fsd(self.rebar)
-        bc.option = 'review'
-        bc.Nd = forces_uls.Fx
-        #choseX = forces_uls[0] > forces_uls[1]
         # 确定两个方向的钢筋面积
+        def _seperate(param:str):
+            a = getattr(self, param)
+            if a == None:
+                return None
+            if isinstance(a, float) or isinstance(a, int):
+                ax = ay = a
+            elif isinstance(a, tuple) or isinstance(a, list):
+                n = len(a)
+                if n >0 and n < 1:
+                    ax = ay = a
+                elif n > 1:
+                    ax = a[0]
+                    ay = a[1]
+                else:
+                    raise InputError(self,param,'无法识别的输入')
+            else:
+                raise InputError(self,param,'无法识别的输入')
+            return (ax, ay)
+
         if isinstance(self.As, float) or isinstance(self.As, int):
             Asx = Asy = self.As
         elif isinstance(self.As, tuple) or isinstance(self.As, list):
@@ -299,6 +305,7 @@ class Column(abacus):
                 raise InputError(self,'As','无法识别的输入')
         else:
             raise InputError(self,'As','无法识别的输入')
+        Asx_, Asy_ = _seperate('As_')
         if isinstance(self.Ap, float) or isinstance(self.Ap, int):
             Apx = Apy = self.Ap
         elif isinstance(self.Ap, tuple) or isinstance(self.Ap, list):
@@ -312,28 +319,45 @@ class Column(abacus):
                 raise InputError(self,'Ap','无法识别的输入')
         else:
             raise InputError(self,'Ap','无法识别的输入')
+
+        # 轴心受压承载力
+        ac = calla.JTG.bearing_capacity.axial_compression(**paras)
+        ac.Nd = forces_uls.Fx
+        ac.A = self.A
+        ac.As_ = Asx+Asy
+        ac.solve()
+
+        # 偏心受压承载力
+        bc.fcuk = calla.JTG.concrete.fcuk(self.concrete)
+        # bc.fcd = calla.JTG.concrete.fcd(self.concrete)
+        # bc.fsd=bc.fsd_=calla.JTG.rebar.fsd(self.rebar)
+        bc.option = 'review'
+        bc.Nd = forces_uls.Fx
+        #choseX = forces_uls[0] > forces_uls[1]
         bcs = []
-        # y方向验算，对于圆截面则是合力方向计算
+        # z方向偏心弯曲验算，对于圆截面则是合力方向计算
         if self.section == 'round':
             bc.Md = sqrt(forces_uls.Mz**2+forces_uls.My**2)
         else:
-            bc.Md = forces_uls.Mz
+            bc.Md = forces_uls.My
         bc.b = self.h
         bc.h = self.b
         bc.h0 = self.b - self.as_
         bc.l0 = self.k*self.l
         bc.As = Asx
+        bc.As_ = Asx_
         bc.Ap = Apx
         bc.solve()
         bcs.append(bc)
-        # z方向验算
+        # y方向偏心弯曲验算
         if self.section != 'round':
             bcy = copy.copy(bc)
-            bcy.Md = forces_uls.My
+            bcy.Md = forces_uls.Mz
             bcy.b = self.b
             bcy.h = self.h
             bcy.h0 = self.h - self.as_
             bcy.As = Asy
+            bc.As_ = Asy_
             bcy.Ap = Apy
             bcy.solve()
             bcs.append(bcy)
@@ -531,9 +555,9 @@ class Column(abacus):
             if self.section == 'round':
                 doc += self.bcs[0].html(digits)
             else:
-                doc += '<b>X方向偏心弯曲</b>'
+                doc += '<b>Fz作用方向偏心弯曲</b>'
                 doc += self.bcs[0].html(digits)
-                doc += '<b>Y方向偏心弯曲</b>'
+                doc += '<b>Fy作用方向偏心弯曲</b>'
                 doc += self.bcs[1].html(digits)
                 doc += '<p>（3）双向偏心受压承载力计算</p>'
                 doc += self.be.html(digits)
@@ -542,10 +566,10 @@ class Column(abacus):
                 doc += self.cws[0].html(digits)
             else:
                 if self.cws[0].force_type != 'AC':
-                    doc += '<b>X方向偏心弯曲</b>'
+                    doc += '<b>Fz作用方向偏心弯曲</b>'
                     doc += self.cws[0].html(digits)
                 if self.cws[1].force_type != 'AC':
-                    doc += '<b>Y方向偏心弯曲</b>'
+                    doc += '<b>Fy作用方向偏心弯曲</b>'
                     doc += self.cws[1].html(digits)
             return doc
         elif self.code == 'TB':

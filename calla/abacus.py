@@ -206,7 +206,7 @@ class abacus:
         if digits != None and digits >= 0:
             try:
                 vabs = abs(value)
-                value = '{1:.{0}{2}}'.format(digits, value, 'e' if (vabs>1e4 or vabs<10**-digits) else 'f')
+                value = '{1:.{0}{2}}'.format(digits, value, 'e' if (vabs>1e4 or (vabs>0 and vabs<10**-digits)) else 'f')
             except: # v is not decimal or numbers
                 pass
         symbol = info[0]

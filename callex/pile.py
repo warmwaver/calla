@@ -9,7 +9,7 @@ from calla import abacus,InputError
 from calla.JTG import material, load
 from calla.JTG.bearing_capacity import bc_round
 from calla.JTG.crack_width import crack_width
-from calla.JTG.pile_capacity import friction_pile_capacity, end_bearing_pile_capacity, pile_effects
+from calla.JTG.pile_capacity import friction_pile_capacity, end_bearing_pile_capacity, pile_width, pile_effects
 from callex.utils import wrapforces
 
 material_base = material.material_base
@@ -34,6 +34,7 @@ class Pile(abacus, material_base):
         # ('forces_ch', ('', 'kN,m', _forces_sample_, '桩顶标准组合内力',_forces_notes_)),
         material_base.concrete_item,
         material_base.rebar_item,
+        ('n',('<i>n</i>','',1,'平行于水平力作用方向的一排桩的桩数','')),
         ('L1',('<i>L</i><sub>1</sub>','m',2,'平行于水平力作用方向的桩间净距')),
         ('d',('<i>d</i>','m',1.0,'桩径或垂直于水平外力作用方向桩的宽度')),
         ('h',('<i>h</i>','m',20,'桩长')),
@@ -44,10 +45,10 @@ class Pile(abacus, material_base):
         '与平行于水平力作用方向的一排桩的桩数n有关的系数, n=1时取1.0；n=2时取0.6；n=3时取0.5；n=4时取0.45')),
         ('kf',('<i>k</i><sub>f</sub>','',0.9,'桩形状换算系数','圆形或圆端形取0.9；矩形取1.0')),
         ('Ec',('<i>E</i><sub>c</sub>','MPa',3.0E4,'混凝土抗压弹性模量')),
-        ('m',('<i>m</i>','kN/m<sup>4</sup>',5000,'非岩石地基水平向抗力系数的比例系数')),
+        ('m',('<i>m</i>','kN/m<sup>4</sup>',5000,'非岩石地基水平向抗力系数的比例系数','缺乏试验资料时按表P.0.2-1查用')),
         ('C0',('<i>C</i><sub>0</sub>','kN/m<sup>3</sup>',300000,'桩端地基竖向抗力系数',
         '非岩石地基C0=m0*h, h≥10；岩石地基查表P.0.2-2')),
-        ('桩底嵌固',('桩底嵌固','',False,'', '', {True:'是',False:'否'})),
+        ('bottom_fixed',('桩底嵌固','',False,'', '', {True:'是',False:'否'})),
         ('As',('<i>A</i><sub>s</sub>','mm<sup>2</sup>',0,'纵向受拉钢筋面积')),
         # 岩土参数
         ('soil',('地层名称','',('填土','粘土','中风化砂岩'),'','输入各地层名称，示例：(填土,淤泥,粘土,强风化砂岩)')),
@@ -86,8 +87,11 @@ class Pile(abacus, material_base):
     def solve(self):
         #self.positive_check('As')
         params = self.inputs
-        # 基本组合
+        pw = pile_width(**params)
+        pw.solve()
         pe = pile_effects(**params)
+        pe.b1 = pw.b1
+        # 基本组合
         lc = load.load_combination
         forces_fu = wrapforces(self.forces_fu)
         def _fMax(force):
@@ -103,14 +107,17 @@ class Pile(abacus, material_base):
             pe.solve()
             Mzmax = pe.Mmax
             zz = pe.z_Mmax
-            Mmax = sqrt(Mymax**2 + Mzmax**2)
-            z = min(zy, zz)
+            Mmax = max(Mymax, Mzmax) # sqrt(Mymax**2 + Mzmax**2)
+            z = zy if Mymax > Mzmax else zz
             return (Mmax,z)
         M,z = _fMax(forces_fu)
 
         # 偏心受压承载力
         r = self.d/2*1e3 # mm
-        l0 = 4/pe.α*1e3 # mm
+        l0 = 4/pe.α # m
+        if l0 > self.h:
+            l0 = self.h
+        l0 = l0*1e3 # mm
         bc = bc_round(
             option='review',r=r,rs=r-60,l0=l0, Md=abs(M),
             Nd = abs(forces_fu.Fx)+ lc.uls_fu['dead']*(z*pi/4*self.d**2*material.concrete.density),
@@ -160,7 +167,7 @@ class Pile(abacus, material_base):
         cw.solve()
 
         # 桩基竖向承载力计算
-        pc = end_bearing_pile_capacity(**params) if self.桩底嵌固\
+        pc = end_bearing_pile_capacity(**params) if self.bottom_fixed\
         else friction_pile_capacity(**params)
         pc.u = pi*self.d
         pc.Ap = pi/4*self.d**2
@@ -197,7 +204,7 @@ def _test2():
         forces_ch=(1940.88,529.22,672.31,21.69,1286.92,279.24),
         concrete='C30',rebar='HRB400',
         L1=3,d=1.3,h=23,h1=0,h2=5.6,A2=0.8*1,b2=1.0,
-        kf=0.9,Ec=30000.0,m=5000,C0=300000,桩底嵌固='True',
+        kf=0.9,Ec=30000.0,m=5000,C0=300000,bottom_fixed='True',
         As=28*490.9,
         soil=('粉质粘土', '强风化片麻岩', '中风化片麻岩'),
         li=(18, 1.4, 6),
@@ -221,7 +228,7 @@ if __name__ == '__main__':
         forces_ch=(1337.67,382.36,477.24,16.57,918.33,202.92),
         concrete='C40',rebar='HRB400',
         L1=2,d=1,h=20,h1=1,h2=10,A2=0,b2=1,kf=0.9,Ec=30000,m=5000,C0=300000,
-        桩底嵌固='false',As=20*615.8,
+        bottom_fixed='false',As=20*615.8,
         soil=['填土','粘土'',中风化砂岩'],
         li=(3,5,6),qik=(50,60,120),fa0=(220,250,800),frk=(0,0,20000),
         γ2=18,status=(-1,-1,1)

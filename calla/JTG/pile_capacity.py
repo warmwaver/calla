@@ -6,6 +6,7 @@
 __all__ = [
     'friction_pile_capacity',
     'end_bearing_pile_capacity',
+    'pile_width',
     'pile_effects',
     'pile_group_effects'
     ]
@@ -348,6 +349,57 @@ tableP08 = (
     (4,-5.85333,-5.94097,-0.92677,4.54780,-6.53316,-12.15810,-10.60840,-3.76647,-1.61428,-11.73066,-17.91860,-15.07550,9.24368,-0.35762,-15.61050,-23.14040 ),
     )
 
+class pile_width(abacus):
+    """
+    桩的计算宽度
+    《公路桥涵地基与基础设计规范》（JTG D63-2007） 附录P.0.1
+    """
+    __title__ = '桩的计算宽度'
+    __inputs__ = OrderedDict((
+        ('n',('<i>n</i>','',1,'平行于水平力作用方向的一排桩的桩数','')),
+        ('L1',('<i>L</i><sub>1</sub>','m',2,'平行于水平力作用方向的桩间净距')),
+        ('d',('<i>d</i>','m',1.0,'桩径或垂直于水平外力作用方向桩的宽度')),
+        ('h',('<i>h</i>','m',20,'桩长')),
+        # ('h1',('<i>h</i><sub>1</sub>','m',1.0,'桩顶高出地面或局部冲刷线的长度','不小于0')),
+        ('h2',('<i>h</i><sub>2</sub>','m',10,'柱高')),
+        ('kf',('<i>k</i><sub>f</sub>','',0.9,'桩形状换算系数','圆形或圆端形取0.9；矩形取1.0')),
+    ))
+    __deriveds__ = OrderedDict((
+        ('h1',('<i>h</i><sub>1</sub>','m',1.0,'地面或局部冲刷线以下桩的计算埋入深度','可取3(d+1)但不大于h')),
+        ('b2',('<i>b</i><sub>2</sub>','',1.0,'桩数相关系数',
+        '与平行于水平力作用方向的一排桩的桩数n有关的系数, n=1时取1.0；n=2时取0.6；n=3时取0.5；n=4时取0.45')),
+        ('k',('<i>k</i>','',1.0,'平行于水平力作用方向的桩间相互影响系数')),
+        ('b1',('<i>b</i><sub>1</sub>','m',20,'桩的计算宽度')),
+    ))
+
+    @staticmethod
+    def f_b1(k, kf, d):
+        return k*kf*(d+1) if d >=1 else k*kf*(1.5*d+0.5)
+
+    def solve(self):
+        self.validate('postive', 'n')
+        # 规范中h1在P.0.1、P.0.2、P.0.3中的意义各不相同，全局h1取P.0.3中的意义，其余加后缀_P0N以示区别
+        n=int(self.n); d = self.d; h = self.h; L1=self.L1; kf=self.kf
+        h1 = min(3*(d+1), h)
+        b2 = [1,0.6,0.5,0.45][min(n,4)-1]
+        k = 1 if (n == 1 or L1>=0.6*h1) else b2+(1-b2)/0.6*L1/h1
+        b1 = self.f_b1(k, kf, d)
+        self.h1=h1; self.b2=b2; self.k=k; self.b1=b1
+        return b1
+
+    def _html(self, digits=2):
+        yield self.format('n')
+        if self.n>1:
+            yield self.format('L1')
+        for param in ('d','h','h2','kf'):
+            yield self.format(param)
+        yield self.format('h1', digits, eq='min(3*(d+1), h)')
+        yield self.format('b2')
+        eq = '' if (self.n == 1 or self.L1>=0.6*self.h1) else 'b2+(1-b2)/0.6*L1/h1'
+        yield self.format('k', digits, eq=eq)
+        eq = 'k*kf*(d+1)' if self.d >=1 else 'k*kf*(1.5*d+0.5)'
+        yield self.format('b1', digits, eq=eq)
+
 class pile_effects(abacus):
     """
     按m法计算弹性桩水平位移及作用效应
@@ -356,14 +408,12 @@ class pile_effects(abacus):
     """
     __title__ = '单排桩柱式桥墩水平位移及作用效应'
     __inputs__ = OrderedDict((
-        ('L1',('<i>L</i><sub>1</sub>','m',2,'平行于水平力作用方向的桩间净距')),
         ('d',('<i>d</i>','m',1.0,'桩径或垂直于水平外力作用方向桩的宽度')),
+        ('b1',('<i>b</i><sub>1</sub>','m',1.0,'桩的计算宽度')),
         ('h',('<i>h</i>','m',20,'桩长')),
-        ('h1',('<i>h</i><sub>1</sub>','m',1.0,'桩顶高出地面或局部冲刷线的长度','不小于0')),
-        ('h2',('<i>h</i><sub>2</sub>','m',10,'柱高')),
-        ('b2',('<i>b</i><sub>2</sub>','',1.0,'系数',
-        '与平行于水平力作用方向的一排桩的桩数n有关的系数, n=1时取1.0；n=2时取0.6；n=3时取0.5；n=4时取0.45')),
-        ('kf',('<i>k</i><sub>f</sub>','',0.9,'桩形状换算系数','圆形或圆端形取0.9；矩形取1.0')),
+        # ('h1',('<i>h</i><sub>1</sub>','m',1.0,'桩顶高出地面或局部冲刷线的长度','不小于0')),
+        # ('h2',('<i>h</i><sub>2</sub>','m',10,'柱高')),
+        # ('kf',('<i>k</i><sub>f</sub>','',0.9,'桩形状换算系数','圆形或圆端形取0.9；矩形取1.0')),
         ('Ec',('<i>E</i><sub>c</sub>','MPa',3.0E4,'混凝土抗压弹性模量')),
         ('m',('<i>m</i>','kN/m<sup>4</sup>',5000,'非岩石地基水平向抗力系数的比例系数',
         '缺乏试验资料时按表P.0.2-1查用')),
@@ -374,12 +424,11 @@ class pile_effects(abacus):
         ('M0',('<i>M</i><sub>0</sub>','kN·m',0,'地面或局部冲刷线处弯矩')),
         ('H0',('<i>H</i><sub>0</sub>','kN',0,'地面或局部冲刷线处剪力')),
         ('bottom_fixed',('桩底嵌固','',False,'', '', {True:'是',False:'否'})),
-        ('z',('<i>z</i>','m',1,'计算内力处桩深','从地面或局部冲刷线起算')),
+        # ('z',('<i>z</i>','m',1,'计算内力处桩深','从地面或局部冲刷线起算')),
         ))
     __deriveds__ = OrderedDict((
         #('h1_P01',('<i>h</i><sub>1</sub>','m',1.0,'地面或局部冲刷线以下桩的计算埋入深度','可取3(d+1)但不大于h')),
         ('α',('<i>α</i>','m<sup>-1</sup>',0,'桩的变形系数')),
-        ('b1',('<i>b</i><sub>1</sub>','m',20,'桩的计算宽度')),
         ('kh',('<i>k</i><sub>h</sub>','',1.0,'土抗力对变形的影响系数')),
         ('δHH',('<i>δ</i><sub>HH</sub>','',0,'地面处单位水平力产生的水平位移')),
         ('δHM',('<i>δ</i><sub>HM</sub>','',0,'地面处单位力矩产生的水平位移')),
@@ -388,11 +437,12 @@ class pile_effects(abacus):
         ('x0',('<i>x</i><sub>0</sub>','m',0,'水平位移')),
         ('φ0',('<i>φ</i><sub>0</sub>','rad',0,'转角')),
         ('Mmax',('<i>M</i><sub>max</sub>','kN·m',0,'桩身最大弯矩')),
-        ('z_Mmax',('<i>z</i><sub>Mmax</sub>','m',0,'最大弯矩处桩身深度')),
+        ('z_Mmax',('<i>z</i>','m',0,'最大弯矩处桩身深度')),
         ('Qmax',('<i>Q</i><sub>max</sub>','kN',0,'桩身最大剪力')),
-        ('z_Qmax',('<i>z</i><sub>Qmax</sub>','m',0,'最大剪力处桩身深度')),
-        ('Mz',('<i>M</i><sub>z</sub>','kN·m',0,'深度z处桩身弯矩')),
-        ('Qz',('<i>Q</i><sub>z</sub>','kN',0,'深度z处桩身剪力')),
+        ('z_Qmax',('<i>z</i>','m',0,'最大剪力处桩身深度')),
+        # ('Mz',('<i>M</i><sub>z</sub>','kN·m',0,'深度z处桩身弯矩')),
+        # ('Qz',('<i>Q</i><sub>z</sub>','kN',0,'深度z处桩身剪力')),
+        ('Forces',('[F]','',[],'桩身内力表')),
         ))
 
     @staticmethod
@@ -463,11 +513,8 @@ class pile_effects(abacus):
         return (δHH, δMH, δHM, δMM)
 
     @classmethod
-    def _solve(cls, L1, d, h, h1, b2, kf, Ec, I, I0, m, C0, M0, H0, bottom_fixed=False):
+    def _solve(cls, b1, h, Ec, I, I0, m, C0, M0, H0, bottom_fixed=False):
         # 规范中h1在P.0.1、P.0.2、P.0.3中的意义各不相同，全局h1取P.0.3中的意义，其余加后缀_P0N以示区别
-        h1_P01 = min(3*(d+1), h)
-        k = 1 if L1>=0.6*h1_P01 else b2+(1-b2)/0.6*L1/h1_P01
-        b1 = cls.f_b1(k, kf, d)
         E = 0.8*Ec
         α = cls.f_α(m, b1, E, I)
         kh = C0/(α*E)*I0/I
@@ -505,7 +552,7 @@ class pile_effects(abacus):
                 α, E, I, x0, φ0, M0, H0, factors['A4'], 
                 factors['B4'], factors['C4'], factors['D4'])
 
-        return (b1, α, kh, δHH, δMH, δHM, δMM, x0, φ0, _Mz, _Qz)
+        return (α, kh, δHH, δMH, δHM, δMM, x0, φ0, _Mz, _Qz)
 
     def solve(self):
         self.validate('non-negative', 'h1')
@@ -513,16 +560,21 @@ class pile_effects(abacus):
         self.I0 = self.I
         # self.M0 = self.M+self.H*(self.h2+self.h1)
         # self.H0 = self.H
-        self.b1, self.α, self.kh, self.δHH, self.δMH, self.δHM, self.δMM, self.x0, self.φ0, self._Mz, self._Qz = self._solve(
-            self.L1, self.d, self.h, self.h1, self.b2, self.kf, self.Ec*1e3, self.I, self.I0, 
+        self.α, self.kh, self.δHH, self.δMH, self.δHM, self.δMM, self.x0, self.φ0, self._Mz, self._Qz = self._solve(
+            self.b1, self.h, self.Ec*1e3, self.I, self.I0, 
             self.m, self.C0, self.M0, self.H0, self.bottom_fixed)
-        self.Mz = self._Mz(self.z)
-        self.Qz = self._Qz(self.z)
+        # self.Mz = self._Mz(self.z)
+        # self.Qz = self._Qz(self.z)
         t = [row[0] for row in tableP08]
         Mmax = Qmax = 0
         z_Mmax = z_Qmax = 0
+        self.Forces = []
+        end  = False
         for h in t:
             z = h/self.α
+            if z>self.h:
+                z = self.h
+                end = True
             Mz = self._Mz(z)
             if abs(Mz) > abs(Mmax):
                 Mmax = Mz
@@ -531,10 +583,34 @@ class pile_effects(abacus):
             if abs(Qz) > abs(Qmax):
                 Qmax = Qz
                 z_Qmax = z
+            self.Forces.append([z, Mz, Qz])
+            if end:
+                break
         self.Mmax = Mmax
         self.z_Mmax = z_Mmax
         self.Qmax = Qmax
         self.z_Qmax = z_Qmax
+
+    def _html(self, digits=2):
+        for param in self.inputs:
+            yield self.format(param)
+        yield self.format('α', eq='(m*b1/E/I)<sup>0.2</sup>')
+        yield self.format('kh', eq='C0/(α*E)*I0/I')
+        for param in ('δHH','δHM','δMH','δMM'):
+            yield self.format(param)
+        yield self.format('x0', eq='H0*δHH+M0*δHM')
+        yield self.format('φ0', eq='-(H0*δMH+M0*δMM)')
+        yield '{} ({})'.format(
+            self.format('Mmax'), 
+            self.format('z_Mmax', omit_name = True)
+            )
+        yield '{} ({})'.format(
+            self.format('Qmax'), 
+            self.format('z_Qmax', omit_name = True)
+            )
+        t = self.Forces
+        t.insert(0, ['桩深(m)','弯矩M','剪力Q'])
+        yield html.table2html(t, digits)
     
 class pile_group_effects(abacus):
     """
@@ -731,8 +807,8 @@ def _test3():
     f = pile_effects(d=1.2,h2=3,h1=1,kf=0.9,m=5000,Ec=2.6e4, M0=M+H*4, H0=H,z=0.28)
     f.solve()
     Mz = 313.19
-    assert abs((f.Mz - Mz)/Mz) < 0.01
-    t = [row[0] for row in f.tableP08]
+    assert abs((f._Mz(0.28) - Mz)/Mz) < 0.01
+    t = [row[0] for row in tableP08]
     print('h', 'z', 'Mz', 'Qz')
     for h in t:
         f.z = h/f.α
@@ -751,9 +827,7 @@ def _test4():
     assert M == f.M0
 
 if __name__ == '__main__':
-    # _test2()
-    f = pile_group_effects()
-
-    f.solve()
-
-    print(f.text())
+    _test3()
+    # f=pile_width()
+    # f.solve()
+    # print(f.text())

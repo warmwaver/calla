@@ -610,8 +610,8 @@ class eccentric_compression(abacus, material_base):
                 self.fpd_,self.σp0_,self.fpd,self.Ap_,self.Ap)
             else:
                 Mu = self.fsd*self.As*(self.h0-self.as_) #N·mm
-                Nu = self.Mu/self.es_ #N
-                #self.Mu = Mu/1e6
+                Nu = Mu/self.es_ #N
+                self.Mu = Mu/1e6
         else: # 小偏心受压
             self.type = '小偏心'
             self.εcu = self.f_εcu(self.fcuk)
@@ -1319,7 +1319,7 @@ class torsion(abacus, material_base):
         return Tu
 
     def solve(self):
-        self.validate('positive','A0')
+        self.validate('positive','A0','Asv1')
         Vd = self.Vd*1e3
         Td = self.Td*1e6
         self.Acor=self.bcor*self.hcor

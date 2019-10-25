@@ -14,7 +14,10 @@ from collections import OrderedDict
 from math import pi, sqrt, sin, cos, tan
 
 class groundbase(abacus):
-    """地基承载力"""
+    """
+    地基承载力
+    《公路桥涵地基与基础设计规范》（JTG D63-2007）第4.2.2~4节
+    """
     __title__ = '地基承载力'
     __inputs__ = OrderedDict([
         ('b',('<i>b</i>', 'm', 0, '截面x方向宽度')),
@@ -99,7 +102,10 @@ class groundbase(abacus):
             self.status+2)
 
 class eccentricity(abacus):
-    """基底合力偏心距验算"""
+    """
+    基底合力偏心距验算
+    《公路桥涵地基与基础设计规范》（JTG D63-2007）第4.2.5节
+    """
     __title__ = '基底合力偏心距验算'
     __inputs__ = OrderedDict([
         ('A',('<i>A</i>', 'm<sup>2</sup>', 0, '基础底面面积')),
@@ -140,7 +146,10 @@ class eccentricity(abacus):
             '' if ok else '不')
 
 class overturning(abacus):
-    """基础抗倾覆稳定性"""
+    """
+    基础抗倾覆稳定性
+    《公路桥涵地基与基础设计规范》（JTG D63-2007） 第4.4.1节
+    """
     __title__ = '基础抗倾覆稳定性'
     __inputs__ = OrderedDict([
         ('b',('<i>b</i>', 'm', 0, '截面x方向宽度')),
@@ -195,7 +204,10 @@ class overturning(abacus):
             '' if ok else '不')
 
 class sliding(abacus):
-    """基础抗滑移稳定性"""
+    """
+    基础抗滑移稳定性
+    《公路桥涵地基与基础设计规范》（JTG D63-2007） 第4.4.2节
+    """
     __title__ = '基础抗滑移稳定性'
     __inputs__ = OrderedDict([
         ('μ',('<i>μ</i>', 'm', 0.4, '基础底面与地基土之间的摩擦系数')),

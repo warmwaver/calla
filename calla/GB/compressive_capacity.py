@@ -15,6 +15,7 @@ class axial_compression(abacus):
     """
     钢筋混凝土轴心受压构件正截面受压承载力计算
     《混凝土结构设计规范》(GB 50010-2010）第6.2.15节
+    参数b, d, i任意输入一项即可，其余填0。
 
     >>> axial_compression._phi(4610,b=400)
     0.95
@@ -26,7 +27,7 @@ class axial_compression(abacus):
     __title__ = '轴心受压承载力'
     __inputs__ = OrderedDict((
         ('N',('<i>N</i>','kN',1000,'轴力')),
-        ('b',('<i>b</i>','mm',500,'矩形截面的短边尺寸')),
+        ('b',('<i>b</i>','mm',0,'矩形截面的短边尺寸')),
         ('d',('<i>d</i>','mm',0,'圆形截面的直径')),
         ('i',('<i>i</i>','mm',0,'截面的最小回转半径')),
         ('l0',('<i>l</i><sub>0</sub>','mm',1000,'构件的计算长度','对钢筋混凝土柱可按本规范第6.2.20 条的规定取用')),
@@ -41,12 +42,17 @@ class axial_compression(abacus):
         ('轴压比',('轴压比','',0)),
         ))
     
+    @staticmethod
     def index(array, value):
-        for i in range(len(array)):
+        n = len(array)
+        for i in range(n-1):
             if value <= array[i]:
                 return i
             elif value > array[i] and value <= array[i+1]:
                 return i+1
+        return n-1
+
+    @staticmethod
     def fNu(phi, fc, A, fy_=300, As_=0):
         """
         Args:
@@ -59,14 +65,16 @@ class axial_compression(abacus):
             设计抗压强度
         """
         return 0.9*phi*(fc*A+fy_*As_)
+
+    @staticmethod
     def _phi(l0, b=0,d=0,i=0):
-        if b<=0 and d<=0 and i<=0:
-            raise InputError('输入值必须大于0')
-        n = 22
         _b = (8,10,12,14,16,18,20,22,24,26,28,30,32,34,36,38,40,42,44,46,48,50)
         _d = (7,8.5,10.5,12,14,15.5,17,19,21,22.5,24,26,28,29.5,31,33,34.5,36.5,38,40,41.5,43)
         _i = (28,35,42,48,55,62,69,76,83,90,97,104,111,118,125,132,139,146,153,160,167,174)
-        _phi = (1,0.98,0.95,0.92,0.87,0.81,0.75,0.7,0.65,0.6,0.56,0.52,0.48,0.44,0.36,0.32,0.29,0.26,0.23,0.21,0.19)
+        _phi = (
+            1,0.98,0.95,0.92,0.87,0.81,0.75,0.7,0.65,0.6,0.56,
+            0.52,0.48,0.44,0.40,0.36,0.32,0.29,0.26,0.23,0.21,0.19
+            )
         phis = [1,1,1]
         if b > 0:
             phis[0] = _phi[axial_compression.index(_b, l0/b)]
@@ -85,9 +93,13 @@ class axial_compression(abacus):
     compression_ratio = lambda N, A, fc:N/(A*fc)
     
     def solve(self):
+        self.validate('non-negative', 'b', 'd', 'i')
+        if self.b<=0 and self.d<=0 and self.i<=0:
+            raise InputError(self, 'i', '请输入b,d,i任意一项的值')
         self.φ = axial_compression._phi(self.l0, self.b,self.d,self.i)
         self.Nu = axial_compression.fNu(self.φ, self.fc, self.A, self.fy_, self.As_)*1e-3
         self.轴压比 = axial_compression.compression_ratio(self.N, self.A, self.fc)*1e3
+
     def _html(self,digits=2):
         yield self.format('轴压比')
         yield self.format('φ')

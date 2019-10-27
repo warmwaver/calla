@@ -427,10 +427,10 @@ class eccentric_compression(abacus, material_base):
         ('fpd',('<i>f</i><sub>pd</sub>','MPa',1320,'受拉区预应力筋抗压强度设计值')),
         ('σp0',('<i>σ</i><sub>p0</sub>','MPa',1320,'受拉预应力钢筋初始应力','截面受拉区纵向预应力钢筋合力点处混凝土法向应力等于零时，预应力钢筋中的应力')),
         ('Ap',('<i>A</i><sub>p</sub>','mm<sup>2</sup>',0,'受拉预应力筋面积')),
-        ('ap',('<i>a</i><sub>p</sub><sup>\'</sup>','mm',200,'受拉区纵向预应力筋合力点至受拉边缘的距离')),
+        ('ap',('<i>a</i><sub>p</sub>','mm',200,'受拉区纵向预应力筋合力点至受拉边缘的距离')),
         ('fpd_',('<i>f</i><sub>pd</sub><sup>\'</sup>','MPa',1320,'受压区预应力筋抗压强度设计值')),
         ('σp0_',('<i>σ</i><sub>p0</sub><sup>\'</sup>','MPa',1320,'受压预应力钢筋初始应力','截面受压区纵向预应力钢筋合力点处混凝土法向应力等于零时，预应力钢筋中的应力')),
-        ('Ap_',('<i>A</i><sub>p</sub><sup>\'</sup>','mm<sup>2</sup>',0,'受拉预应力筋面积')),
+        ('Ap_',('<i>A</i><sub>p</sub><sup>\'</sup>','mm<sup>2</sup>',0,'受压预应力筋面积')),
         ('ap_',('<i>a</i><sub>p</sub><sup>\'</sup>','mm',200,'受压区纵向预应力筋合力点至受压边缘的距离')),
         ('Es',('<i>E</i><sub>s</sub>','MPa',2E5,'钢筋弹性模量')),
         ('Ep',('<i>E</i><sub>p</sub>','MPa',1.95E5,'预应力钢筋弹性模量')),
@@ -599,7 +599,7 @@ class eccentric_compression(abacus, material_base):
         self.x = solve_x(self.fcd, self.b, self.e, self.h0, self.fsd_, self.As_, self.es_, 
         self.fpd_, self.σp0_, self.Ap_, self.ep_, self.fsd, self.As, self.es, self.fpd, self.Ap, self.ep)
         if self.x < 0:
-            raise numeric.NumericError('截面受压区高度无正数解')
+            raise numeric.NumericError('截面受压区高度无正数解，请调整钢筋面积或截面尺寸。')
         self.ξ = self.x/self.h0
         self.ξb = f_ξb(self.fcd, self.fsd) #TODO: 增加预应力计算
         self.xb = self.ξb*self.h0
@@ -752,9 +752,12 @@ class eccentric_compression(abacus, material_base):
         yield self.formatx('fcd','fcuk','fsd','fsd_',omit_name=True, toggled = False)
         yield self.format('As',digits=digits)
         yield self.format('Es',digits=None)
+        if self.ps != '无':
+            for param in ('fpd','σp0','Ap','ap','fpd_','σp0_','Ap_','ap_','Ep'):
+                yield self.format(param, digits)
         yield self.format('e0',digits=digits)
         yield self.format('e',digits=digits)
-        yield self.format('xb', digits)        
+        yield self.format('xb', digits)
         ok = self.x<self.xb
         yield '{} {} {}'.format(self.format('x'), '&lt;' if ok else '&gt;', self.format('xb', omit_name = True))
         yield '按{}受压构件计算'.format(self.type)
@@ -1048,7 +1051,7 @@ class bc_round(abacus, material_base):
             yield self.format(item, digits=None)
         for item in ('r', 'rs', 'As', 'A', 'Nd', 'Md', 'l0'):
             yield self.format(item, digits=digits)
-        ec = hasattr(self,'e0') and self.e0>0
+        ec = hasattr(self,'e0') and self.e0>0 # 判断是否为偏心受压
         if ec:
             yield self.format('e0', digits=digits)
             yield self.format('h0', digits=digits, eq='r+rs')
@@ -1077,12 +1080,21 @@ class bc_round(abacus, material_base):
     def _html_As(self,digits=2):
         for item in ('γ0', 'Nd', 'Md', 'fcd', 'fsd'):
             yield self.format(item, digits=None)
-        for item in ('A', 'e0', 'η', 'α'):
-            yield self.format(item, digits=digits)
+        yield self.format('A', digits=digits)
+        ec = hasattr(self,'e0') and self.e0>0 # 判断是否为偏心受压
+        if ec:
+            yield self.format('e0', digits=digits)
+            yield self.format('η', digits=digits)
+        yield '根据5.3.8节内力平衡方程求解得：'
+        yield self.format('α',digits=digits)
+        yield '进一步得：'
+        yield self.format('As',digits=digits, eq='(Nd-α*fcd*A*(1-sin(2*π*α)/2/π/α))/(α-(1.25-2*α))/fsd')
         self.Asmin = self.ρmin*self.A
         ok = self.As >= self.Asmin
         yield '{} {} {}'.format(
-            self.format('As'), '≥' if ok else '&lt;', self.format('Asmin'))
+            self.format('As', digits, omit_name=True), 
+            '≥' if ok else '&lt;', 
+            self.format('Asmin', digits))
         if not ok:
             yield '故取{}'.format(self.format('As', value=self.Asmin, omit_name=True))
 

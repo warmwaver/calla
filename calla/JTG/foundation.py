@@ -51,12 +51,15 @@ class groundbase(abacus):
         A = self.A = b*d
         Wx = self.Wx = b*d**2/6
         Wy = self.Wy = d*b**2/6
-        self.p = N/A
+        self.p = N/A # (4.2.2-1)
         self.eqr = γR*fa
         ex = self.ex = My/N
         ey = self.ey = Mx/N
         pmin = self.pmin = N/A-Mx/Wx-My/Wy
         self.e0 = e0 = sqrt(ex**2+ey**2)
+        if e0 == 0:
+            # 只承受轴心荷载
+            return
         self.ρ = e0/(1-pmin*A/N)
         self.status = 0
         if e0 > self.ρ: # 应力重分布
@@ -81,6 +84,8 @@ class groundbase(abacus):
             self.format('p', digits, eq='N/A'), '≤' if ok else '&gt;',
             self.format('fa', digits=None, omit_name=True),
             '' if ok else '不')
+        if self.e0 == 0:
+            return
         if self.status != 0:
             for para in ('ex','ey'):
                 yield self.format(para, digits)

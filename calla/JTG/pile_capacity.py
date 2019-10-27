@@ -56,6 +56,18 @@ class friction_pile_capacity(abacus):
     
     def solve_Ra(self):
         self.positive_check('L', 'u', 'Ap', 'm0', 'λ', 'k2', 'γ2')
+
+        def _to_list(param):
+            if hasattr(param, '__len__') and not isinstance(param, str):
+                return param
+            else:
+                return [param]
+
+        self.soil = _to_list(self.soil)
+        self.li = _to_list(self.li)
+        self.fa0 = _to_list(self.fa0)
+        self.qik = _to_list(self.qik)
+
         if self.L > sum(self.li):
             raise InputError(self, 'L', '桩长不能大于土层厚度之和')
         typeγ = type(self.γ2)
@@ -214,7 +226,6 @@ class end_bearing_pile_capacity(abacus):
         if self.L > sum(self.li):
             raise InputError(self, 'L', '桩长不能大于土层厚度之和')
         c1 = (0.6,0.5,0.4)
-        c2 = (0.05,0.04,0.03)
         endlayer = 0
         l = 0
         for i in range(len(self.li)):
@@ -266,18 +277,22 @@ class end_bearing_pile_capacity(abacus):
             if self.option and ls+self.li[i] <= self.ln:
                 ls += self.li[i]
                 continue
+            index = self.status[i]
+            if index > 2 or index < -1:
+                raise InputError(self, 'status', '输入值超出合理范围')
+            c2 = (0.05,0.04,0.03)[index]
             if ls+self.li[i] < self.L:
                 if bl:
                     γl += self.li[i]*self.γ2[i]
                 if self.status[i] == -1:
                     ra += 0.5*self.ζs*self.u*self.qik[i]*self.li[i]
                 else:
-                    ra += self.u*c2[self.status[i]]*self.frk[i]*self.li[i]
+                    ra += self.u*c2*self.frk[i]*self.li[i]
             elif ls < self.L:
                 if bl:
                     γl += (self.ln-ls)*self.γ2[i]
                 self.γ2 = γl / self.L if bl else self.γ2
-                ra += self.u*c2[self.status[i]]*self.frk[i]*(self.L - ls)
+                ra += self.u*c2*self.frk[i]*(self.L - ls)
                 self.c1 = c1[self.status[i]]
                 ra += self.c1*self.Ap*self.frk[i]
                 break

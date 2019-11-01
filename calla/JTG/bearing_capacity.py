@@ -17,7 +17,7 @@ __all__ = [
 
 from math import pi, sin, cos, acos, sqrt
 from collections import OrderedDict
-from calla import abacus, numeric, InputError
+from calla import abacus, numeric, InputError, SolvingError
 from calla.JTG import material
 
 material_base = material.material_base
@@ -155,15 +155,15 @@ class fc_rect(abacus, material_base):
                 self.As = self.fcd*self.b*self.x/self.fsd
                 return self.As
             else:
-                self.εcu = self.f_εcu()
-                self.σs = self.Es*self.εcu*(self.β1*self.h0/self.x-1)
+                self.εcu = f_εcu(self.fcuk)
+                self.σs = self.Es*self.εcu*(self.h0/self.x-1)
                 if self.σs<0:
-                    raise Exception('截面受压区高度过大，钢筋出现压应力，弯矩无法平衡\n')
+                    raise SolvingError('截面受压区高度过大，钢筋出现压应力，弯矩无法平衡。')
                 else:
                     self.As = self.fcd*self.b*self.x/self.σs
                     return self.As
         else:
-            raise Exception('弯矩无法平衡，需增大截面尺寸')
+            raise SolvingError('弯矩无法平衡，需增大截面尺寸。')
         
     def solve(self):
         self.ξb = f_ξb(self.fcuk, self.fsd)

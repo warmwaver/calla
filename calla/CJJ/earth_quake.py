@@ -141,6 +141,11 @@ class pier_shear_strength(abacus):
         'section':{'rectangle':('D'), 'round':('b')},
         }
     def solve(self):
+        self.validate('positive', 's')
+        if self.section == 'round':
+            self.validate('positive', 'D')
+        else:
+            self.validate('positive', 'b')
         # 能力保护构件验算
         Vc0=self.Vc0; Pc = self.Pc; fcd=self.fcd; fyh=self.fyh; Av=self.Av 
         D = self.D; b=self.b; h0=self.h0; s=self.s; D_=self.D_

@@ -2,6 +2,7 @@ __all__ = [
     'abacus',
     'replace_by_aliases',
     'InputError',
+    'SolvingError'
     ]
 
 from calla.html import html2text
@@ -234,6 +235,8 @@ class abacus:
         s = ''
         disableds = self.disableds()
         for parameter in parameters:
+            if not hasattr(self, parameter):
+                continue
             if toggled and parameter in disableds:
                 continue
             s += self.format(parameter,digits=digits,sep=sep,omit_name=omit_name)
@@ -364,13 +367,13 @@ class abacus:
                 if (t == int or t == float):
                     if requirement == 'positive':
                         if value <= 0:
-                            raise InputError(self, parameter, '>0')
+                            raise InputError(self, parameter, '应>0')
                     elif requirement == 'non-negative':
                         if value < 0:
-                            raise InputError(self, parameter, '≥0')
+                            raise InputError(self, parameter, '应≥0')
                     elif requirement == 'non-zero':
                         if value == 0:
-                            raise InputError(self, parameter, '≠0')
+                            raise InputError(self, parameter, '应≠0')
 
     def none_zero_check(self, *inputs:str):
         # obselete
@@ -404,6 +407,12 @@ class InputError(Exception):
         Exception.__init__(self, self.message)
     def html(self):
         return self.xmessage
+
+class SolvingError(Exception):
+    def __init__(self, message:str):
+        self.message = message
+    def html(self):
+        return self.message
 
 def common_attrs(calculators:[abacus]):
     """ Get common attributes of calculators. """

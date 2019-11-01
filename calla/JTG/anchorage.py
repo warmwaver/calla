@@ -14,7 +14,7 @@ from calla import abacus, numeric
 class end_anchorage(abacus):
     """
     端部锚固区计算
-    《公路钢筋混凝土及预应力混凝土桥涵设计规范》（JTG 3362-2018）第8.2.6节
+    《公路钢筋混凝土及预应力混凝土桥涵设计规范》（JTG 3362-2018）第8.2.1~5节
     """
     __title__ = '端部锚固区'
     __inputs__ = OrderedDict((
@@ -72,7 +72,7 @@ class end_anchorage(abacus):
             yield self.format(attr, digits)
 
         yield self.format('As1')
-        yield self.format('Tbd', eq='0.25*Pd*(1+γ)<sup>2</sup>*((1-γ)-a/h)+0.5*Pd*abs(sin(α))')
+        yield self.format('Tbd', eq='0.25*Pd*(1+γ)<sup>2</sup>*((1-γ)-a/h)+0.5*Pd*|sin(α)|')
         self.eql = self.γ0*self.Tbd
         ok = self.eql <= self.eqr1
         yield '{} {} {}， {}满足规范第8.2.1条要求。'.format(
@@ -110,7 +110,7 @@ class end_anchorage(abacus):
 class inner_anchorage(abacus):
     """
     三角齿块锚固区内五个受拉部位拉力设计值计算
-    《公路钢筋混凝土及预应力混凝土桥涵设计规范》（JTG 3362-2018）第8.2.6节
+    《公路钢筋混凝土及预应力混凝土桥涵设计规范》（JTG 3362-2018）第8.2.1、8.2.6节
     """
     __title__ = '三角齿块锚固区'
     __inputs__ = OrderedDict((

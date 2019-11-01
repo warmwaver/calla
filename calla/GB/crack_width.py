@@ -8,7 +8,7 @@ __all__ = [
 
 from collections import OrderedDict
 import math
-from calla import abacus
+from calla import abacus, InputError
 
 class crack_width(abacus):
     """
@@ -105,6 +105,7 @@ class crack_width(abacus):
         if self.force_type == '0':
             self.σs = 1E6*self.Mq/0.87/self.h0/self.As
         elif self.force_type == '1':
+            self.validate('positive', 'Mq')
             hf_ = self.hf_
             if self.hf_>0.2*self.h0:
                 hf_ = 0.2*self.h0
@@ -120,6 +121,8 @@ class crack_width(abacus):
             self.σs = self.Nq*1E3*self.e_/self.As/(self.h0-self.as_)
         elif self.force_type == '3':
             self.σs = self.Nq*1E3/self.As
+        else:
+            raise InputError(self, 'σs', '无效的输入值')
         # ψ - ψi
         self.ψi = 1.1 - 0.65 * self.ftk / self.ρte / self.σs
         if self.bear_repeated_load:

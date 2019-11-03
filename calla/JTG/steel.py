@@ -373,6 +373,7 @@ class web_rib(abacus):
 
     @staticmethod
     def rib_space(a, hw, tw, σ, τ, fvd, C1, C2):
+        # (5.3.3) 采用C1、C2代表6个式子中的变化参数
         feql = lambda a, hw, tw, σ, τ, fvd, C1, C2: (hw/100/tw)**4*((σ/C1)**2+(τ/(C2+58*(hw/a)**2))**2)
         return feql(a, hw, tw, σ, τ, fvd, C1, C2)
 
@@ -393,6 +394,7 @@ class web_rib(abacus):
         return (ξl, Il)
 
     def solve(self):
+        self.validate('positive', 'a','hw')
         op= {
             'Q235':[[70,0,0],[160,280,310]],
             'Q345':[[60,0,0],[140,240,310]]

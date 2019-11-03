@@ -119,7 +119,7 @@ class pier_shear_strength(abacus):
         ('h0',('<i>h</i><sub>0</sub>','cm',0,'核芯混凝土受压边缘至受拉侧钢筋重心的距离')),
         ('fcd',('<i>f</i><sub>cd</sub>','MPa',13.8,'混凝土抗压强度设计值')),
         ('Ae',('<i>A</i><sub>e</sub>','cm<sup>2</sup>',0,'核芯混凝土面积')),
-        ('Ag',('<i>A</i><sub>g</sub>','cm<sup>2</sup>',0,'墩柱塑性铰区域截面全而积')),
+        ('Ag',('<i>A</i><sub>g</sub>','cm<sup>2</sup>',0,'墩柱塑性铰区域截面全面积')),
         ('μΔ',('<i>μ</i><sub>Δ</sub>','',3,'墩柱位移延性系数')),
         ('Pc',('<i>P</i><sub>c</sub>','kN',0,'墩柱截面最小轴压力')),
         ('Asp',('<i>A</i><sub>sp</sub>','cm<sup>2</sup>',0,'螺旋箍筋面积')),
@@ -141,7 +141,7 @@ class pier_shear_strength(abacus):
         'section':{'rectangle':('D'), 'round':('b')},
         }
     def solve(self):
-        self.validate('positive', 's')
+        self.validate('positive', 's', 'Ag')
         if self.section == 'round':
             self.validate('positive', 'D')
         else:
@@ -156,7 +156,7 @@ class pier_shear_strength(abacus):
         λ=ρs*fyh/10+0.38-0.1*μΔ
         λ=0.03 if λ<0.03 else λ
         λ=0.3 if λ>0.3 else λ
-        νc=0 if Pc<=0 else λ*(1+Pc/1.38/Ag)*sqrt(fcd)
+        νc=0 if Pc<=0 else λ*(1+Pc/1.38/Ag)*sqrt(fcd) # (7.4.2-3)
         Ae=0.8*Ag
         Vc=0.1*νc*Ae
         Vs=0.1*pi/2*Asp*fyh*D_/s if self.section == 'round' else 0.1*Av*fyh*h0/s #kN

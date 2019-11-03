@@ -26,8 +26,10 @@ class end_anchorage(abacus):
         ('e',('<i>e</i>','mm',0,'锚固力偏心距')),
         ('α',('<i>α</i>','rad',0,'力筋倾角','-5°~+20°，锚固力作用线从起点指向截面形心时取正值，远离时取负值')),
         ('fsd',('<i>f</i><sub>sd</sub>','MPa',330,'钢筋抗拉强度设计值')),
-        ('As1',('<i>A</i><sub>s</sub>','mm<sup>2</sup>',0,'锚下劈裂力配筋面积','总体区计算范围为1~1.2倍梁高或梁宽的较大值')),
-        ('As2',('<i>A</i><sub>s</sub>','mm<sup>2</sup>',0,'端面配筋面积')),
+        ('As1',('<i>A</i><sub>s</sub>','mm<sup>2</sup>',0,'锚下劈裂力配筋面积',
+        '总体区应配置抵抗横向劈裂力的闭合箍筋，间距不应大于120mm。总体区计算范围为1~1.2倍梁高或梁宽的较大值。')),
+        ('As2',('<i>A</i><sub>s</sub>','mm<sup>2</sup>',0,'端面配筋面积',
+        '梁端截面应配置抵抗表面剥落力的抗裂钢筋。当采用大偏心锚固时，锚固端面钢筋宜弯起并延伸至纵向受拉边缘。')),
         ('option',('大间距锚头','',False,'','两个锚固力的中心距大于1/2锚固端截面高度时为大间距锚头',{True:'是',False:'否'})),
         ('Pd_',('<span style="text-decoration:overline;"><i>P</i></span><sub>d</sub>','kN',0,'锚固力设计值的平均值','取1.2倍张拉控制力')),
         ('s',('<i>s</i>','mm',500,'两个锚固力的中心距')),
@@ -73,6 +75,7 @@ class end_anchorage(abacus):
 
         yield self.format('As1')
         yield self.format('Tbd', eq='0.25*Pd*(1+γ)<sup>2</sup>*((1-γ)-a/h)+0.5*Pd*|sin(α)|')
+        yield self.format('db')
         self.eql = self.γ0*self.Tbd
         ok = self.eql <= self.eqr1
         yield '{} {} {}， {}满足规范第8.2.1条要求。'.format(

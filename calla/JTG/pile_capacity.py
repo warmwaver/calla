@@ -56,6 +56,12 @@ class friction_pile_capacity(abacus):
     
     def solve_Ra(self):
         self.positive_check('L', 'u', 'Ap', 'm0', 'λ', 'k2', 'γ2')
+        # 判断列表参数的元素个数是否一致
+        n = len(self.soil)
+        for item in ('li', 'qik', 'fa0'):
+            attr = getattr(self, item)
+            if len(attr) != n:
+                raise InputError(self, item, '元素个数与土层名称个数不一致')
 
         def _to_list(param):
             if hasattr(param, '__len__') and not isinstance(param, str):
@@ -223,8 +229,16 @@ class end_bearing_pile_capacity(abacus):
     
     def solve_Ra(self):
         self.positive_check('L', 'u', 'Ap', 'γ2')
+        # 判断列表参数的元素个数是否一致
+        n = len(self.soil)
+        for item in ('li', 'qik', 'frk','status'):
+            attr = getattr(self, item)
+            if len(attr) != n:
+                raise InputError(self, item, '元素个数与土层名称个数不一致')
+
         if self.L > sum(self.li):
             raise InputError(self, 'L', '桩长不能大于土层厚度之和')
+
         c1 = (0.6,0.5,0.4)
         endlayer = 0
         l = 0

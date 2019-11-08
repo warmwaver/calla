@@ -160,8 +160,10 @@ class crack_width(abacus):
         '''
         计算最大裂缝宽度
         '''
+        self.validate('positive', 'As')
         # 计算有效配筋率和钢筋应力
         if self.case == 'rect':
+            self.validate('positive', 'b', 'h')
             self.h0 = self.h - self.a_s
             # 矩形、T 形和I 形截面的钢筋混凝土构件
             if self.force_type == 'AT':
@@ -175,7 +177,7 @@ class crack_width(abacus):
             self.σss = self.f_σss_rect()
         elif self.case == 'round':
             # 圆形截面偏心受压构件钢筋应力按公式(6.4.4-9)、(6.4.4-10)计算
-            self.positive_check('r', 'a_s', 'As', 'c', 'd')
+            self.validate('positive', 'r')
             if self.Ns == 0: # 受弯构件
                 raise InputError(self, 'Ns','JTG规范不支持圆形截面受弯构件裂缝宽度计算')
             if self.Ms == 0: # 受压构件
@@ -230,6 +232,7 @@ class crack_width(abacus):
         return self.As
     
     def solve(self):
+        self.validate('positive', 'a_s', 'c', 'd')
         # 确定基本参数C2
         if (self.case == 'rect' and self.force_type != 'BD') or self.case == 'round':
             self.positive_check('Ns')

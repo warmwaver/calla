@@ -1058,7 +1058,7 @@ class bc_round(abacus, material_base):
             yield self.format('h', digits=digits, eq='2r')
             yield self.format('ζ1', digits=digits, eq='0.2+2.7*e0/h0')
             yield self.format('ζ2', digits=digits, eq='1.15-0.01*l0/h')
-            yield self.format('η', digits=digits, eq='1+1/(1300*e0/h0)*(l0/h)**2*ζ1*ζ2')
+            yield self.format('η', digits=digits, eq='1+1/(1300*e0/h0)*(l0/h)<sup>2</sup>*ζ1*ζ2')
         yield '根据5.3.8节内力平衡方程求解得：'
         yield self.format('α',digits=digits)
         if ec:
@@ -1084,7 +1084,11 @@ class bc_round(abacus, material_base):
         ec = hasattr(self,'e0') and self.e0>0 # 判断是否为偏心受压
         if ec:
             yield self.format('e0', digits=digits)
-            yield self.format('η', digits=digits)
+            yield self.format('h0', digits=digits, eq='r+rs')
+            yield self.format('h', digits=digits, eq='2r')
+            yield self.format('ζ1', digits=digits, eq='0.2+2.7*e0/h0')
+            yield self.format('ζ2', digits=digits, eq='1.15-0.01*l0/h')
+            yield self.format('η', digits=digits, eq='1+1/(1300*e0/h0)*(l0/h)<sup>2</sup>*ζ1*ζ2')
         yield '根据5.3.8节内力平衡方程求解得：'
         yield self.format('α',digits=digits)
         yield '进一步得：'
@@ -1182,8 +1186,8 @@ class shear_capacity(abacus, material_base):
         self.V12 = 0.5e-3*self.α2*self.ftd*self.b*self.h0 # (5.2.12)
 
     def _html(self, digits = 2):
-        yield self.format('γ0')
-        yield self.format('Vd')
+        for param in ('γ0','Vd','b','h0','fcuk','α1','α2','α3'):
+            yield self.format(param)
         ok = self.V11 >= self.γ0Vd
         yield '{} {} {}， {}'.format(
             self.format('γ0Vd', eq='γ0·Vd'), '≤' if ok else '&gt;',

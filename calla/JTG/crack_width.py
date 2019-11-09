@@ -71,6 +71,7 @@ class crack_width(abacus):
         ('Ate',('<i>A</i><sub>te</sub>','mm<sup>2</sup>',0,'有效受拉混凝土截面面积')),
         ('es_',('<i>e</i><sub>s</sub><sup>\'</sup>','mm','轴向拉力作用点至受压区或受拉较小边纵向钢筋合力点的距离')),
         ('Wcr',('<i>W</i><sub>cr</sub>','mm',0,'最大裂缝宽度')),
+        ('eql',('','',0,'')),
         ))
     __toggles__ = OrderedDict((
         ('option',{'review':(),'design':('As')}),
@@ -138,6 +139,7 @@ class crack_width(abacus):
         if self.force_type == 'BD':
             self.σss=self.f_σss_BD(self.Ms,self.As,self.h0)
         elif self.force_type == 'EC':
+            self.eql = self.e0/self.h # 6.4.3: e0/h<0.55时可不进行裂缝宽度计算
             self.ηs = self.f_ηs(self.e0,self.l0,self.h,self.h0)
             self.es = self.ηs*self.e0+self.ys
             self.γf_=(self.bf_-self.b)*self.hf_/self.b/self.h0
@@ -182,6 +184,7 @@ class crack_width(abacus):
                 raise InputError(self, 'Ms', 'JTG规范不支持圆形截面轴心受压（拉）构件裂缝宽度计算')
             if self.Ms > 0:
                 self.C2 = max(self.C2, 1+0.5*self.Ml/self.Ms)
+            self.eql = self.e0/self.r # 6.4.3: e0/r<0.55时可不进行裂缝宽度计算
             self.rs = self.r-self.a_s
             self.ηs = self.f_ηs(self.e0,self.l0,2*self.r,2*self.r-self.a_s)
             self.ρte,self.r1,self.β,self.ρ=self.f_ρte_round(self.As, self.r, self.ηs, self.e0, self.a_s)
@@ -254,38 +257,44 @@ class crack_width(abacus):
             yield '作用频遇组合的内力设计值:'
             yield self.formatx('Ms','Ns',toggled=True)
         yield '系数:'
-        yield self.formatx('C1', 'C2', 'C3', digits=None)
+        yield self.formatx('C1', 'C2', 'C3', digits=digits)
         yield '钢筋:'
         yield self.formatx('c', 'a_s', 'd', 'As','Ap',digits=digits)
         yield self.format('Es',digits=None)
         if self.case == 'rect':
-            yield self.format('force_type')
             yield '构件尺寸:'
             yield self.formatx('b','h','bf','hf','bf_','hf_','ys','ys_',digits=None)
-            if self.case == 'rect':
-                yield self.format('h0', omit_name = True, digits=None)
-            if self.case == 'rect':
-                yield self.format('Ate',eq='2*a_s*{}'.format('bf' if self.bf>0 else 'b'))
+            yield self.format('h0', omit_name = True, digits=None)
+            yield self.format('Ate',eq='2*a_s*{}'.format('bf' if self.bf>0 else 'b'))
             eq = 'β·As/π/(r<sup>2</sup>-r<sub>1</sub><sup>2</sup>)' if self.case == 'round' else 'As/Ate'
             yield self.format('ρte',eq=eq, digits = 3)
+            yield self.format('force_type')
             if self.force_type == 'EC' or self.force_type == 'ET':
-                yield self.formatx('e0',digits=digits)
-                yield self.formatx('ηs',digits=digits)
-                if self.force_type == 'EC' and self.case=='rect':
-                    yield self.format('ys',digits=digits,omit_name=True)
-                    yield self.format('γf_',eq='(bf_-b)·hf_/b/h0',digits=digits,omit_name=True)
-                    yield self.format('z',eq='(0.87-0.12·(1-γf_)·(h0/es)<sup>2</sup>)·h0',digits=digits,omit_name=True)
-            if self.case == 'rect':
-                if self.force_type == 'EC':
-                    yield self.format('es',eq='ηs·e0+ys',digits=digits,omit_name=True)
-                elif self.force_type == 'ET':
-                    yield self.format('es_',eq='ηs·e0+ys_',digits=digits,omit_name=True)
-                eq = 'Ns/As' if self.force_type=='AT' else 'Ms/0.87/As/h0' \
-                if self.force_type=='BD' else "Ns·es_/As/(h0-as_)" \
-                if self.force_type=='ET' else 'Ns·(es-z)/As/z'
+                yield self.format('e0',digits=digits)
+                yield self.format('ηs',digits=digits)
+            if self.force_type == 'EC':
+                ok = self.eql <= 0.55
+                if ok:
+                    yield '{} &le; 0.55, 可不进行裂缝宽度计算。'.format(self.format('eql',digits, eq='e0/r'))
+                    return
+                yield self.format('ys',digits=digits,omit_name=True)
+                yield self.format('γf_',eq='(bf_-b)·hf_/b/h0',digits=digits,omit_name=True)
+                yield self.format('z',eq='(0.87-0.12·(1-γf_)·(h0/es)<sup>2</sup>)·h0',digits=digits,omit_name=True)
+                yield self.format('es',eq='ηs·e0+ys',digits=digits,omit_name=True)
+            elif self.force_type == 'ET':
+                yield self.format('es_',eq='ηs·e0+ys_',digits=digits,omit_name=True)
+            eq = 'Ns/As' if self.force_type=='AT' else 'Ms/0.87/As/h0' \
+            if self.force_type=='BD' else "Ns·es_/As/(h0-as_)" \
+            if self.force_type=='ET' else 'Ns·(es-z)/As/z'
         elif self.case == 'round':
             yield '构件尺寸:'
             yield self.formatx('r','rs','ys','ys_',digits=None)
+            yield self.format('e0',digits=digits)
+            ok = self.eql <= 0.55
+            if ok:
+                yield '{} &le; 0.55, 可不进行裂缝宽度计算。'.format(self.format('eql',digits, eq='e0/r'))
+                return
+            yield self.format('ηs',digits=digits)
             eq = '0.6·(ηs·e0/r-0.1)<sup>3</sup>/(0.45+0.26·rs/r)/(ηs·e0/r+0.2)<sup>2</sup>·Ns/As' if self.Ns > 0 \
                 else '0.6/(0.45·r+0.26·rs)·Ms/As (推导公式)' if self.force_type == 'BD' \
                 else '未知计算公式'

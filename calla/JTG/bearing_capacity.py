@@ -70,6 +70,13 @@ def f_η(N, M, h, h0, l0):
     η = 1+1/(1300*e0/h0)*(l0/h)**2*ζ1*ζ2 # (5.3.9-1)
     return (e0, η, ζ1, ζ2)
         
+def fβ(fcuk):
+    ''' 5.1.4节 '''
+    if fcuk<50:
+        return 0.8
+    if fcuk>80:
+        return 0.74
+    return 0.8+(fcuk-50)/(80-50)*(0.74-0.8)
 
 class fc_rect(abacus, material_base):
     """矩形截面或翼缘位于受拉边的倒T形截面混凝土构件正截面受弯承载力计算
@@ -224,7 +231,6 @@ class fc_rect(abacus, material_base):
                 if self.σs<0:
                     yield self.format('Es')
                     yield self.format('εcu')
-                    yield self.format('β1')
                     yield self.format('σs')
                     yield '截面受压区高度过大，钢筋出现压应力，弯矩无法平衡,应增大截面尺寸，或提高混凝土强度'
                 else:
@@ -629,7 +635,7 @@ class eccentric_compression(abacus, material_base):
 
     def solve_As(self):
         '''根据内力设计值计算配筋'''
-        N = self.Nd*1E3 # kN -> N
+        γ0Nd = self.γ0Nd*1E3 # kN -> N
         self.εcu = min(self.f_εcu(self.fcuk),0.0033)
         self.ξb = f_ξb(self.fcuk, self.fsk)
         self.xb = self.ξb*self.h0
@@ -643,38 +649,38 @@ class eccentric_compression(abacus, material_base):
                     # 大偏心
                     if self.Asp_known == False:
                         # 受压区钢筋未知
-                        self._As_ = self.f_As_(N,self.e,self.fcd,self.b,self.xb,self.h0,self.fsd_,self.as_)
+                        self._As_ = self.f_As_(γ0Nd,self.e,self.fcd,self.b,self.xb,self.h0,self.fsd_,self.as_)
                         if self._As_ > self.Asmin:
                             self.As_ = self._As_
-                            self.As = (self.fcd*self.b*self.xb+self.fsd_*self.As_-N)/self.fsd
+                            self.As = (self.fcd*self.b*self.xb+self.fsd_*self.As_-γ0Nd)/self.fsd
                             if self.As < self.Asmin:
                                 self._As = self.As
                                 self.As = self.Asmin
-                            self.x = (self.fsd*self.As-self.fsd_*self.As_+N)/(self.fcd*self.b)
+                            self.x = (self.fsd*self.As-self.fsd_*self.As_+γ0Nd)/(self.fcd*self.b)
                         else:
                             self.As_ = self.Asmin
-                            self.x = self.solve_x_Asp_known(self.fcd,self.b,self.h0,N,self.e,self.fsd_,self.As_,self.as_)
-                            self._As = (self.fcd*self.b*self.x+self.fsd_*self.As_-N)/self.fsd
+                            self.x = self.solve_x_Asp_known(self.fcd,self.b,self.h0,γ0Nd,self.e,self.fsd_,self.As_,self.as_)
+                            self._As = (self.fcd*self.b*self.x+self.fsd_*self.As_-γ0Nd)/self.fsd
                             if self._As > self.Asmin:
                                 self.As = self._As
                             else:
                                 self.As = self.Asmin
                     else:
                         # 受压区钢筋已知
-                        self.x = self.solve_x_Asp_known(self.fcd,self.b,self.h0,N,self.e,self.fsd_,self.As_,self.as_)
+                        self.x = self.solve_x_Asp_known(self.fcd,self.b,self.h0,γ0Nd,self.e,self.fsd_,self.As_,self.as_)
                         if self.x > self.xb:
                             raise numeric.NumericError('给定的受压区钢筋面积偏小，请增大后再计算，或不给出受压区钢筋面积.')
                         if self.x < 2*self.as_:
-                            self.As = N*self.e/(self.fsd*(self.h0-self.as_))
+                            self.As = γ0Nd*self.e/(self.fsd*(self.h0-self.as_))
                         else:
-                            self._As = self.As = (self.fcd*self.b*self.x+self.fsd_*self.As_-N)/self.fsd
+                            self._As = self.As = (self.fcd*self.b*self.x+self.fsd_*self.As_-γ0Nd)/self.fsd
                         if self.As < self.Asmin:
                             self._As = self.As
                             self.As = self.Asmin
                 else:
                     # 小偏心
                     self.As = self.Asmin
-                    self.x = self.solve_x_As_known(N,self.e,self.β,self.fcd,self.b,self.xb,self.h0,
+                    self.x = self.solve_x_As_known(γ0Nd,self.e,self.β,self.fcd,self.b,self.xb,self.h0,
                                               self.fsd_,self.as_,self.Es,self.εcu,self.As)
                     if self.x < self.xb:
                         #raise numeric.NumericError('受压区高度偏小，请按大偏心受压构件计算.')
@@ -682,23 +688,23 @@ class eccentric_compression(abacus, material_base):
                         continue
                     if self.x > self.h:
                         self.x = self.h
-                    self._As_ = self.As_ = self.f_As_(N,self.e,self.fcd,self.b,self.x,self.h0,self.fsd,self.as_)
+                    self._As_ = self.As_ = self.f_As_(γ0Nd,self.e,self.fcd,self.b,self.x,self.h0,self.fsd,self.as_)
                     if self.As_ < self.Asmin:
                         self._As_ = self.As_
                         self.As_ = self.Asmin
                 break
         else:
             # 对称配筋
-            self.x = N/(self.fcd*self.b)
+            self.x = γ0Nd/(self.fcd*self.b)
             if self.x < self.xb:
                 # 大偏心
                 self.type = '大偏心'
                 if self.x >= 2*self.as_:
-                    self.As_ = self.As = self.f_As_(N,self.e,self.fcd,self.b,self.x,self.h0,self.fsd,self.as_)
+                    self.As_ = self.As = self.f_As_(γ0Nd,self.e,self.fcd,self.b,self.x,self.h0,self.fsd,self.as_)
                 else:
                     self.x = 2*self.as_
                     self.e_ = self.η*self.e0-self.h/2+self.as_
-                    self.As_ = self.As = N*self.e_/(self.fsd*(self.h0-self.as_))
+                    self.As_ = self.As = γ0Nd*self.e_/(self.fsd*(self.h0-self.as_))
                 if self.As < self.Asmin:
                     self._As_ = self._As = self.As
                     self.As_ = self.As = self.Asmin
@@ -712,10 +718,11 @@ class eccentric_compression(abacus, material_base):
             else:
                 # 小偏心
                 self.type = '小偏心'
-                f_ξ = lambda N,e,ξb,fc,b,h0,β1,as_:\
-                        (N-ξb*fc*b*h0)/((N*e-0.43*fc*b*h0**2)/(β1-ξb)/(h0-as_)+fc*b*h0)+ξb
-                self.ξ = f_ξ(N,self.e,self.ξb,self.fcd,self.b,self.h0,self.β1,self.as_)
-                self.As_ = self.As = nac.f_As_(N,self.e,self.fcd,self.b,self.ξ*self.h0,self.h0,self.fsd,self.as_)
+                # (5.3.4-7)
+                f_ξ = lambda Nd,e,ξb,fcd,b,h0,β,as_:\
+                        (Nd-ξb*fcd*b*h0)/((Nd*e-0.43*fcd*b*h0**2)/(β-ξb)/(h0-as_)+fcd*b*h0)+ξb
+                self.ξ = f_ξ(γ0Nd,self.e,self.ξb,self.fcd,self.b,self.h0,self.β,self.as_)
+                self.As_ = self.As = self.f_As_(γ0Nd,self.e,self.fcd,self.b,self.ξ*self.h0,self.h0,self.fsd,self.as_)
             
     def solve(self):
         self.validate('positive','Nd')
@@ -738,6 +745,7 @@ class eccentric_compression(abacus, material_base):
         self.es_ = ei-self.h/2+self.as_
         self.ep_ = ei-self.h/2+self.ap_
         self.γ0Nd = self.γ0*self.Nd
+        self.β = fβ(self.fcuk)
         return self.solve_Nu() if self.option == 'review' else self.solve_As()
         
     def _html(self, digits = 2):

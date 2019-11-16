@@ -356,7 +356,9 @@ class end_bearing_pile_capacity(abacus):
         yield self.format('R0', digits=None)
         ra = self.para_attrs('Ra')
         ok = self.Ra > self.R
-        yield '{} {} {}， {}满足规范要求。'.format(self.format('R', digits=precision), '&le;' if ok else '&gt;', ra.symbol, '' if ok else '不')
+        yield '{} {} {}， {}满足规范要求。'.format(
+            self.format('R', digits=precision), '&le;' if ok else '&gt;', 
+            self.format('Ra', digits=precision, omit_name=True), '' if ok else '不')
         return
 
 # 附录P.0.8，表格数据经过测试，勿修改
@@ -662,14 +664,11 @@ class pile_group_effects(abacus):
     """
     __title__ = '多排桩作用效应'
     __inputs__ = OrderedDict((
-        ('L1',('<i>L</i><sub>1</sub>','m',2,'平行于水平力作用方向的桩间净距')),
         ('d',('<i>d</i>','m',1.0,'桩径或垂直于水平外力作用方向桩的宽度')),
         ('h',('<i>h</i>','m',20,'桩长')),
         ('l0',('<i>l</i><sub>0</sub>','m',1.0,'桩顶高出地面或局部冲刷线的长度','不小于0')),
         ('h2',('<i>h</i><sub>2</sub>','m',10,'柱高')),
         ('hc',('<i>h</i><sub>c</sub>','m',0,'承台底面埋深','承台底面埋人地面或局部冲刷线下的深度')),
-        ('b2',('<i>b</i><sub>2</sub>','',1.0,'系数',
-        '与平行于水平力作用方向的一排桩的桩数n有关的系数, n=1时取1.0；n=2时取0.6；n=3时取0.5；n=4时取0.45')),
         ('kf',('<i>k</i><sub>f</sub>','',0.9,'桩形状换算系数','圆形或圆端形取0.9；矩形取1.0')),
         ('Ec',('<i>E</i><sub>c</sub>','MPa',3.0E4,'混凝土抗压弹性模量')),
         ('m',('<i>m</i>','kN/m<sup>4</sup>',5000,'非岩石地基水平向抗力系数的比例系数',
@@ -680,13 +679,16 @@ class pile_group_effects(abacus):
         ('H',('<i>H</i>','kN',0,'承台底面水平力','荷载作用于承台底面原点口处的水平力')),
         ('M',('<i>M</i>','kN·m',0,'承台底面弯矩','荷载作用于承台底面原点口处的弯矩')),
         ('bottom_fixed',('桩底嵌固','',False,'', '', {True:'是',False:'否'})),
-        ('z',('<i>z</i>','m',1,'计算内力处桩深','从地面或局部冲刷线起算')),
         ('xi',('<i>x</i><sub>i</sub>','m',[-1.5, 1.5],'第i排桩至承台中心的距离')),
         ('Ki',('<i>K</i><sub>i</sub>','',[2, 2],'第i排桩根数')),
         ('ξ',('<i>ξ</i>','',1,'系数','端承桩=1;对于摩擦桩(或摩擦支承管桩)，打入或振动下沉时=2/3;钻(挖)孔时=1/2')),
         ('ψ',('<i>ψ</i>','',1,'土层平均内摩擦角','桩所穿过土层的平均内摩擦角')),
         ))
     __deriveds__ = OrderedDict((
+        ('L1',('<i>L</i><sub>1</sub>','m',2.0,'平行于水平力作用方向的桩间净距')),
+        ('n',('<i>n</i>','',2,'平行于水平力作用方向的一排桩的桩数','')),
+        ('b2',('<i>b</i><sub>2</sub>','',1.0,'系数',
+        '与平行于水平力作用方向的一排桩的桩数n有关的系数, n=1时取1.0；n=2时取0.6；n=3时取0.5；n=4时取0.45')),
         #('h1_P01',('<i>h</i><sub>1</sub>','m',1.0,'地面或局部冲刷线以下桩的计算埋入深度','可取3(d+1)但不大于h')),
         ('α',('<i>α</i>','m<sup>-1</sup>',0,'桩的变形系数')),
         ('b1',('<i>b</i><sub>1</sub>','m',20,'桩的计算宽度')),
@@ -726,15 +728,23 @@ class pile_group_effects(abacus):
         return α**3*E*I*(x0*A4+φ0/α*B4+M0*C4/(α**2*E*I)+H0*D4/(α**3*E*I))
 
     def solveP06(self):
-        d=self.d; h=self.h; hc=self.hc; L1=self.L1; l0=self.l0; b2=self.b2; kf=self.kf
+        d=self.d; h=self.h; hc=self.hc; l0=self.l0; kf=self.kf
         Ec=self.Ec*1e3; I =self.I; I0=self.I0; m=self.m; C0=self.C0
         bottom_fixed=self.bottom_fixed; ξ=self.ξ
-        xi=self.xi; ψ=self.ψ; n=self.n; Ki=self.Ki
+        xi=self.xi; ψ=self.ψ; Ki=self.Ki
         P=self.P; H=self.H; M=self.M
         A = pi/4*self.d**2 # 入土部分桩的平均截面积
+        S = 0
+        for i in range(1, len(xi)):
+            Si = abs(xi[i] - xi[i-1])
+            if S <= 0 or S < Si:
+                S = Si
+        self.S = L1 = S
 
         # 规范中h1在P.0.1、P.0.2、P.0.3中的意义各不相同，全局h1取P.0.3中的意义，其余加后缀_P0N以示区别
         h1_P01 = min(3*(d+1), h)
+        n = self.n
+        b2 = 1.0 if n<=1 else 0.6 if n<=2 else 0.5 if n<=3 else 0.45
         k = 1 if L1>=0.6*h1_P01 else b2+(1-b2)/0.6*L1/h1_P01
         b1 = self.f_b1(k, kf, d)
         E = 0.8*Ec
@@ -750,17 +760,13 @@ class pile_group_effects(abacus):
         δHM = l0**2/(2*E*I)+δMM0*l0+δHM0
         δMM = l0/(E*I)+δMM0
 
-        S = 0
-        for i in range(1, len(xi)):
-            Si = abs(xi[i] - xi[i-1])
-            if S <= 0 or S < Si:
-                S = Si
         A0 = min(pi*(d/2+h*tan(ψ/4))**2, pi/4*S**2)
         ρPP = 1/((l0+ξ*h)/E/A+1/C0/A0)
         ρHH = δMM/(δHH*δMM-δMH**2)
         ρMH = ρHM = δMH/(δHH*δMM-δMH**2)
         ρMM = δHH/(δHH*δMM-δMH**2)
 
+        n = self.npiles
         if l0 > 0:
             γcc = n*ρPP
             γaa = n*ρHH
@@ -797,6 +803,7 @@ class pile_group_effects(abacus):
         if l0 <= 0:
             self.γcβ = γcβ; self.γβc = γβc
         self.c = c; self.a = a; self.β = β
+        self.L1 = self.S = S; self.b2 = b2; 
 
         return
 
@@ -804,7 +811,8 @@ class pile_group_effects(abacus):
         self.validate('non-negative', 'l0')
         self.I = pi*self.d**4/64
         self.I0 = self.I
-        self.n = sum(self.Ki)
+        self.npiles = sum(self.Ki) # 总桩数
+        self.n = len(self.xi) if hasattr(self.xi, '__len__') else 1 # 平行于水平力作用方向的一排桩的桩数
         self.ξ = 1 if self.bottom_fixed else 2/3
         self.solveP06()
         return

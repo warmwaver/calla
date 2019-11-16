@@ -278,7 +278,7 @@ class crack_width(abacus):
             if self.force_type == 'EC':
                 ok = self.eql <= 0.55
                 if ok:
-                    yield '{} &le; 0.55, 可不进行裂缝宽度计算。'.format(self.format('eql',digits, eq='e0/r'))
+                    yield '{} &le; 0.55, 可不进行裂缝宽度计算。'.format(self.format('eql',digits, eq='e0/h'))
                     return
                 yield self.format('ys',digits=digits,omit_name=True)
                 yield self.format('γf_',eq='(bf_-b)·hf_/b/h0',digits=digits,omit_name=True)

@@ -239,6 +239,7 @@ class end_bearing_pile_capacity(abacus):
 
         self.soil = _to_list(self.soil)
         self.li = _to_list(self.li)
+        self.qik = _to_list(self.qik)
         self.frk = _to_list(self.frk)
         self.status = _to_list(self.status)
 

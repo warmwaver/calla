@@ -2,7 +2,8 @@ __all__ = [
     'abacus',
     'replace_by_aliases',
     'InputError',
-    'SolvingError'
+    'SolvingError',
+    'InputWarning'
     ]
 
 from calla.html import html2text
@@ -413,6 +414,9 @@ class SolvingError(Exception):
         self.message = message
     def html(self):
         return self.message
+
+class InputWarning(Warning):
+    pass
 
 def common_attrs(calculators:[abacus]):
     """ Get common attributes of calculators. """

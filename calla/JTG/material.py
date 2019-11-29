@@ -40,7 +40,13 @@ class concrete:
         return f
     @staticmethod
     def fcd(concrete_type):
-        return round(concrete.fck(concrete_type)/1.45,1)
+        _fcd_ = (11.5,13.8,16.1,18.4,20.5,22.4,24.4,26.5,28.5,30.5,32.4,34.6)
+        _fcuk = concrete.fcuk(concrete_type)
+        index = (_fcuk - 25)/5
+        if (index == int(index)):
+            return _fcd_[int(index)]
+        else:
+            return round(concrete.fck(concrete_type)/1.45,1)
     @staticmethod
     def ftk(concrete_type):
         concrete_type = concrete.fcuk(concrete_type)

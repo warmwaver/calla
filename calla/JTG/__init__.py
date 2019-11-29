@@ -2,7 +2,7 @@ from .material import *
 from . import bearing
 from . import bearing_capacity
 from . import crack_width
-from . import load
+from . import loads
 from . import slab
 from . import pier_cap
 from . import pile_cap

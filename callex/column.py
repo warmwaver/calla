@@ -96,12 +96,12 @@ class FreeTopColumnForce(abacus):
 
     def solve_JTG(self):
         # 基本组合
-        lc = calla.JTG.load.load_combination
+        lc = calla.JTG.loads.load_combination
         forces_fu = wrapforces(lc.combinate(self.bottom_forces, lc.uls_fu))
         forces_fu.Fx -= lc.uls_fu['dead']*self.weight # 轴力
         self.forces_fu = forces_fu
         # 偶然组合
-        lc = calla.JTG.load.load_combination
+        lc = calla.JTG.loads.load_combination
         forces_ac = wrapforces(lc.combinate(self.bottom_forces, lc.uls_ac))
         forces_ac.Fx -= lc.uls_fu['dead']*self.weight # 轴力
         self.forces_ac = forces_ac
@@ -115,7 +115,7 @@ class FreeTopColumnForce(abacus):
         self.forces_fr = forces_fr
 
     def solve_TB(self):
-        lc = calla.JTG.load.load_combination
+        lc = calla.JTG.loads.load_combination
         forces_tb = lc.combinate(self.bottom_forces, lc.sls_ch)
         forces_tb.Fx -= lc.sls_qp['dead']*self.weight
         self.forces_tb = forces_tb
@@ -253,7 +253,7 @@ class Column(abacus):
     def solve_JTG(self):
         paras = self.inputs
         # 荷载基本组合或偶然组合
-        lc = calla.JTG.load.load_combination
+        lc = calla.JTG.loads.load_combination
         forces_fu = self.forces_fu
         forces_ac = self.forces_ac
         forces_uls = wrapforces([max(abs(f1),abs(f2)) for f1,f2 in zip(forces_fu, forces_ac)])

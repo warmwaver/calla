@@ -78,8 +78,8 @@ def query_table(table, rh, ch: int):
     """表格数据插值查询
     Args:
         table: 要查询的数据表格
-        rh: 行表头
-        ch: 列表头
+        rh: 行表头，为第一列值
+        ch: 列表头，为列索引值
     """
     for i in range(len(table)):
         row = table[i]

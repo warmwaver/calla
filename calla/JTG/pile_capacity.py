@@ -208,6 +208,7 @@ class end_bearing_pile_capacity(abacus):
         ('frk',('<i>f</i><sub>rk</sub>','kPa',(0,0,20000),'岩石饱和单轴抗压强度标准值','输入各地层承载力标准值，之间用逗号隔开')),
         ('γ2',('<i>γ</i><sub>2</sub>','kN/m<sup>3</sup>',18,'土层重度','可直接输入桩端以上各土层的加权平均重度，也可输入各层土的重度，之间用逗号隔开')),
         ('status',('岩石层情况','',(-1,-1,1),'','土=-1,完整=0,较破碎=1,破碎=2')),
+        ('c1',('<i>c</i><sub>1</sub>','',0,'端阻发挥系数','按表5.3.4采用')),
         ('R0',('<i>R</i><sub>t</sub>','kN',0,'桩顶反力标准值')),
         # 考虑负摩阻力的选项
         ('ln',('<i>l</i><sub>n</sub>','m',10,'中性点深度','参照表5-2确定')),
@@ -215,7 +216,6 @@ class end_bearing_pile_capacity(abacus):
         ('p',('<i>p</i>','kPa',8,'地面均布荷载')),
         ))
     __deriveds__ = OrderedDict((
-        ('c1',('<i>c</i><sub>1</sub>','',0,'端阻发挥系数','按表5.3.4采用')),
         ('ζs',('<i>ζ</i><sub>s</sub>','',0,'覆盖层土的侧阻力发挥系数')),
         ('Ra',('[<i>R</i><sub>a</sub>]','kN',0,'桩基竖向承载力')),
         ('R',('<i>R</i>','kN',0,'桩底竖向力')),
@@ -314,13 +314,15 @@ class end_bearing_pile_capacity(abacus):
                 if self.status[i] == -1:
                     ra += 0.5*self.ζs*self.u*self.qik[i]*self.li[i]
                 else:
-                    ra += self.u*c2*self.frk[i]*self.li[i]
+                    # ra += self.u*c2*self.frk[i]*self.li[i]
+                    # TODO：需考虑折减，暂时简单处理
+                    ra += self.u*c2*self.frk[i]*self.li[i]*0.8*0.75 
             elif ls < self.L:
                 if bl:
                     γl += (self.ln-ls)*self.γ2[i]
                 self.γ2 = γl / self.L if bl else self.γ2
                 ra += self.u*c2*self.frk[i]*(self.L - ls)
-                self.c1 = c1[self.status[i]]
+                # self.c1 = c1[self.status[i]]
                 ra += self.c1*self.Ap*self.frk[i]
                 break
             else:

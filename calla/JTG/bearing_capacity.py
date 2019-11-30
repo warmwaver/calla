@@ -173,6 +173,7 @@ class fc_rect(abacus, material_base):
             raise SolvingError('弯矩无法平衡，需增大截面尺寸。')
         
     def solve(self):
+        self.validate('positive', 'γ0', 'b', 'h0', 'as_')
         self.ξb = f_ξb(self.fcuk, self.fsd)
         self.xb=self.ξb*self.h0
         self.solve_Mu() if self.option == 'review' else self.solve_As()

@@ -27,7 +27,7 @@ class friction_pile_capacity(abacus):
         ('h',('<i>h</i>','m',1,'桩端埋置深度','大于40m时按40m计算')),
         ('u',('<i>u</i>','m',0,'桩身周长')),
         ('Ap',('<i>A</i><sub>p</sub>','m<sup>2</sup>',0,'桩端截面面积')),
-        ('soil',('土层名称','',('填土','粘土','强风化砂岩'),'','输入各地层名称，示例：(填土,淤泥,粘土,强风化砂岩)')),
+        ('layers',('土层名称','',('填土','粘土','强风化砂岩'),'','输入各地层名称，示例：(填土,淤泥,粘土,强风化砂岩)')),
         ('li',('<i>l</i><sub>i</sub>','m',(3,5,6),'土层厚度','输入各地层厚度，之间用逗号隔开')),
         ('qik',('<i>q</i><sub>ik</sub>','kPa',(50,60,90),'侧摩阻力标准值','输入各地层侧摩阻力标准值，之间用逗号隔开')),
         ('fa0',('[<i>f</i><sub>a0</sub>]','kPa',(220,250,300),'承载力基本容许值','输入各地层承载力基本容许值，之间用逗号隔开')),
@@ -63,13 +63,13 @@ class friction_pile_capacity(abacus):
             else:
                 return [param]
 
-        self.soil = _to_list(self.soil)
+        self.layers = _to_list(self.layers)
         self.li = _to_list(self.li)
         self.fa0 = _to_list(self.fa0)
         self.qik = _to_list(self.qik)
 
         # 判断列表参数的元素个数是否一致
-        n = len(self.soil)
+        n = len(self.layers)
         for item in ('li', 'qik', 'fa0'):
             attr = getattr(self, item)
             if len(attr) != n:
@@ -167,7 +167,7 @@ class friction_pile_capacity(abacus):
         fa0 = self.para_attrs('fa0')
         t.append(['地层编号','地层名称(m)','地层厚度(m)','{}({})'.format(qik.symbol,qik.unit),'{}({})'.format(fa0.symbol,fa0.unit)])
         for i in range(len(self.li)):
-            t.append([i, self.soil[i], self.li[i], self.qik[i], self.fa0[i]])
+            t.append([i, self.layers[i], self.li[i], self.qik[i], self.fa0[i]])
         yield html.table2html(t)
         yield '系数:'
         yield self.format('m0', digits=None)
@@ -198,17 +198,17 @@ class end_bearing_pile_capacity(abacus):
     """
     __title__ = '端承桩轴向受压承载力'
     __inputs__ = OrderedDict((
-        ('option',('考虑负摩阻力','',False,'','',{False:'否',True:'是'})),
+        ('method',('','','drill','成孔方式','',{'drill':'钻孔','dig':'挖孔'})),
+        ('option',('','',False,'考虑负摩阻力','',{False:'否',True:'是'})),
         ('L',('<i>L</i>','m',20,'桩长')),
         ('u',('<i>u</i>','m',0,'桩身周长')),
         ('Ap',('<i>A</i><sub>p</sub>','m<sup>2</sup>',0,'桩端截面面积')),
-        ('soil',('地层名称','',('填土','粘土','中风化砂岩'),'','输入各地层名称，示例：(填土,淤泥,粘土,强风化砂岩)')),
+        ('layers',('地层名称','',('填土','粘土','中风化砂岩'),'','输入各地层名称，示例：(填土,淤泥,粘土,强风化砂岩)')),
         ('li',('<i>l</i><sub>i</sub>','m',(3,5,6),'土层厚度','输入各地层厚度，之间用逗号隔开')),
         ('qik',('<i>q</i><sub>ik</sub>','kPa',(50,60,120),'侧摩阻力标准值','输入各地层侧摩阻力标准值，之间用逗号隔开')),
         ('frk',('<i>f</i><sub>rk</sub>','kPa',(0,0,20000),'岩石饱和单轴抗压强度标准值','输入各地层承载力标准值，之间用逗号隔开')),
         ('γ2',('<i>γ</i><sub>2</sub>','kN/m<sup>3</sup>',18,'土层重度','可直接输入桩端以上各土层的加权平均重度，也可输入各层土的重度，之间用逗号隔开')),
         ('status',('岩石层情况','',(-1,-1,1),'','土=-1,完整=0,较破碎=1,破碎=2')),
-        ('c1',('<i>c</i><sub>1</sub>','',0,'端阻发挥系数','按表5.3.4采用')),
         ('R0',('<i>R</i><sub>t</sub>','kN',0,'桩顶反力标准值')),
         # 考虑负摩阻力的选项
         ('ln',('<i>l</i><sub>n</sub>','m',10,'中性点深度','参照表5-2确定')),
@@ -216,6 +216,8 @@ class end_bearing_pile_capacity(abacus):
         ('p',('<i>p</i>','kPa',8,'地面均布荷载')),
         ))
     __deriveds__ = OrderedDict((
+        ('c1',('<i>c</i><sub>1</sub>','',0,'端阻发挥系数','按表5.3.4采用')),
+        ('c2',('<i>c</i><sub>2</sub>','',(),'侧阻发挥系数','按表5.3.4采用')),
         ('ζs',('<i>ζ</i><sub>s</sub>','',0,'覆盖层土的侧阻力发挥系数')),
         ('Ra',('[<i>R</i><sub>a</sub>]','kN',0,'桩基竖向承载力')),
         ('R',('<i>R</i>','kN',0,'桩底竖向力')),
@@ -227,6 +229,18 @@ class end_bearing_pile_capacity(abacus):
     
     # 混凝土重度
     γc = 25
+    # c1,c2:表5.3.4
+    table_c1 = (0.6,0.5,0.4)
+    table_c2 = (0.05,0.04,0.03)
+
+    def _get_end_layer_num(self):
+        '''获取持力层所在的层号'''
+        l = 0
+        for i in range(len(self.li)):
+            l += self.li[i]
+            if l>self.L:
+                return i
+        raise InputError(self, 'L', '桩长不能大于土层厚度之和')
     
     def solve_Ra(self):
         self.positive_check('L', 'u', 'Ap', 'γ2')
@@ -237,14 +251,14 @@ class end_bearing_pile_capacity(abacus):
             else:
                 return [param]
 
-        self.soil = _to_list(self.soil)
+        self.layers = _to_list(self.layers)
         self.li = _to_list(self.li)
         self.qik = _to_list(self.qik)
         self.frk = _to_list(self.frk)
         self.status = _to_list(self.status)
 
         # 判断列表参数的元素个数是否一致
-        n = len(self.soil)
+        n = len(self.layers)
         for item in ('li', 'qik', 'frk','status'):
             attr = getattr(self, item)
             if len(attr) != n:
@@ -253,14 +267,8 @@ class end_bearing_pile_capacity(abacus):
         if self.L > sum(self.li):
             raise InputError(self, 'L', '桩长不能大于土层厚度之和')
 
-        c1 = (0.6,0.5,0.4)
-        endlayer = 0
-        l = 0
-        for i in range(len(self.li)):
-            l += self.li[i]
-            if l>self.L:
-                endlayer = i
-                break
+        endlayer = self._get_end_layer_num()
+
         frk = self.frk[endlayer]
         if frk > 2000 and frk < 15000:
             self.ζs = 0.8
@@ -300,6 +308,16 @@ class end_bearing_pile_capacity(abacus):
                     break
                 ls += self.li[i]
         # 承载力计算
+        table_c1 = self.table_c1
+        table_c2 = self.table_c2
+        # 表5.3.4附注第2条
+        if self.method == 'drill':
+            table_c1 = [0.8*c1 for c1 in table_c1]
+            table_c2 = [0.8*c1 for c1 in table_c2]
+        # 表5.3.4附注第3条
+        if '中风化' in self.layers[endlayer]:
+            table_c1 = [0.75*c1 for c1 in table_c1]
+            table_c2 = [0.75*c1 for c1 in table_c2]
         ls = 0
         for i in range(len(self.li)):
             if self.option and ls+self.li[i] <= self.ln:
@@ -308,7 +326,7 @@ class end_bearing_pile_capacity(abacus):
             index = self.status[i]
             if index > 2 or index < -1:
                 raise InputError(self, 'status', '输入值超出合理范围')
-            c2 = (0.05,0.04,0.03)[index]
+            c2 = table_c2[index]
             if ls+self.li[i] < self.L:
                 if bl:
                     γl += self.li[i]*self.γ2[i]
@@ -317,14 +335,19 @@ class end_bearing_pile_capacity(abacus):
                 else:
                     # ra += self.u*c2*self.frk[i]*self.li[i]
                     # TODO：需考虑折减，暂时简单处理
-                    ra += self.u*c2*self.frk[i]*self.li[i]*0.8*0.75 
+                    ra += self.u*c2*self.frk[i]*self.li[i]
             elif ls < self.L:
                 if bl:
                     γl += (self.ln-ls)*self.γ2[i]
                 self.γ2 = γl / self.L if bl else self.γ2
                 ra += self.u*c2*self.frk[i]*(self.L - ls)
-                # self.c1 = c1[self.status[i]]
-                ra += self.c1*self.Ap*self.frk[i]
+                c1 = table_c1[self.status[i]]
+                # 表5.3.4附注第1条
+                if (self.L-ls)<=0.5:
+                    c1 = 0.75*c1
+                    c2 = 0
+                ra += c1*self.Ap*self.frk[i]+self.u*c2*self.frk[i]*self.li[i]
+                self.c1 = c1
                 break
             else:
                 break
@@ -347,7 +370,7 @@ class end_bearing_pile_capacity(abacus):
         t = []
         t.append(('地层编号','地层名称(m)','地层厚度(m)','q<sub>ik</sub>(kPa)','f<sub>rk</sub>(kPa)'))
         for i in range(len(self.li)):
-            t.append((i, self.soil[i], self.li[i], self.qik[i], self.frk[i]))
+            t.append((i, self.layers[i], self.li[i], self.qik[i], self.frk[i]))
         yield html.table2html(t)
         yield self.format('c1', precision)
         yield self.format('ζs', precision)
@@ -827,7 +850,7 @@ def _test1():
     pc.u = pi * D
     pc.Ap = pi/4*D**2
     pc.L = 15
-    pc.soil = ['填土', '粉质粘土', '粉质粘土', '粘土', '强风化花岗岩', '中风化花岗岩', '微风化花岗岩']
+    pc.layers = ['填土', '粉质粘土', '粉质粘土', '粘土', '强风化花岗岩', '中风化花岗岩', '微风化花岗岩']
     pc.li = [6.2, 5.3, 1.2, 2.5, 2.4, 5.8, 8.4]
     pc.γ2 = [18.2, 19.6, 19.0, 18.7, 19.5, 18.2, 18.2]
     pc.qik = [50, 60, 45, 85, 90, 150, 250]
@@ -843,7 +866,7 @@ def _test2():
     pc.u = pi * D
     pc.Ap = pi/4*D**2
     pc.L = 20
-    pc.soil = ('填土', '粉质粘土', '粉质粘土', '粘土', '强风化花岗岩', '中风化花岗岩', '微风化花岗岩')
+    pc.layers = ('填土', '粉质粘土', '粉质粘土', '粘土', '强风化花岗岩', '中风化花岗岩', '微风化花岗岩')
     pc.li = (6.2, 5.3, 1.2, 2.5, 2.4, 5.8, 8.4)
     pc.qik = (50, 60, 45, 85, 90, 150, 250)
     pc.fa0 = (220, 200, 220, 250, 300, 800, 2000)
@@ -880,6 +903,8 @@ def _test4():
     assert M == f.M0
 
 if __name__ == '__main__':
+    _test1()
+    _test2()
     _test3()
     # f=pile_width()
     # f.solve()

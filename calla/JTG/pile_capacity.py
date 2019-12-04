@@ -340,13 +340,13 @@ class end_bearing_pile_capacity(abacus):
                 if bl:
                     γl += (self.ln-ls)*self.γ2[i]
                 self.γ2 = γl / self.L if bl else self.γ2
-                ra += self.u*c2*self.frk[i]*(self.L - ls)
                 c1 = table_c1[self.status[i]]
                 # 表5.3.4附注第1条
                 if (self.L-ls)<=0.5:
                     c1 = 0.75*c1
                     c2 = 0
-                ra += c1*self.Ap*self.frk[i]+self.u*c2*self.frk[i]*self.li[i]
+                ra += self.u*c2*self.frk[i]*(self.L - ls)
+                ra += c1*self.Ap*self.frk[i]
                 self.c1 = c1
                 break
             else:

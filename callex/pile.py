@@ -6,7 +6,7 @@ from collections import OrderedDict
 from math import pi, sqrt
 
 from calla import abacus,InputError
-from calla.JTG import material, load
+from calla.JTG import material, loads
 from calla.JTG.bearing_capacity import bc_round
 from calla.JTG.crack_width import crack_width
 from calla.JTG.pile_capacity import friction_pile_capacity, end_bearing_pile_capacity, pile_width, pile_effects
@@ -92,7 +92,7 @@ class Pile(abacus, material_base):
         pe = pile_effects(**params)
         pe.b1 = pw.b1
         # 基本组合
-        lc = load.load_combination
+        lc = loads.load_combination
         forces_fu = wrapforces(self.forces_fu)
         def _fMax(force):
             # y方向

@@ -7,7 +7,7 @@ from math import pi
 
 from calla import abacus,InputError
 from calla.JTG import material
-from calla.JTG.load import load_combination
+from calla.JTG.loads import load_combination
 from calla.JTG.pile_capacity import pile_group_effects
 from callex.pile import Pile
 

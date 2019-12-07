@@ -135,6 +135,9 @@ class eccentricity(abacus):
         ex = My/N
         ey = Mx/N
         self.e0 = e0 = sqrt(ex**2+ey**2)
+        if e0 == 0:
+            # 只承受轴心荷载
+            return
         pmin = self.pmin = N/A-Mx/Wx-My/Wy
         self.ρ = e0/(1-pmin*A/N)    
         self.eqr = self.ξ*self.ρ    
@@ -142,6 +145,9 @@ class eccentricity(abacus):
     def _html(self, digits=2):
         for para in ('A','Wx','Wy','N','Mx','My'):
             yield self.format(para, digits)
+        if self.e0 == 0:
+            yield '{}, 无需验算偏心距'.format(self.format('e0', digits, eq='M/N'))
+            return
         yield self.format('pmin', digits, eq='N/A-Mx/Wx-My/Wy')
         yield self.format('ρ', digits, eq='e0/(1-pmin*A/N)')
         ok = self.e0 <= self.eqr
@@ -196,7 +202,10 @@ class overturning(abacus):
             e0 = ey
             s = d/2
             self.status = 1
-        self.k0 = s/e0
+        else: # 轴心受压
+            e0 = 0
+            s = min(b,d)/2
+        self.k0 = s/e0 if e0>0 else float('Inf')
         self.s = s; self.e0 = e0
     
     def _html(self, digits=2):

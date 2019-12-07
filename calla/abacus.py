@@ -169,11 +169,12 @@ class abacus:
             if key in r: 
                 continue
             choices = self.__toggles__[key]
-            v = getattr(self,key)
-            if v not in choices:
-                continue
-            items = choices[v]
-            r.extend(items)
+            if hasattr(self, key):
+                v = getattr(self, key)
+                if v not in choices:
+                    continue
+                items = choices[v]
+                r.extend(items)
         return r
                         
     def format(self, parameter, digits = 2, value=None, sep=' ', omit_name=False, eq=None):

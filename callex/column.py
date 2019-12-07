@@ -116,7 +116,7 @@ class FreeTopColumnForce(abacus):
 
     def solve_TB(self):
         lc = calla.JTG.loads.load_combination
-        forces_tb = lc.combinate(self.bottom_forces, lc.sls_ch)
+        forces_tb = wrapforces(lc.combinate(self.bottom_forces, lc.sls_ch))
         forces_tb.Fx -= lc.sls_qp['dead']*self.weight
         self.forces_tb = forces_tb
         

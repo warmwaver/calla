@@ -117,11 +117,6 @@ class eccentric_compression(abacus):
     """
     钢筋混凝土矩形截面偏心受压构件正截面受压承载力计算
     《混凝土结构设计规范》(GB 50010-2010）第6.2.17节
-
-    >>> nac=eccentric_compression()
-    >>> nac.solve()
-    >>> nac.As
-    1000.0
     """
     __title__ = '矩形截面偏心受压承载力'
     __inputs__ = OrderedDict((
@@ -145,6 +140,7 @@ class eccentric_compression(abacus):
         ('fy_',('<i>f</i><sub>y</sub><sup>\'</sup>','MPa',360,'钢筋抗压强度设计值')),
         ('As_',('<i>A</i><sub>s</sub><sup>\'</sup>','mm<sup>2</sup>',60,'受压区钢筋面积', '受压区纵向普通钢筋的截面面积')),
         ('as_',('<i>a</i><sub>s</sub><sup>\'</sup>','mm',60,'受压区纵向钢筋合力点至受压边缘的距离')),
+        ('Ep',('<i>E</i><sub>p</sub>','MPa',1.95E5,'预应力钢筋弹性模量')),
         ('fpy',('<i>f</i><sub>py</sub>','MPa',1320,'受拉区预应力筋抗压强度设计值')),
         ('Ap',('<i>A</i><sub>p</sub>','mm<sup>2</sup>',0,'受拉预应力筋面积')),
         ('ap',('<i>a</i><sub>p</sub>','mm',60,'受拉区纵向预应力筋合力点至受拉边缘的距离')),
@@ -166,6 +162,7 @@ class eccentric_compression(abacus):
         ('ei',('<i>e</i><sub>i</sub>','mm',20,'初始偏心距')),
         ('e',('<i>e</i>','mm',0,'轴向压力作用点至纵向受拉普通钢筋和受拉预应力筋的合力点的距离')),
         ('x',('<i>x</i>','mm',0,'截面受压区高度')),
+        ('xb',('<i>x</i><sub>b</sub>','mm',0,'截面界限受压区高度')),
         ('Nu',('<i>N</i><sub>u</sub>','kN',0,'截面受压承载力')),
         ('Mu',('<i>M</i><sub>u</sub>','kN',0,'截面受弯承载力')),
         ))
@@ -187,11 +184,23 @@ class eccentric_compression(abacus):
     f_Md = lambda α1,fc,b,x,h0,fy_,As_,as_:\
         α1*fc*b*x*(h0-x/2)+fy_*As_*(h0-as_)
     #f_e = lambda e0,ea,h,a: e0+ea+h/2-a
-    f_σsi = lambda Es,epsilon_cu,beta1,h0i,x: Es*epsilon_cu*(beta1*h0i/x-1)
+    
+    @staticmethod
+    def f_σsi(β,Es,εcu,h0i,x): 
+        '''6.2.8节 (6.2.8-1)'''
+        return Es*εcu*(β*h0i/x-1)
+
+    @staticmethod
+    def f_σpi(β,Ep,εcu,h0i,x, σp0i): 
+        '''6.2.8节 (6.2.8-2)'''
+        return Ep*εcu*(β*h0i/x-1)+σp0i
 
     @staticmethod
     def f_εcu(fcuk):
-        return 0.0033-(fcuk-50)*1E-5
+        εcu =  0.0033-(fcuk-50)*1E-5 # (6.2.1-5)
+        if εcu > 0.0033:
+            εcu = 0.0033
+        return εcu
 
     @staticmethod
     def fξb(β1,fy,Es,εcu,fpy=0,σp0=0):
@@ -201,37 +210,44 @@ class eccentric_compression(abacus):
             return β1/(1+fy/Es/εcu) # (6.2.7-1)
         return β1/(1+0.002/εcu+(fpy-σp0)/Es/εcu) # (6.2.7-3)
 
-    f_As_ = lambda N,e,α1,fc,b,x,h0,fy_,as_: (N*e-α1*fc*b*x*(h0-x/2))/(fy_*(h0-as_))
-    f_x = lambda N,e,alpha1,fc,b,x,h0,fy_,as_,Es,εcu,beta1:\
-        (N-(fy_-eccentric_compression.f_σsi(Es,εcu,beta1,h0,x))*
-         eccentric_compression.f_As_(N,e,alpha1,fc,b,x,h0,fy_,as_))/(alpha1*fc*b)
-    f_x_As_known = lambda N,e,alpha1,fc,b,x,h0,fy_,as_,Es,εcu,beta1,As:\
-                     (N-fy_*eccentric_compression.f_As_(N,e,alpha1,fc,b,x,h0,fy_,as_)\
-                      +eccentric_compression.f_σsi(Es,εcu,beta1,h0,x)*As)/(alpha1*fc*b)
     f_ηns = lambda M2,N,ea,h,h0,lc,ζc:1+1/1300/(M2/N+ea)*h0*(lc/h)**2*ζc
+
+    @staticmethod
+    def f_As_(N,e,α1,fc,b,x,h0,fy_,as_): 
+        return (N*e-α1*fc*b*x*(h0-x/2))/(fy_*(h0-as_))
+
+    @classmethod
+    def f_x(cls, N,e,α1,fc,b,x,h0,fy_,as_,Es,εcu,β1):
+        return (N-(fy_-cls.f_σsi(Es,εcu,β1,h0,x))*
+         cls.f_As_(N,e,α1,fc,b,x,h0,fy_,as_))/(α1*fc*b)
+
+    @classmethod
+    def f_x_As_known(cls,N,e,α1,fc,b,x,h0,fy_,as_,Es,εcu,β1,As):
+        return (N-fy_*cls.f_As_(N,e,α1,fc,b,x,h0,fy_,as_)\
+                      +cls.f_σsi(Es,εcu,β1,h0,x)*As)/(α1*fc*b)
     
     @classmethod
-    def solve_x(cls, N,e,alpha1,fc,b,x,h0,fy_,as_,Es,εcu,beta1):
+    def solve_x(cls, N,e,α1,fc,b,x,h0,fy_,as_,Es,εcu,β1):
         x0 = x
-        x1 = cls.f_x(N,e,alpha1,fc,b,x0,h0,fy_,as_,Es,εcu,beta1)
+        x1 = cls.f_x(N,e,α1,fc,b,x0,h0,fy_,as_,Es,εcu,β1)
         count = 0
         while abs(x1-x0)>1E-6 and count < 100:
             x0 = x1
-            x1 = cls.f_x(N,e,alpha1,fc,b,x0,h0,fy_,as_,Es,εcu,beta1)
+            x1 = cls.f_x(N,e,α1,fc,b,x0,h0,fy_,as_,Es,εcu,β1)
             count += 1
         if count > 99:
             raise numeric.NumericError('No real solution.')
         return x1
     
     @classmethod
-    def solve_x_As_known(cls, N,e,alpha1,fc,b,x,h0,fy_,as_,Es,εcu,beta1,As):
+    def solve_x_As_known(cls, N,e,α1,fc,b,x,h0,fy_,as_,Es,εcu,β1,As):
         '''已知受拉钢筋面积As求x'''
         x0 = x
-        x1 = cls.f_x_As_known(N,e,alpha1,fc,b,x0,h0,fy_,as_,Es,εcu,beta1,As)
+        x1 = cls.f_x_As_known(N,e,α1,fc,b,x0,h0,fy_,as_,Es,εcu,β1,As)
         count = 0
         while abs(x1-x0)>1E-6 and count < 100:
             x0 = x1
-            x1 = cls.f_x_As_known(N,e,alpha1,fc,b,x0,h0,fy_,as_,Es,εcu,beta1,As)
+            x1 = cls.f_x_As_known(N,e,α1,fc,b,x0,h0,fy_,as_,Es,εcu,β1,As)
             count += 1
         if count > 99:
             raise numeric.NumericError('No real solution.')
@@ -262,159 +278,167 @@ class eccentric_compression(abacus):
             else:
                 raise numeric.NumericError('No proper solution.')
 
-    def solve_Nu(self):
+    @classmethod
+    def solve_Nu(cls, b, h0, e, α1, β1, fc, Es, fy, As, es, fy_, As_, as_, es_, 
+    Ep, fpy, σp0, Ap, ep, fpy_, σp0_, Ap_, ap_, ep_, εcu, ξb):
         '''
         截面复核
         已知：配筋（As, As', Ap, Ap')，偏心距e
         计算：承载力(Nu, Mu)
         '''
-        def solve_x(fc, b, e, h0, fy_, As_, es_, fpd_, σp0_, Ap_, ep_, σs, As, es, σp, Ap, ep):
-            # 对弯矩作用点取矩:
-            # fc*b*x*(e-h0+x/2)+fy'*As'*es'+(fpd'-σp0')*Ap'*ep' = σs*As*es+σp*Ap*ep
-            # copy from JTG.bearing_capacity
-            _a = fc*b/2
-            _b = fc*b*(e-h0)
-            _c = fy_*As_*es_+(fpd_-σp0_)*Ap_*ep_ - σs*As*es+σp*Ap*ep
+        def solve_x(α1, fc, b, e, h0, fy_, As_, es_, fpy_, σp0_, Ap_, ep_, σs, As, es, σp, Ap, ep):
+            '''
+            大偏心求解x
+            对弯矩的偏心力作用点取矩:
+            α1*fc*b*x*(e-h0+x/2)+fy'*As'*es'+(fpy'-σp0')*Ap'*ep' = σs*As*es+σp*Ap*ep
+            可能的异常:
+                math domain error: 对负数求平方根，方程无解
+            '''
+            _a = α1*fc*b/2
+            _b = α1*fc*b*(e-h0)
+            _c = fy_*As_*es_+(fpy_-σp0_)*Ap_*ep_ - σs*As*es+σp*Ap*ep
             x1 = (-_b+sqrt(_b**2-4*_a*_c))/2/_a
             x2 = (-_b-sqrt(_b**2-4*_a*_c))/2/_a
             return x2 if x2 > 0 else x1
 
-        def f_x(x, β, εcu, fc, b, e, h0, Es, Ep, fy_, As_, as_, es_, fpd_, σp0_, Ap_, ap_, ep_, As, es, σp0, Ap, ep):
-            # 联立公式(5.3.4-1)和(5.3.4-2)构造关于x的方程，用于牛顿法求解x
-            # copy from JTG.bearing_capacity
-            C1 = e*(fy_*As_+(fpd_-σp0_)*Ap_)
+        def f_x(x, α1, β1, εcu, fc, b, e, h0, Es, Ep, fy_, As_, as_, es_, fpy_, σp0_, Ap_, ap_, ep_, As, es, σp0, Ap, ep):
+            '''
+            小偏心时求解受压区高度x的构造方程
+            联立公式(6.2.17-1)和(6.2.17-2)构造关于x的方程，用于牛顿法求解x
+            具体方法：
+            (1) 对公式(6.2.17-1)和(6.2.17-2)左右两边取等号，
+            (2) 公式(6.2.17-1)中的钢筋应力σs按6.2.8节公式计算
+            (3) 将公式(6.2.17-1)代入(6.2.17-2)，消除Nd，得到关于x的一元三次方程f(x)=Ax^3+Bx^2+Cx+D
+            (4) 构造用于牛顿法求解的方程f(x)=x-f/f'
+            '''
+            C1 = e*(fy_*As_+(fpy_-σp0_)*Ap_)
             C2 = e*(εcu*Es*As+(εcu*Ep-σp0)*Ap)
-            C3 = fy_*As_*(h0-as_)+(fpd_-σp0_)*Ap_*(h0-ap_)
-            # f = Ax^3+Bx^2+Cx+D
-            A = fc*b/2
-            B = fc*b*(e-h0)
+            C3 = fy_*As_*(h0-as_)+(fpy_-σp0_)*Ap_*(h0-ap_)
+            # f(x) = Ax^3+Bx^2+Cx+D
+            A = α1*fc*b/2
+            B = α1*fc*b*(e-h0)
             C = C1+C2-C3
-            D = -e*(Es*As+Ep*Ap)*εcu*β*h0
+            D = -e*(Es*As+Ep*Ap)*εcu*β1*h0
             f = A*x**3 + B*x**2 + C*x + D
             f_ = 3*A*x**2 + 2*B*x + C
             return x-f/f_
 
         # 假设为大偏心
-        self.x = solve_x(self.α1*self.fc, self.b, self.e, self.h0, self.fy_, self.As_, self.es_, 
-        self.fpy_, self.σp0_, self.Ap_, self.ep_, self.fy, self.As, self.es, self.fpy, self.Ap, self.ep)
-        if self.x < 0:
-            raise numeric.NumericError('截面受压区高度无正数解')
-        self.ξ = self.x/self.h0
-        self.εcu = self.f_εcu(self.fcuk)
-        self.ξb = self.fξb(self.β1,self.fy,self.Es,self.εcu,self.fpy,self.σp0)
-        self.xb = self.ξb*self.h0
-        if self.ξ <= self.ξb: # 大偏心受压
-            self.type = '大偏心'
-            if self.x >= 2*self.as_:
-                self.Nu = self.fNu(self.α1,self.fc,self.b,self.x,self.fy_,self.As_,self.fy,self.As,
-                self.σp0_,self.fpy_,self.Ap_,self.fpy,self.Ap)
+        large_eccentric = True
+        try:
+            x = solve_x(
+                α1, fc, b, e, h0, fy_, As_, es_, fpy_, σp0_, Ap_, ep_, fy, As, es, fpy, Ap, ep
+                )
+            if x < 0:
+                large_eccentric = False
             else:
-                self.Mu = self.fy*self.As*(self.h0-self.as_) #N·mm
-                self.Nu = self.Mu/self.es_/1000 #kN
-            return self.Nu
+                ξ = x/h0
+                large_eccentric = (ξ <= ξb)
+        except:
+            large_eccentric = False
+        if large_eccentric: # 大偏心受压
+            if x >= 2*as_:
+                Nu = cls.fNu(α1,fc,b,x,fy_,As_,fy,As,
+                σp0_,fpy_,Ap_,fpy,Ap)
+            else:
+                Mu = fy*As*(h0-as_) #N·mm
+                Nu = Mu/es_
         else: # 小偏心受压
-            self.type = '小偏心'
-            self.xb = self.ξb*self.h0
-            self.x = numeric.iteration_method_solve(f_x, self.xb, β=self.β, εcu=self.εcu, fc=self.α1*self.fc, 
-            b=self.b, e=self.e, h0=self.h0, Es=self.Es, Ep=self.Ep, fy_=self.fy_, As_=self.As_, as_=self.as_, es_=self.es_, 
-            fpd_=self.fpy_, σp0_=self.σp0_, Ap_=self.Ap_, ap_=self.ap_, ep_=self.ep_, As=self.As, es=self.es, 
-            σp0=self.σp0, Ap=self.Ap, ep=self.ep)
-            self.σs = self.f_σsi(self.β,self.Es,self.εcu,self.h0,self.x)
-            self.σp = self.f_σpi(self.β,self.Ep,self.εcu,self.h0,self.x, self.σp0)
-            self.Nu = self.fNu(self.α1*self.fc,self.b,self.x,self.fy_,self.As_,self.σs,self.As,
-            self.σp0_,self.fpy_,self.Ap_,self.σp,self.Ap)/1000 #kN
-            return self.Nu
+            xb = ξb*h0
+            x = numeric.iteration_method_solve(f_x, xb, α1=α1, β1=β1, εcu=εcu, fc=α1*fc, 
+            b=b, e=e, h0=h0, Es=Es, Ep=Ep, fy_=fy_, As_=As_, as_=as_, es_=es_, 
+            fpy_=fpy_, σp0_=σp0_, Ap_=Ap_, ap_=ap_, ep_=ep_, As=As, es=es, 
+            σp0=σp0, Ap=Ap, ep=ep)
+            σs = cls.f_σsi(β1, Es, εcu, h0, x)
+            σp = cls.f_σpi(β1, Ep, εcu, h0, x, σp0)
+            Nu = cls.fNu(α1, fc,b,x,fy_,As_,σs,As, σp0_,fpy_,Ap_,σp,Ap)
+        return (large_eccentric, x, Nu)
             
-    def solve_As(self):
-        '''根据内力设计值计算配筋'''
-        N = self.N*1E3
-        nac = eccentric_compression
-        self.εcu = min(nac.f_εcu(self.fcuk),0.0033)
-        self.ξb = nac.fξb(self.β1,self.fy,self.Es,self.εcu)
-        self.xb = self.ξb*self.h0
-        self.Asmin = self.ρmin*self.b*self.h
-        if self.symmetrical == False:
+    @classmethod
+    def solve_As(cls, symmetrical, Asp_known, Asmin, b, h, h0, N, ei, e, α1, β1, fc, 
+    Es, fy, As, es, fy_, As_, as_, es_, 
+    Ep, fpy, σp0, Ap, ep, fpy_, σp0_, Ap_, ap_, ep_, εcu, ξb):
+        '''
+        根据内力设计值计算配筋
+        '''
+        _As = _As_ = None
+        xb = ξb*h0
+        if symmetrical == False:
             # 非对称配筋
-            self.type = 0 if self.ei > 0.3*self.h0 else 1 # 初步判定大小偏心（刘文峰，混凝土结构设计原理，6.3.3）
+            # 初步判定大小偏心（刘文峰，混凝土结构设计原理，6.3.3, 6.4.2）
+            large_eccentric = True if ei > 0.3*h0 else False
             while True:
-                if self.type == 0:
+                if large_eccentric:
                     # 大偏心
-                    if self.Asp_known == False:
+                    if Asp_known == False:
                         # 受压区钢筋未知
-                        self._As_ = nac.f_As_(N,self.e,self.α1,self.fc,self.b,self.xb,self.h0,self.fy_,self.as_)
-                        if self._As_ > self.Asmin:
-                            self.As_ = self._As_
-                            self.As = (self.α1*self.fc*self.b*self.xb+self.fy_*self.As_-N)/self.fy
-                            if self.As < self.Asmin:
-                                self._As = self.As
-                                self.As = self.Asmin
-                            self.x = (self.fy*self.As-self.fy_*self.As_+N)/(self.α1*self.fc*self.b)
+                        _As_ = cls.f_As_(N,e,α1,fc,b,xb,h0,fy_,as_)
+                        if _As_ > Asmin:
+                            As_ = _As_
+                            As = (α1*fc*b*xb+fy_*As_-N)/fy
+                            if As < Asmin:
+                                _As = As
+                                As = Asmin
+                            x = (fy*As-fy_*As_+N)/(α1*fc*b)
                         else:
-                            self.As_ = self.Asmin
-                            self.x = nac.solve_x_Asp_known(self.α1,self.fc,self.b,self.h0,N,self.e,self.fy_,self.As_,self.as_)
-                            self._As = (self.α1*self.fc*self.b*self.x+self.fy_*self.As_-N)/self.fy
-                            if self._As > self.Asmin:
-                                self.As = self._As
+                            As_ = Asmin
+                            x = cls.solve_x_Asp_known(α1,fc,b,h0,N,e,fy_,As_,as_)
+                            _As = (α1*fc*b*x+fy_*As_-N)/fy
+                            if _As > Asmin:
+                                As = _As
                             else:
-                                self.As = self.Asmin
+                                As = Asmin
                     else:
                         # 受压区钢筋已知
-                        self.x = nac.solve_x_Asp_known(self.α1,self.fc,self.b,self.h0,N,self.e,self.fy_,self.As_,self.as_)
-                        if self.x > self.xb:
+                        x = cls.solve_x_Asp_known(α1,fc,b,h0,N,e,fy_,As_,as_)
+                        if x > xb:
                             raise numeric.NumericError('给定的受压区钢筋面积偏小，请增大后再计算，或不给出受压区钢筋面积.')
-                        if self.x < 2*self.as_:
-                            self.As = N*self.e/(self.fy*(self.h0-self.as_))
+                        if x < 2*as_:
+                            As = N*e/(fy*(h0-as_))
                         else:
-                            self._As = self.As = (self.α1*self.fc*self.b*self.x+self.fy_*self.As_-N)/self.fy
-                        if self.As < self.Asmin:
-                            self._As = self.As
-                            self.As = self.Asmin
+                            _As = As = (α1*fc*b*x+fy_*As_-N)/fy
+                        if As < Asmin:
+                            _As = As
+                            As = Asmin
                 else:
                     # 小偏心
-                    self.As = self.Asmin
-                    self.x = nac.solve_x_As_known(N,self.e,self.α1,self.fc,self.b,self.xb,self.h0,
-                                              self.fy_,self.as_,self.Es,self.εcu,self.β1,self.As)
-                    if self.x < self.xb:
-                        #raise Exception('受压区高度偏小，请按大偏心受压构件计算.')
-                        self.type = 0
+                    As = Asmin
+                    x = cls.solve_x_As_known(N,e,α1,fc,b,xb,h0,
+                                              fy_,as_,Es,εcu,β1,As)
+                    if x < xb:
+                        large_eccentric = True
                         continue
-                    if self.x > self.h:
-                        self.x = self.h
-                    self._As_ = self.As_ = nac.f_As_(N,self.e,self.α1,self.fc,self.b,self.x,self.h0,self.fy,self.as_)
-                    if self.As_ < self.Asmin:
-                        self._As_ = self.As_
-                        self.As_ = self.Asmin
+                    if x > h:
+                        x = h
+                    _As_ = As_ = cls.f_As_(N,e,α1,fc,b,x,h0,fy,as_)
+                    if As_ < Asmin:
+                        _As_ = As_
+                        As_ = Asmin
                 break
         else:
             # 对称配筋
-            self.x = N/(self.α1*self.fc*self.b)
-            if self.x < self.xb:
+            x = N/(α1*fc*b)
+            if x < xb:
                 # 大偏心
-                self.type = 0
-                if self.x >= 2*self.as_:
-                    self.As_ = self.As = nac.f_As_(N,self.e,self.α1,self.fc,self.b,self.x,self.h0,self.fy,self.as_)
+                large_eccentric = True
+                if x >= 2*as_:
+                    As_ = As = cls.f_As_(N,e,α1,fc,b,x,h0,fy,as_)
                 else:
-                    self.x = 2*self.as_
-                    self.e_ = self.ei-self.h/2+self.as_
-                    self.As_ = self.As = N*self.e_/(self.fy*(self.h0-self.as_))
-                if self.As < self.Asmin:
-                    self._As_ = self._As = self.As
-                    self.As_ = self.As = self.Asmin
-##                x0 = self.x
-##                if x0 > self.h:
-##                    x0 = self.xb
-##                self.x = nac.solve_x(N,self.e,self.α1,self.fc,self.b,x0,self.h0,
-##                                                self.fy_,self.as_,self.Es,self.εcu,self.beta1)
-##                self.As=nac.f_As_(N,self.e,self.α1,self.fc,self.b,self.x,self.h0,self.fy_,self.as_)
-##                self.σs=nac.f_σsi(self.Es,self.εcu,self.β1,self.h0,self.x)
+                    x = 2*as_
+                    e_ = ei-h/2+as_
+                    As_ = As = N*e_/(fy*(h0-as_))
+                if As < Asmin:
+                    _As_ = _As = As
+                    As_ = As = Asmin
             else:
                 # 小偏心
-                self.type = 1
+                large_eccentric = False
                 f_ξ = lambda N,e,ξb,α1,fc,b,h0,β1,as_:\
                         (N-ξb*α1*fc*b*h0)/((N*e-0.43*α1*fc*b*h0**2)/(β1-ξb)/(h0-as_)+α1*fc*b*h0)+ξb
-                self.ξ = f_ξ(N,self.e,self.ξb,self.α1,self.fc,self.b,self.h0,self.β1,self.as_)
-                self.As_ = self.As = nac.f_As_(N,self.e,self.α1,self.fc,self.b,self.ξ*self.h0,self.h0,self.fy,self.as_)
-            
+                ξ = f_ξ(N,e,ξb,α1,fc,b,h0,β1,as_)
+                As_ = As = cls.f_As_(N,e,α1,fc,b,ξ*h0,h0,fy,as_)
+        return (large_eccentric, x, As, _As, As_, _As_)
+    
     def solve(self):
         self.h0 = self.h - self.a_s
         self.ea = max(20,self.h/30) # 6.2.5
@@ -436,24 +460,47 @@ class eccentric_compression(abacus):
         self.ep = self.ei+self.h/2-self.ap
         self.es_ = self.ei-self.h/2+self.as_
         self.ep_ = self.ei-self.h/2+self.ap_
-        self.β1 = fβ1(self.fcuk)
-        return self.solve_Nu() if self.option == 'review' else self.solve_As()
+        self.β1 = fβ1(self.fcuk)           
+        self.εcu = self.f_εcu(self.fcuk)
+        self.ξb = self.fξb(self.β1,self.fy,self.Es,self.εcu,self.fpy,self.σp0)
+        self.xb = self.ξb*self.h0
+        self.Asmin = self.ρmin*self.b*self.h
+        if self.option == 'review': 
+            self.large_eccentric, self.x, Nu = self.solve_Nu(
+                self.b, self.h0, self.e, self.α1, self.β1, self.fc,  
+                self.Es, self.fy, self.As, self.es, self.fy_, self.As_, self.as_, self.es_, 
+                self.Ep, self.fpy, self.σp0, self.Ap, self.ep, self.fpy_, self.σp0_, self.Ap_, self.ap_, self.ep_,
+                self.εcu, self.ξb) 
+            self.Nu = Nu/1000 #kN
+        else:
+            self.large_eccentric, self.x, self.As, self._As, self.As_, self._As_ = self.solve_As(
+                self.symmetrical, self.Asp_known, self.Asmin, 
+                self.b, self.h, self.h0, self.N*1e3, self.ei, self.e, self.α1, self.β1, self.fc, 
+                self.Es, self.fy, self.As, self.es, self.fy_, self.As_, self.as_, self.es_, 
+                self.Ep, self.fpy, self.σp0, self.Ap, self.ep, 
+                self.fpy_, self.σp0_, self.Ap_, self.ap_, self.ep_, self.εcu, self.ξb
+            )
 
     def _html(self, digits = 2):
         return self._html_Nu(digits) if self.option == 'review' else self._html_As(digits)
 
     def _html_Nu(self, digits = 2):
         yield '截面尺寸:{}'.format(self.formatx('b','h','h0',digits=None,omit_name=True))
+        yield self.format('lc')
         yield '设计内力:{}'.format(self.formatx('N','M',digits=None,omit_name=True))
         yield '材料特性:'
         yield self.formatx('fc','fcuk','fy','fy_',omit_name=True, toggled = False)
         yield self.format('Es',digits=None)
+        yield self.format('As',digits=digits)
+        if self.Ap>0 or self.Ap_>0:
+            for param in ('fpy','σp0','Ap','ap','fpy_','σp0_','Ap_','ap_','Ep'):
+                yield self.format(param, digits)
+        yield self.format('e0',digits=digits)
         yield self.format('e',digits=digits)
         yield self.format('xb', digits)
         ok = self.x<self.xb
         yield '{} {} {}'.format(self.format('x'), '&lt;' if ok else '&gt;', self.format('xb', omit_name = True))
-        if not ok:
-            yield '超筋，需减小受拉钢筋面积。'
+        yield '按{}受压构件计算'.format('大偏心' if self.large_eccentric else '小偏心')
         ok = self.x > 2*self.as_
         yield '{} {} {}'.format(self.format('x'), '&gt;' if ok else '&lt;', self.format('as_', omit_name = True))
         if not ok:
@@ -472,12 +519,12 @@ class eccentric_compression(abacus):
         yield self.format('ei',digits=digits)
         yield self.format('xb', digits)
         yield '按{}计算'.format('对称配筋' if self.symmetrical else '非对称配筋')
-        yield '{}受压构件'.format('大偏心' if self.type == 0 else '小偏心')
+        yield '{}受压构件'.format('大偏心' if self.large_eccentric else '小偏心')
         tmp1 = '<i>A</i><sub>s</sub>{4}={1:.{0}f} mm<sup>2</sup> {3} <i>A</i><sub>s,min</sub> = {2:.{0}f} mm<sup>2</sup>'
         tmp2 = '<i>A</i><sub>s</sub>{2}={1:.{0}f} mm<sup>2</sup>'
         if self.symmetrical == False:
             # 非对称配筋
-            if self.type == 0:
+            if self.large_eccentric:
                 # 大偏心
                 if self.Asp_known == False:
                     # 受压区钢筋未知
@@ -516,7 +563,7 @@ class eccentric_compression(abacus):
         else:
             # 对称配筋
             yield '截面受压区高度：<i>x</i>={0:.{1}f} mm'.format(self.x, digits)
-            if self.type == 0:
+            if self.large_eccentric:
                 # 大偏心
                 if self.x < 2*self.as_:
                     yield 'ep = ei-h/2+as_ = {1:.{0}f} mm'.format(digits,self.ep)

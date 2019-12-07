@@ -133,6 +133,9 @@ class longitudinal_force_distribution(abacus):
         return xsp, move_status, Fs
 
     def solve(self):
+        for ki in self.kb:
+            if ki==0:
+                raise InputError(self, 'kb', '支座刚度应大于0')
         sum = 0
         xs = []
         xs.append(sum)

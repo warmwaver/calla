@@ -56,7 +56,7 @@ class test_compressive_capacity(TestCase):
         self.assertEqual(nac.ea, 20)
         self.assertAlmostEqual(nac.ηns, 1.017, 3)
         self.assertAlmostEqual(nac.ei, 571, 0)
-        self.assertEqual(nac.type, 0)
+        self.assertEqual(nac.large_eccentric, True)
         self.assertAlmostEqual(nac.e, 731, 0)
         self.assertApproxEqual(nac.x, 185)
         self.assertApproxEqual(nac.ξb, 0.518)

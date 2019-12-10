@@ -462,7 +462,8 @@ class eccentric_compression(gb_eccentric_compression, material_base):
         ('eqr',('','mm',0,''))
         ))
     __toggles__ = {
-        'option':{'review':(),'design':('As')},
+        'option':{'review':('Asp_known'),'design':('As')},
+        'symmetrical':{True:('As_', 'as_', 'Asp_known'),False:()},
         'Asp_known':{True:(),False:('As_')},
         }
     __toggles__.update(material_base.material_toggles)
@@ -508,7 +509,7 @@ class eccentric_compression(gb_eccentric_compression, material_base):
         self.β = 0.8 if self.fcuk <= 50 else 0.8+(self.fcuk-50)*(0.74-0.8)/(80-50)
         # strictly, a = (σs*As*a_s+σp*Ap*ap)/(σs*As+σp*Ap)
         self.a = self.a_s if self.Ap == 0 else \
-            (self.fy*self.As*self.a_s+(self.fpd-self.σp0)*self.Ap*self.ap)/(self.fy*self.As+(self.fpd-self.σp0)*self.Ap)
+            (self.fsd*self.As*self.a_s+(self.fpd-self.σp0)*self.Ap*self.ap)/(self.fsd*self.As+(self.fpd-self.σp0)*self.Ap)
         self.h0 = self.h - self.a
         # 计算偏心距增大系数
         self.A = self.b*self.h
@@ -530,20 +531,23 @@ class eccentric_compression(gb_eccentric_compression, material_base):
         self.xb = self.ξb*self.h0
         self.Asmin = self.ρmin*self.b*self.h
         if self.option == 'review': 
+            if self.symmetrical:
+                self.As_ = self.As
             self.large_eccentric, self.x, Nu = self.solve_Nu(
                 self.b, self.h0, self.e, 1.0, self.β, self.fcd,  
                 self.Es, self.fsd, self.As, self.es, self.fsd_, self.As_, self.as_, self.es_, 
                 self.Ep, self.fpd, self.σp0, self.Ap, self.ep, self.fpd_, self.σp0_, self.Ap_, self.ap_, self.ep_,
                 self.εcu, self.ξb) 
             self.Nu = Nu/1000 #kN
-            self.σp = self.fpd_-self.σp0
-            if self.ps != '无' and self.Ap_>0 and self.σp>0:
+            # 5.2.4节
+            self.σp_ = self.fpd_-self.σp0
+            if self.ps != '无' and self.Ap_>0 and self.σp_>0:
                 self.a_ = self.as_ if self.Ap_ == 0 else \
-                    (self.fy_*self.As_*self.as_+(self.fpd_-self.σp0_)*self.Ap_*self.ap_)/(self.fy_*self.As_+self.fpd_*self.Ap_)
+                    (self.fsd_*self.As_*self.as_+(self.fpd_-self.σp0_)*self.Ap_*self.ap_)/(self.fsd_*self.As_+self.fpd_*self.Ap_)
                 self.e_ = ei-(self.h/2-self.a_) # 偏心压力作用点至受压钢筋和钢束合力点的距离
                 self.γ0Md = self.γ0Nd*self.e_*1e-3
                 self.Mu = self.fMu1(self.h, self.a_, self.fsd, self.As, self.a_s, self.fpd, self.Ap, self.ap)*1e-6 # kNm
-            elif (self.ps != '无' or self.Ap_<=0) or (self.ps != '无' and self.Ap_>0 and self.σp<0):
+            elif (self.ps != '无' or self.Ap_<=0) or (self.ps != '无' and self.Ap_>0 and self.σp_<0):
                 self.es_ = ei-(self.h/2-self.as_) # 偏心压力作用点至受压钢筋合力点的距离
                 self.γ0Md = self.γ0Nd*self.es_*1e-3
                 self.Mu = self.fMu2(
@@ -570,8 +574,7 @@ class eccentric_compression(gb_eccentric_compression, material_base):
         yield '材料特性:'
         yield self.formatx('fcd','fcuk','fsd','fsd_',omit_name=True, toggled = False)
         yield self.format('As',digits=digits)
-        if self.Asp_known:
-            yield self.format('As',digits=digits)
+        yield self.format('As_',digits=digits)
         yield self.format('Es',digits=None)
         if self.ps != '无':
             for param in ('fpd','σp0','Ap','ap','fpd_','σp0_','Ap_','ap_','Ep'):
@@ -590,7 +593,7 @@ class eccentric_compression(gb_eccentric_compression, material_base):
         # (5.2.2-4)、(5.2.2-5)的要求。
         if self.Asp_known:
             # 当受压区配有纵向普通钢筋和预应力钢筋，且预应力钢筋受压即(fpd'-σp0)为正时
-            if self.ps != '无' and self.Ap_>0 and self.σp>0:
+            if self.ps != '无' and self.Ap_>0 and self.σp_>0:
                 self.eqr = 2*self.a_
                 ok = self.x >= self.eqr
                 yield '{} {} {}，{}满足规范公式(5.2.2-4)要求{}。'.format(
@@ -616,7 +619,7 @@ class eccentric_compression(gb_eccentric_compression, material_base):
                         )
             # 当受压区仅配纵向普通钢筋，或配有普通钢筋和预应力钢筋且预应力钢筋受拉即
             # (fpd'-σp0)为负时
-            elif (self.ps != '无' or self.Ap_<=0) or (self.ps != '无' and self.Ap_>0 and self.σp<0):
+            elif (self.ps != '无' or self.Ap_<=0) or (self.ps != '无' and self.Ap_>0 and self.σp_<0):
                 self.eqr = 2*self.as_
                 ok = self.x >= self.eqr
                 yield '{} {} {}，{}满足规范公式(5.2.2-5)要求{}。'.format(
@@ -674,15 +677,15 @@ class eccentric_compression(gb_eccentric_compression, material_base):
                             yield tmp1.format(digits, self.As, self.Asmin,'&gt;','')
                     else:
                         yield '故取 ' + tmp2.format(digits, self.As_, '\'')
-                        yield '截面受压区高度：<i>x</i>={0:.{1}f} mm'.format(self.x, digits)
+                        yield self.format('x', digits)
                         yield tmp1.format(digits, self._As, self.Asmin, '&gt;' if self._As > self.Asmin else '&lt;', '')
                 else:
                     yield '已知受压区钢筋面积：As\'={} mm<sup>2</sup>'.format(self.As_)
-                    yield '<i>x</i>={0:.{1}f} mm'.format(self.x, digits)
+                    yield self.format('x', digits)
                     if self.x > self.xb:
-                        yield '给定的受压区钢筋面积偏小，请增大后再计算，或不给出受压区钢筋面积.'
+                        yield '给定的受压区钢筋面积偏小，请增大后再计算，或不给出受压区钢筋面积。'
                     if self.x < 2*self.as_:
-                        yield '给定的受压钢筋面积As\'过大，受压钢筋未屈服.'
+                        yield '给定的受压钢筋面积As\'过大，受压钢筋未屈服。'
                     else:
                         yield tmp1.format(digits, self._As, self.Asmin,'&gt;' if self._As > self.Asmin else '&lt;', '')
                     if self._As < self.Asmin:
@@ -690,7 +693,7 @@ class eccentric_compression(gb_eccentric_compression, material_base):
             else:
                 # 小偏心
                 yield tmp1.format(digits,self.As, self.Asmin,'=','')
-                yield '截面受压区高度：<i>x</i>={0:.{1}f} mm'.format(self.x, digits)
+                yield self.format('x', digits)
                 if self.x < self.xb:
                     yield '受压区高度偏小，请按大偏心受压构件计算.'
                 else:
@@ -699,12 +702,12 @@ class eccentric_compression(gb_eccentric_compression, material_base):
                         yield '故取 ' + tmp2.format(digits, self.As_, '\'')
         else:
             # 对称配筋
-            yield '截面受压区高度：<i>x</i>={0:.{1}f} mm'.format(self.x, digits)
+            yield self.format('x', digits)
             if self.large_eccentric:
                 # 大偏心
                 if self.x < 2*self.as_:
                     yield 'ep = ei-h/2+as_ = {1:.{0}f} mm'.format(digits,self.ep)
-                yield tmp2.format(digits,self.As,'')
+                yield '钢筋面积 {}'.format(self.format('As', digits, omit_name=True, eq='As_'))
             else:
                 # 小偏心
                 yield 'ξ = (N-ξb*fc*b*h0)/((N*e-0.43*fc*b*h0<sup>2</sup>)/(β1-ξb)/(h0-as_)+fc*b*h0)+ξb = {1:.{0}f}'.format(digits,self.ξ)

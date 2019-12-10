@@ -135,10 +135,10 @@ class eccentric_compression(abacus):
         ('h',('<i>h</i>','mm',1000,'矩形截面高度')),
         ('lc',('<i>l</i><sub>c</sub>','mm',3000,'构件的计算长度','可近似取偏心受压构件相应主轴方向上下支撑点之间的距离')),
         ('fy',('<i>f</i><sub>y</sub>','MPa',360,'钢筋抗拉强度设计值')),
-        ('As',('<i>A</i><sub>s</sub>','mm<sup>2</sup>',5*490.9,'受拉钢筋面积')),
+        ('As',('<i>A</i><sub>s</sub>','mm<sup>2</sup>',0,'受拉钢筋面积')),
         ('a_s',('<i>a</i><sub>s</sub>','mm',60,'受拉区纵向普通钢筋合力点至受拉边缘的距离')),
         ('fy_',('<i>f</i><sub>y</sub><sup>\'</sup>','MPa',360,'钢筋抗压强度设计值')),
-        ('As_',('<i>A</i><sub>s</sub><sup>\'</sup>','mm<sup>2</sup>',60,'受压区钢筋面积', '受压区纵向普通钢筋的截面面积')),
+        ('As_',('<i>A</i><sub>s</sub><sup>\'</sup>','mm<sup>2</sup>',0,'受压区钢筋面积', '受压区纵向普通钢筋的截面面积')),
         ('as_',('<i>a</i><sub>s</sub><sup>\'</sup>','mm',60,'受压区纵向钢筋合力点至受压边缘的距离')),
         ('Ep',('<i>E</i><sub>p</sub>','MPa',1.95E5,'预应力钢筋弹性模量')),
         ('fpy',('<i>f</i><sub>py</sub>','MPa',1320,'受拉区预应力筋抗压强度设计值')),
@@ -165,10 +165,13 @@ class eccentric_compression(abacus):
         ('xb',('<i>x</i><sub>b</sub>','mm',0,'截面界限受压区高度')),
         ('Nu',('<i>N</i><sub>u</sub>','kN',0,'截面受压承载力')),
         ('Mu',('<i>M</i><sub>u</sub>','kN',0,'截面受弯承载力')),
+        ('Md',('<i>M</i>','kN·m',0,'')),
+        ('eqr',('','mm',0,''))
         ))
     __toggles__ = {
-        #'option':{'0':(),'1':('As')},
+        'option':{'review':('Asp_known'),'design':('As')},
         'option_m2':{True:('M'),False:('M1','M2')},
+        'symmetrical':{True:('As_', 'as_', 'Asp_known'),False:()},
         'Asp_known':{True:(),False:('As_')},
         }
     # Non-static members
@@ -211,6 +214,13 @@ class eccentric_compression(abacus):
         return β1/(1+0.002/εcu+(fpy-σp0)/Es/εcu) # (6.2.7-3)
 
     f_ηns = lambda M2,N,ea,h,h0,lc,ζc:1+1/1300/(M2/N+ea)*h0*(lc/h)**2*ζc
+
+    @staticmethod
+    def fMu2(h, fy, As, a_s, as_, fpy, Ap, ap, fpy_, σp0_, Ap_, ap_):
+        '''
+        6.2.14节 (6.2.14) 对受压钢筋点取矩计算抗弯承载力
+        '''
+        return fpy*Ap*(h-ap-as_)+fy*As*(h-a_s-as_)-(fpy_-σp0_)*Ap_*(ap_-as_)
 
     @staticmethod
     def f_As_(N,e,α1,fc,b,x,h0,fy_,as_): 
@@ -392,13 +402,13 @@ class eccentric_compression(abacus):
                         # 受压区钢筋已知
                         x = cls.solve_x_Asp_known(α1,fc,b,h0,N,e,fy_,As_,as_)
                         if x > xb:
-                            raise numeric.NumericError('给定的受压区钢筋面积偏小，请增大后再计算，或不给出受压区钢筋面积.')
+                            raise numeric.NumericError('给定的受压区钢筋面积偏小，请增大后再计算，或不给出受压区钢筋面积')
                         if x < 2*as_:
                             As = N*e/(fy*(h0-as_))
                         else:
-                            _As = As = (α1*fc*b*x+fy_*As_-N)/fy
-                        if As < Asmin:
-                            _As = As
+                            As = (α1*fc*b*x+fy_*As_-N)/fy
+                        _As = As
+                        if _As < Asmin:
                             As = Asmin
                 else:
                     # 小偏心
@@ -466,12 +476,25 @@ class eccentric_compression(abacus):
         self.xb = self.ξb*self.h0
         self.Asmin = self.ρmin*self.b*self.h
         if self.option == 'review': 
+            if self.symmetrical:
+                self.As_ = self.As
             self.large_eccentric, self.x, Nu = self.solve_Nu(
                 self.b, self.h0, self.e, self.α1, self.β1, self.fc,  
                 self.Es, self.fy, self.As, self.es, self.fy_, self.As_, self.as_, self.es_, 
                 self.Ep, self.fpy, self.σp0, self.Ap, self.ep, self.fpy_, self.σp0_, self.Ap_, self.ap_, self.ep_,
                 self.εcu, self.ξb) 
             self.Nu = Nu/1000 #kN
+            # 6.2.17 节 第2条要求
+            self.σp_ = self.fpy_-self.σp0
+            self.a_ = self.as_ if (self.Ap_ == 0 or self.σp_>0) else \
+                (self.fy_*self.As_*self.as_+(self.fpy_-self.σp0_)*self.Ap_*self.ap_)/(self.fy_*self.As_+self.fpy_*self.Ap_)
+            if self.x<2*self.a_:
+                self.es_ = self.ei-(self.h/2-self.as_) # 偏心压力作用点至受压钢筋合力点的距离
+                self.Md = self.N*self.es_*1e-3
+                self.Mu = self.fMu2(
+                    self.h, self.fy, self.As, self.a_s, self.as_, self.fpy, self.Ap, self.ap,
+                    self.fpy_, self.σp0_, self.Ap_, self.ap_
+                    )*1e-6 # kNm
         else:
             self.large_eccentric, self.x, self.As, self._As, self.As_, self._As_ = self.solve_As(
                 self.symmetrical, self.Asp_known, self.Asmin, 
@@ -492,6 +515,7 @@ class eccentric_compression(abacus):
         yield self.formatx('fc','fcuk','fy','fy_',omit_name=True, toggled = False)
         yield self.format('Es',digits=None)
         yield self.format('As',digits=digits)
+        yield self.format('As_',digits=digits)
         if self.Ap>0 or self.Ap_>0:
             for param in ('fpy','σp0','Ap','ap','fpy_','σp0_','Ap_','ap_','Ep'):
                 yield self.format(param, digits)
@@ -501,12 +525,33 @@ class eccentric_compression(abacus):
         ok = self.x<self.xb
         yield '{} {} {}'.format(self.format('x'), '&lt;' if ok else '&gt;', self.format('xb', omit_name = True))
         yield '按{}受压构件计算'.format('大偏心' if self.large_eccentric else '小偏心')
-        ok = self.x > 2*self.as_
-        yield '{} {} {}'.format(self.format('x'), '&gt;' if ok else '&lt;', self.format('as_', omit_name = True))
-        if not ok:
-            yield '少筋，需增加受拉钢筋面积。'
+        # 在承载力计算中，若考虑截面受压较大边的纵向受压钢筋时，受压区高度应符合公式
+        # (6.2.10-4)的要求。
+        if self.As_ > 0:
+            self.eqr = 2*self.a_
+            ok = self.x >= self.eqr
+            yield '{} {} {}，{}满足规范公式(6.2.10-4)要求{}。'.format(
+                self.format('x'), 
+                '&ge;' if ok else '&lt;', 
+                self.format('eqr', omit_name = True, eq='2a_'),
+                '' if ok else '不',
+                '' if ok else '，需按6.2.14条要求验算'
+                )
+            if not ok:
+                # 当不满足此条件时，其正截面
+                # 受压承载力可按本规范第6.2. 14 条的规定进行计算，此时，应
+                # 将本规范公式（ 6. 2. 14 ）中的M 以Ne ；代替，此处 ε：为轴向
+                # 压力作用点至受压区纵向普通钢筋合力点的距离；初始偏心距应
+                # 按公式（ 6. 2. 17-4 ）确定。
+                ok = self.Md <= self.Mu
+                yield '{} {} {}，{}满足规范公式(6.2.14)要求。'.format(
+                    self.format('Md', digits), 
+                    '&le;' if ok else '&gt;', 
+                    self.format('Mu', omit_name = True, eq='fpy*Ap*(h-ap-as_)+fy*As*(h-a_s-as_)-(fpy_-σp0_)*Ap_*(ap_-as_)'),
+                    '' if ok else '不'
+                )
         ok = self.Nu > self.N
-        yield '{} {} {}，{}满足规范要求'.format(
+        yield '{} {} {}，{}满足规范要求。'.format(
             self.format('Nu'), '&gt;' if ok else '&lt;', self.format('N',omit_name=True),
             '' if ok else '不')
         
@@ -537,15 +582,15 @@ class eccentric_compression(abacus):
                             yield tmp1.format(digits, self.As, self.Asmin,'&gt;','')
                     else:
                         yield '故取 ' + tmp2.format(digits, self.As_, '\'')
-                        yield '截面受压区高度：<i>x</i>={0:.{1}f} mm'.format(self.x, digits)
+                        yield self.format('x', digits)
                         yield tmp1.format(digits, self._As, self.Asmin, '&gt;' if self._As > self.Asmin else '&lt;', '')
                 else:
                     yield '已知受压区钢筋面积：As\'={} mm<sup>2</sup>'.format(self.As_)
-                    yield '<i>x</i>={0:.{1}f} mm'.format(self.x, digits)
+                    yield self.format('x', digits)
                     if self.x > self.xb:
-                        yield '给定的受压区钢筋面积偏小，请增大后再计算，或不给出受压区钢筋面积.'
+                        yield '给定的受压区钢筋面积偏小，请增大后再计算，或不给出受压区钢筋面积。'
                     if self.x < 2*self.as_:
-                        yield '给定的受压钢筋面积As\'过大，受压钢筋未屈服.'
+                        yield '给定的受压钢筋面积As\'过大，受压钢筋未屈服。'
                     else:
                         yield tmp1.format(digits, self._As, self.Asmin,'&gt;' if self._As > self.Asmin else '&lt;', '')
                     if self._As < self.Asmin:
@@ -553,7 +598,7 @@ class eccentric_compression(abacus):
             else:
                 # 小偏心
                 yield tmp1.format(digits,self.As, self.Asmin,'=','')
-                yield '截面受压区高度：<i>x</i>={0:.{1}f} mm'.format(self.x, digits)
+                yield self.format('x', digits)
                 if self.x < self.xb:
                     yield '受压区高度偏小，请按大偏心受压构件计算.'
                 else:
@@ -562,12 +607,12 @@ class eccentric_compression(abacus):
                         yield '故取 ' + tmp2.format(digits, self.As_, '\'')
         else:
             # 对称配筋
-            yield '截面受压区高度：<i>x</i>={0:.{1}f} mm'.format(self.x, digits)
+            yield self.format('x', digits)
             if self.large_eccentric:
                 # 大偏心
                 if self.x < 2*self.as_:
                     yield 'ep = ei-h/2+as_ = {1:.{0}f} mm'.format(digits,self.ep)
-                yield tmp2.format(digits,self.As,'')
+                yield '钢筋面积 {}'.format(self.format('As', digits, omit_name=True, eq='As_'))
             else:
                 # 小偏心
                 yield 'ξ = (N-ξb*α1*fc*b*h0)/((N*e-0.43*α1*fc*b*h0<sup>2</sup>)/(β1-ξb)/(h0-as_)+α1*fc*b*h0)+ξb = {1:.{0}f}'.format(digits,self.ξ)

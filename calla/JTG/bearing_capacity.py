@@ -681,11 +681,12 @@ class eccentric_compression(gb_eccentric_compression, material_base):
                         yield tmp1.format(digits, self._As, self.Asmin, '&gt;' if self._As > self.Asmin else '&lt;', '')
                 else:
                     yield '已知{}'.format(self.format('As_'))
-                    if self.x < 2*self.as_ or self.x > self.h:
+                    self.eqr = 2*self.as_
+                    if self.x < self.eqr or self.x > self.h:
                         yield '{} {} {}'.format(
                             self.format('x', digits),
-                            '&lt;' if self.x < 2*self.as_ else '&gt;',
-                            self.format('eqr', omit_name=True, eq='2 as_') if self.x < 2*self.as_ else \
+                            '&lt;' if self.x < self.eqr else '&gt;',
+                            self.format('eqr', omit_name=True, eq='2 as_') if self.x < self.eqr else \
                                 self.format('h', omit_name=True)
                         )
                         yield '给定的受压钢筋面积As\'过大，受压钢筋未屈服。对受压区钢筋As\'取矩，计算得：'

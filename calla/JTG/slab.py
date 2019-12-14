@@ -62,7 +62,8 @@ class vehicle_load(abacus):
         for para in self.inputs:
             yield self.format(para, digits=None)
         yield self.format('b',digits)
-        yield '垂直于板跨方向相邻车轮分布宽度范围{}重叠'.format('' if self.overlaped else '不')
+        yield '跨中垂直于板跨方向相邻车轮分布宽度范围{}重叠。'.format('' if self.overlaped else '不')
+        yield '支承处垂直于板跨方向的荷载分布宽度按单轮计算。'
         yield '垂直于板跨方向的荷载分布宽度：'
         t = []
         t.append(['距板跨端部的距离(m)', '荷载分布宽度(m)'])

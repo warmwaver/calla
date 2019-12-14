@@ -157,6 +157,7 @@ class eccentric_compression(abacus):
         ('ηns',('<i>η</i><sub>ns</sub>','',1,'弯矩增大系数')),
         ('Cm',('<i>C</i><sub>m</sub>','',0.7,'构件端截面偏心距调节系数')),
         ('a',('<i>a</i>','mm',0,'纵向受拉普通钢筋和受拉预应力筋的合力点至截面近边缘的距离')),
+        ('a_',('<i>a</i><sup>\'</sup>','mm',0,'纵向受压普通钢筋和受拉预应力筋的合力点至截面近边缘的距离')),
         ('ea',('<i>e</i><sub>a</sub>','mm',20,'附加偏心距')),
         ('e0',('<i>e</i><sub>0</sub>','mm',0,'轴向压力对截面重心的偏心距','取为M/N')),
         ('ei',('<i>e</i><sub>i</sub>','mm',20,'初始偏心距')),
@@ -166,6 +167,7 @@ class eccentric_compression(abacus):
         ('Nu',('<i>N</i><sub>u</sub>','kN',0,'截面受压承载力')),
         ('Mu',('<i>M</i><sub>u</sub>','kN',0,'截面受弯承载力')),
         ('Md',('<i>M</i>','kN·m',0,'')),
+        ('Asmin',('<i>A</i><sub>s,min</sub>','mm<sup>2</sup>',0,'最小配筋面积')),
         ('eqr',('','mm',0,''))
         ))
     __toggles__ = {
@@ -264,29 +266,30 @@ class eccentric_compression(abacus):
         return x1
     
     @staticmethod
-    def solve_x_Asp_known(α1,fc,b0,h0,N,e,fy_,As_,as_):
+    def solve_x_Asp_known(α1,fc,b,h0,N,e,fy_,As_,as_):
         '''已知受压钢筋面积As_求x'''
-        a = α1*fc*b0/2
-        b = -α1*fc*b0*h0
-        c = N*e-fy_*As_*(h0-as_)
-        try:
-            x1 = (-b+sqrt(b**2-4*a*c))/2/a
-            x2 = (-b-sqrt(b**2-4*a*c))/2/a
-        except:
-            raise numeric.NumericError('No proper solution.')
-        if x1 > 0 and x1 < h0:
-            if x2 > 0 and x2 < h0:
-                if x1 < x2:
-                    return x1
-                else:
-                    return x2
-            else:
-                return x1
-        else:
-            if x2 > 0 and x2 < h0:
-                    return x2
-            else:
+        _a = α1*fc*b/2
+        _b = -α1*fc*b*h0
+        _c = N*e-fy_*As_*(h0-as_)
+        d = _b**2-4*_a*_c
+        if d>0:
+            valids = []
+            d = sqrt(d)
+            x1 = (-_b+d)/2/_a
+            if x1>0:
+                valids.append(x1)
+            x2 = (-_b-d)/2/_a
+            if x2>0:
+                valids.append(x2)
+            n = len(valids)
+            if n < 1:
                 raise numeric.NumericError('No proper solution.')
+            elif n == 1:
+                return valids[0]
+            else:
+                return min(valids)
+        else:
+            raise numeric.NumericError('No solution.')
 
     @classmethod
     def solve_Nu(cls, b, h0, e, α1, β1, fc, Es, fy, As, es, fy_, As_, as_, es_, 
@@ -401,10 +404,17 @@ class eccentric_compression(abacus):
                     else:
                         # 受压区钢筋已知
                         x = cls.solve_x_Asp_known(α1,fc,b,h0,N,e,fy_,As_,as_)
-                        if x > xb:
-                            raise numeric.NumericError('给定的受压区钢筋面积偏小，请增大后再计算，或不给出受压区钢筋面积')
-                        if x < 2*as_:
-                            As = N*e/(fy*(h0-as_))
+                        if x < 2*as_ or x > h:
+                            # 无有效解， 受压区As'过大
+                            e_ = ei-h/2+as_
+                            As = N*e_/(fy*(h0-as_))
+                        elif x > xb:
+                            # 应按As'未知的情况重算
+                            # 刘文峰《混凝土结构设计原理》6.4.2，P210
+                            return cls.solve_As(symmetrical, False, Asmin, b, h, h0, N, ei, e, α1, β1, fc, 
+                                Es, fy, As, es, fy_, As_, as_, es_, 
+                                Ep, fpy, σp0, Ap, ep, fpy_, σp0_, Ap_, ap_, ep_, εcu, ξb
+                                )
                         else:
                             As = (α1*fc*b*x+fy_*As_-N)/fy
                         _As = As
@@ -585,16 +595,30 @@ class eccentric_compression(abacus):
                         yield self.format('x', digits)
                         yield tmp1.format(digits, self._As, self.Asmin, '&gt;' if self._As > self.Asmin else '&lt;', '')
                 else:
-                    yield '已知受压区钢筋面积：As\'={} mm<sup>2</sup>'.format(self.As_)
-                    yield self.format('x', digits)
-                    if self.x > self.xb:
-                        yield '给定的受压区钢筋面积偏小，请增大后再计算，或不给出受压区钢筋面积。'
-                    if self.x < 2*self.as_:
-                        yield '给定的受压钢筋面积As\'过大，受压钢筋未屈服。'
-                    else:
-                        yield tmp1.format(digits, self._As, self.Asmin,'&gt;' if self._As > self.Asmin else '&lt;', '')
+                    yield '已知{}'.format(self.format('As_'))
+                    if self.x < 2*self.as_ or self.x > self.h:
+                        yield '{} {} {}'.format(
+                            self.format('x', digits),
+                            '&lt;' if self.x < 2*self.as_ else '&gt;',
+                            self.format('eqr', omit_name=True, eq='2 as_') if self.x < 2*self.as_ else \
+                                self.format('h', omit_name=True)
+                        )
+                        yield '给定的受压钢筋面积As\'过大，受压钢筋未屈服。对受压区钢筋As\'取矩，计算得：'
+                        yield self.format('As', digits, eq = 'N*e_/(fy*(h0-as_))', value = self._As)
+                    elif self.x > self.xb:
+                        yield '{} {} {}'.format(
+                            self.format('x', digits),
+                            '&gt;',
+                            self.format('xb', omit_name=True)
+                        )
+                        yield '给定的受压区钢筋面积偏小，按As和As\'均为未知的情况计算。'
+                    yield '{} {} {}'.format(
+                        self.format('As', digits, omit_name=True, value = self._As),
+                        '&lt;' if self._As < self.Asmin else '&ge;',
+                        self.format('Asmin', omit_name=True)
+                    )
                     if self._As < self.Asmin:
-                        yield '故取 ' + tmp2.format(digits, self.As, '')
+                        yield '故取 {}'.format(self.format('As', digits, omit_name=True))
             else:
                 # 小偏心
                 yield tmp1.format(digits,self.As, self.Asmin,'=','')

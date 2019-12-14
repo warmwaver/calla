@@ -19,23 +19,28 @@ class longitudinal_force_distribution(abacus):
         ('kb',('<i>k</i><sub>b</sub>','kN/m',[0,0,0,0],'支座刚度','一个桥墩上若有多个支座，则为多个支座的组合刚度')),
         # ('a_s',('<i>a</i><sub>s</sub>','mm',60,'受拉钢筋距边缘距离','受拉区纵向普通钢筋合力点至受拉边缘的距离')),
         # ('as_',('<i>a</i><sub>s</sub><sup>\'</sup>','mm',60,'受压钢筋距边缘距离','受拉区纵向预应力筋合力点至受拉边缘的距离')),
+        ('option',('','','A','桥墩刚度输入方式','',{'A':'直接输入','B':'辅助计算'})),
+        ('kp',('<i>k</i><sub>p</sub>','kN/m',[0,0,0,0],'桥墩刚度','')),
         ('E',('<i>E</i>','kN/m<sup>2</sup>',3.25e7,'桥墩混凝土弹性模量')),
         ('I',('[<i>I</i>]','m<sup>4</sup>',[6,6,6,6],'桥墩截面惯性矩')),
         ('l',('[<i>l</i>]','m',[6,6,6,6],'桥墩高度')),
         # 温度作用参数
-        ('Ws',('墩顶重力','kN',[5000, 62000, 62000, 5000],'','列表')),
-        ('fixeds',('是否固定支座','',[False, True, False, False],'','列表')),
+        ('Ws',('','kN',[5000, 62000, 62000, 5000],'墩顶重力','列表')),
+        ('fixeds',('','',[False, True, False, False],'是否固定支座','列表，是：True，否：False')),
         ('Δt',('Δ<i>t</i>','°C',30,'温度变化')),
         ('α',('<i>α</i><sub>t</sub>','1/°C',1e-5,'材料线膨胀系数')),
-        ('μ',('<i>μ</i>','',0.03,'支座摩擦系数')),
+        ('μ',('<i>μ</i>','',0.03,'支座摩擦系数','按《公路桥涵设计通用规范》4.3.13取值')),
         ])
     __deriveds__ = OrderedDict((
-        ('xs',('[<i>x</i>]','MPa',[0, 60, 160, 220],'桥墩坐标','由spans计算')),
+        ('xs',('[<i>x</i>]','m',[0, 60, 160, 220],'桥墩坐标','由spans计算')),
         ('ks',('[<i>K</i>]','kN/m',[],'墩顶水平线刚度','支座和墩身的组合刚度')),
         ('xsp',('<i>x</i><sub>sp</sub>','m',1.0,'不动点位置','以起点支座起算')),
-        ('move_status',('支座滑动状态','',[],'')),
+        ('move_status',('','',[],'支座滑动')),
         ('Fs',('[<i>F</i>]','kN',0,'温度作用墩顶水平力','')),
         ))
+    __toggles__ = {
+        'option':{'A':('E','I','l'),'B':('kp')}
+    }
 
     @staticmethod
     def temperature_force_distribution(xs, ks, Ws, fixeds, Δt, α, μ):
@@ -66,7 +71,7 @@ class longitudinal_force_distribution(abacus):
             for i in range(len(xs)):
                 x = xs[i]
                 if move_status[i]:
-                    Fs.append(μ*Ws[i]*(1 if x > xsp else -1))
+                    Fs.append(μ*Ws[i]*(1 if Δt*(x-xsp)>0 else -1))
                 else:
                     Fs.append(ks[i]*α*Δt*(x-xsp))
             return Fs
@@ -90,7 +95,7 @@ class longitudinal_force_distribution(abacus):
                 Δ = α*Δt*(x-xsp)
                 F = k*Δ
                 Fmax = μ*G
-                u = 1 if x > xsp else -1
+                u = 1 if F > 0 else -1
                 fixed = fixeds[i]
                 if abs(F) > Fmax and not fixed:
                     b += u*Fmax
@@ -102,7 +107,7 @@ class longitudinal_force_distribution(abacus):
                     b += c*x
                     move_status[i] = False
             # 如果所有支座都滑动，即a=0。
-            if a > 0:
+            if a != 0:
                 xsp1 = b/a
                 if xsp1 == xsp:
                     break
@@ -147,22 +152,42 @@ class longitudinal_force_distribution(abacus):
         l_is_list = isinstance(self.I, list) or isinstance(self.I, tuple)
         kb_is_list = isinstance(self.kb, list) or isinstance(self.kb, tuple)
         for i in range(len(xs)):
-            I = self.I[i] if I_is_list else self.I
-            l = self.l[i] if l_is_list else self.I
             # 支座刚度
             kb = self.kb[i] if kb_is_list else self.kb
             # 桥墩刚度
-            kp = 3*self.E*I/l**3
+            if self.option == 'A':
+                kp = self.kp[i]
+            elif self.option == 'B':
+                I = self.I[i] if I_is_list else self.I
+                l = self.l[i] if l_is_list else self.I
+                kp = 3*self.E*I/l**3
+                if i < len(self.kp):
+                    self.kp[i] = kp
+                else:
+                    self.kp.append(kp)
+            else:
+                raise InputError(self, 'option','不支持的选项')
             k = kb*kp/(kb+kp)
             ks.append(k)
         # 温度作用水平力分配
         self.xsp,self.move_status,self.Fs = self.temperature_force_distribution(
             xs, ks, self.Ws, self.fixeds, self.Δt, self.α, self.μ)
-        self.ks = ks
+        self.xs = xs; self.ks = ks
         return
 
-    # def _html(self, digits=2):
-    #     pass
+    def _html(self, digits=2):
+        for param in ('α', 'μ', 'Δt', 'xsp'):
+            yield self.format(param, digits)
+        tb = []
+        rh = ['墩(台)号']
+        for i in range(len(self.xs)):
+            rh.append(i)
+        tb.append(rh)
+        for param in ('xs', 'fixeds', 'kb', 'kp', 'ks', 'Ws', 'move_status', 'Fs'):
+            attr = self.para_attrs(param)
+            chname = attr.name if attr.unit=='' else'{}({})'.format(attr.name, attr.unit)
+            tb.append([chname]+getattr(self,param))
+        yield html.table2html(tb, digits)
 
 class braking_force(abacus):
     '''
@@ -179,27 +204,22 @@ class braking_force(abacus):
         ('ratio',('多车道放大系数','',2.68,'','同向三车道2.34，同向四车道2.68')),
         # ('nb',('<i>n</i><sub>b</sub>','',7,'每个墩台支座个数')),
         ('kb',('<i>k</i><sub>b</sub>','kN/m',[0,0,0,0],'支座刚度','一个桥墩上若有多个支座，则为多个支座的组合刚度')),
-        # ('a_s',('<i>a</i><sub>s</sub>','mm',60,'受拉钢筋距边缘距离','受拉区纵向普通钢筋合力点至受拉边缘的距离')),
-        # ('as_',('<i>a</i><sub>s</sub><sup>\'</sup>','mm',60,'受压钢筋距边缘距离','受拉区纵向预应力筋合力点至受拉边缘的距离')),
         ('E',('<i>E</i>','kN/m<sup>2</sup>',3.25e7,'桥墩混凝土弹性模量')),
         ('I',('[<i>I</i>]','m<sup>4</sup>',[6,6,6,6],'桥墩截面惯性矩')),
         ('l',('[<i>l</i>]','m',[6,6,6,6],'桥墩高度')),
         ('nc',('<i>n</i><sub>c</sub>','',1,'一个桥墩柱个数')),
-        # ('As',('<i>A</i><sub>s</sub>','mm<sup>2</sup>',0,'纵向受拉钢筋面积')),
-        # ('Ap',('<i>A</i><sub>p</sub>','mm<sup>2</sup>',0,'纵向受拉预应力筋面积')),
-        # ('As_',('<i>A</i><sub>s</sub><sup>\'</sup>','mm<sup>2</sup>',0,'纵向受压钢筋面积')),
         # 温度作用参数
-        #('xs',('桥墩坐标','MPa',[0, 60, 160, 220],'','由spans计算')),
-        ('Ws',('墩顶重力','kN',[5000, 62000, 62000, 5000],'','列表')),
-        ('fixeds',('是否固定支座','',[False, True, False, False],'','列表')),
+        ('Ws',('','kN',[5000, 62000, 62000, 5000],'墩顶重力','列表')),
+        ('fixeds',('','',[False, True, False, False],'是否固定支座','列表，是：True，否：False')),
         ('Δt',('Δ<i>t</i>','°C',30,'温度变化')),
         ('α',('<i>α</i><sub>t</sub>','1/°C',1e-5,'材料线膨胀系数')),
         ('μ',('<i>μ</i>','',0.03,'支座摩擦系数')),
         ])
     __deriveds__ = OrderedDict((
+        ('xs',('[<i>x</i>]','m',[0, 60, 160, 220],'桥墩坐标','由spans计算')),
         ('ks',('[<i>K</i>]','kN/m',[],'墩顶水平线刚度','支座和墩身的组合刚度')),
         ('xsp',('<i>x</i><sub>sp</sub>','m',1.0,'不动点位置','以起点支座起算')),
-        ('move_status',('支座滑动状态','',[],'')),
+        ('move_status',('','',[],'支座滑动')),
         ('Fs',('[<i>F</i>]','kN',0,'温度作用墩顶水平力','')),
         ))
 

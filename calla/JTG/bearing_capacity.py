@@ -408,7 +408,7 @@ class eccentric_compression(gb_eccentric_compression, material_base):
         ('option',('选项','','design','','',{'review':'截面复核','design':'截面设计'})),
         ('symmetrical',('对称配筋','',False,'','',{True:'是',False:'否'})),
         ('Asp_known',('已知受压钢筋面积','',False,'','',{True:'是',False:'否'})),
-        ('γ0',('<i>γ</i><sub>0</sub>','',1.0,'重要性系数')),
+        ('γ0',('<i>γ</i><sub>0</sub>','',1.1,'重要性系数')),
         ('Nd',('<i>N</i><sub>d</sub>','kN',1000,'轴向力设计值')),
         ('Md',('<i>M</i><sub>d</sub>','kN·m',600,'弯矩设计值')),
         material_base.concrete_item,
@@ -680,16 +680,30 @@ class eccentric_compression(gb_eccentric_compression, material_base):
                         yield self.format('x', digits)
                         yield tmp1.format(digits, self._As, self.Asmin, '&gt;' if self._As > self.Asmin else '&lt;', '')
                 else:
-                    yield '已知受压区钢筋面积：As\'={} mm<sup>2</sup>'.format(self.As_)
-                    yield self.format('x', digits)
-                    if self.x > self.xb:
-                        yield '给定的受压区钢筋面积偏小，请增大后再计算，或不给出受压区钢筋面积。'
-                    if self.x < 2*self.as_:
-                        yield '给定的受压钢筋面积As\'过大，受压钢筋未屈服。'
-                    else:
-                        yield tmp1.format(digits, self._As, self.Asmin,'&gt;' if self._As > self.Asmin else '&lt;', '')
+                    yield '已知{}'.format(self.format('As_'))
+                    if self.x < 2*self.as_ or self.x > self.h:
+                        yield '{} {} {}'.format(
+                            self.format('x', digits),
+                            '&lt;' if self.x < 2*self.as_ else '&gt;',
+                            self.format('eqr', omit_name=True, eq='2 as_') if self.x < 2*self.as_ else \
+                                self.format('h', omit_name=True)
+                        )
+                        yield '给定的受压钢筋面积As\'过大，受压钢筋未屈服。对受压区钢筋As\'取矩，计算得：'
+                        yield self.format('As', digits, eq = 'N*e_/(fy*(h0-as_))', value = self._As)
+                    elif self.x > self.xb:
+                        yield '{} {} {}'.format(
+                            self.format('x', digits),
+                            '&gt;',
+                            self.format('xb', omit_name=True)
+                        )
+                        yield '给定的受压区钢筋面积偏小，按As和As\'均为未知的情况计算。'
+                    yield '{} {} {}'.format(
+                        self.format('As', digits, omit_name=True, value = self._As),
+                        '&lt;' if self._As < self.Asmin else '&ge;',
+                        self.format('Asmin', omit_name=True)
+                    )
                     if self._As < self.Asmin:
-                        yield '故取 ' + tmp2.format(digits, self.As, '')
+                        yield '故取 {}'.format(self.format('As', digits, omit_name=True))
             else:
                 # 小偏心
                 yield tmp1.format(digits,self.As, self.Asmin,'=','')
@@ -1120,7 +1134,7 @@ class shear_capacity(abacus, material_base):
     """
     __title__ = '斜截面抗剪承载力'
     __inputs__ = OrderedDict((
-        ('γ0',('<i>γ</i><sub>0</sub>','',1.0,'重要性系数')),
+        ('γ0',('<i>γ</i><sub>0</sub>','',1.1,'重要性系数')),
         ('α1',('<i>α</i><sub>1</sub>','',1.0,'异号弯矩影响系数','简支梁和连续梁近边支点取1.0；连续梁和悬臂梁近中支点取0.9')),
         ('α2',('<i>α</i><sub>2</sub>','',1.0,'预应力提高系数','钢筋混凝土取1.0；预应力混凝土取1.25')),
         ('α3',('<i>α</i><sub>3</sub>','',1.0,'受压翼缘的影响系数','矩形截面取1.0；T形和I形截面取1.1')),

@@ -26,7 +26,7 @@ class FreeTopColumnForce(abacus):
         ('accident', 1.2, (0, 200, 0, 0, 0, 0))
         ]
 
-    __title__ = '上端自由独柱'
+    __title__ = '上端自由独柱内力计算'
     __inputs__ = OrderedDict([
         ('code',('规范','','JTG','','',{'GB':'国家标准(GB)','JTG':'交通行业规范(JTG)','TB':'铁路行业规范(TB)'})),
         ('section',('截面形状','','rectangle','','',{'rectangle':'矩形或倒T形','Tshape':'T形或I形','round':'圆形'})),
@@ -217,7 +217,7 @@ class Column(abacus):
         'section':{
             'rectangle':('d','bf','hf','bf_','hf_'),
             'Tshape':('d'),
-            'round':('b','h','bf','hf','bf_','hf_'),
+            'round':('b','h','bf','hf','bf_','hf_','As_'),
             },
         }
 

@@ -456,11 +456,14 @@ class eccentric_compression(abacus):
                 f_ξ = lambda N,e,ξb,α1,fc,b,h0,β1,as_:\
                         (N-ξb*α1*fc*b*h0)/((N*e-0.43*α1*fc*b*h0**2)/(β1-ξb)/(h0-as_)+α1*fc*b*h0)+ξb
                 ξ = f_ξ(N,e,ξb,α1,fc,b,h0,β1,as_)
-                As_ = As = cls.f_As_(N,e,α1,fc,b,ξ*h0,h0,fy,as_)
+                x = ξ*h0
+                As_ = As = cls.f_As_(N,e,α1,fc,b,x,h0,fy,as_)
         return (large_eccentric, x, As, _As, As_, _As_)
     
     def solve(self):
         self.h0 = self.h - self.a_s
+        if self.h0 < 0:
+            raise InputError(self, 'h', '截面高度有误')
         self.ea = max(20,self.h/30) # 6.2.5
         if self.option_m2:
             self.A = self.b*self.h
@@ -632,16 +635,21 @@ class eccentric_compression(abacus):
                         yield '故取 ' + tmp2.format(digits, self.As_, '\'')
         else:
             # 对称配筋
-            yield self.format('x', digits)
             if self.large_eccentric:
                 # 大偏心
+                yield self.format('x', digits)
                 if self.x < 2*self.as_:
                     yield 'ep = ei-h/2+as_ = {1:.{0}f} mm'.format(digits,self.ep)
                 yield '钢筋面积 {}'.format(self.format('As', digits, omit_name=True, eq='As_'))
             else:
                 # 小偏心
-                yield 'ξ = (N-ξb*α1*fc*b*h0)/((N*e-0.43*α1*fc*b*h0<sup>2</sup>)/(β1-ξb)/(h0-as_)+α1*fc*b*h0)+ξb = {1:.{0}f}'.format(digits,self.ξ)
-                yield tmp1.format(digits, self.As, self.Asmin,'&gt;' if self.As > self.Asmin else '&lt;', '')
+                eq = '((N-ξb*α1*fc*b*h0)/((N*e-0.43*α1*fc*b*h0<sup>2</sup>)/(β1-ξb)/(h0-as_)+α1*fc*b*h0)+ξb)*h0'
+                yield self.format('x', digits, eq=eq)
+                yield '{} {} {}'.format(
+                    self.format('As', digits), 
+                    '&ge;' if self.As >= self.Asmin else '&lt;', 
+                    self.format('Asmin', digits, omit_name=True)
+                    )
     
 if __name__ == '__main__':
     import doctest

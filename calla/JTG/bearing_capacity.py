@@ -717,16 +717,21 @@ class eccentric_compression(gb_eccentric_compression, material_base):
                         yield '故取 ' + tmp2.format(digits, self.As_, '\'')
         else:
             # 对称配筋
-            yield self.format('x', digits)
             if self.large_eccentric:
                 # 大偏心
+                yield self.format('x', digits)
                 if self.x < 2*self.as_:
                     yield 'ep = ei-h/2+as_ = {1:.{0}f} mm'.format(digits,self.ep)
                 yield '钢筋面积 {}'.format(self.format('As', digits, omit_name=True, eq='As_'))
             else:
                 # 小偏心
-                yield 'ξ = (N-ξb*fc*b*h0)/((N*e-0.43*fc*b*h0<sup>2</sup>)/(β1-ξb)/(h0-as_)+fc*b*h0)+ξb = {1:.{0}f}'.format(digits,self.ξ)
-                yield tmp1.format(digits, self.As, self.Asmin,'&gt;' if self.As > self.Asmin else '&lt;', '')
+                eq = '((Nd-ξb*fcd*b*h0)/((Nd*e-0.43*fcd*b*h0<sup>2</sup>)/(β-ξb)/(h0-as_)+fcd*b*h0)+ξb)*h0'
+                yield self.format('x', digits, eq=eq)
+                yield '{} {} {}'.format(
+                    self.format('As', digits), 
+                    '&ge;' if self.As >= self.Asmin else '&lt;', 
+                    self.format('Asmin', digits, omit_name=True)
+                    )
 
 class biaxial_eccentric(abacus):
     """

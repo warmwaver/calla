@@ -576,7 +576,7 @@ class diaphragm(abacus):
         'option':{
             '1':('Ab','Lb','fd','shape','Ab','Lb','β','b','h','Iu','Il','Ih'),
             '2':('tD','β','b','h','Iu','Il','Ih','fvd'),
-            '3':('Ac','Ab','Lb','tD','fvd','Td','fd','A')},
+            '3':('Ac','shape','Ab','Lb','tD','fvd','Td','fd','A')},
         }
     @staticmethod
     def fKmin(E,Ld,Ifu,Ifl,Bu,Bl,Fu,Fl,Fh,H,b1,b2):
@@ -585,7 +585,7 @@ class diaphragm(abacus):
         f = Ifu/Bu+(2*Bu+Bl)/12*Fh
         α1 = e/(e+f)*(Bu+Bl)/4*H
         α2 = f/(e+f)*(Bu+Bl)/4*H
-        Idw = (α1**2*Fu*(1+2*b1/Bu)**2+α1**2*Fl*(1+2*b2/Bl)**2+2*Fh*(α1**2-α1*α2+α2**2))/3 # (8-3)
+        Idw = (α1**2*Fu*(1+2*b1/Bu)**2+α2**2*Fl*(1+2*b2/Bl)**2+2*Fh*(α1**2-α1*α2+α2**2))/3 # (8-3)
         Kmin = 20*E*Idw/Ld**3 # (8-2)
         return (e,f,α1,α2,Idw,Kmin)
 
@@ -643,7 +643,7 @@ class diaphragm(abacus):
         yield self.format('f',digits,eq='Ifu/Bu+(2 Bu+Bl)/12 Fh')
         yield self.format('α1',digits,eq='e/(e+f) (Bu+Bl)/4 H')
         yield self.format('α2',digits,eq='f/(e+f) (Bu+Bl)/4 H')
-        yield self.format('Idw',digits,eq='(α1<sup>2</sup> Fu (1+2 b1/Bu)<sup>2</sup>+α1<sup>2</sup> Fl (1+2 b2/Bl)<sup>2</sup>+2 Fh (α1<sup>2</sup>-α1 α2+α2<sup>2</sup>))/3')
+        yield self.format('Idw',digits,eq='(α1<sup>2</sup> Fu (1+2 b1/Bu)<sup>2</sup>+α2<sup>2</sup> Fl (1+2 b2/Bl)<sup>2</sup>+2 Fh (α1<sup>2</sup>-α1 α2+α2<sup>2</sup>))/3')
         ok = self.K >= self.Kmin
         if self.option == '1':
             eq = '4 G Ac tD'

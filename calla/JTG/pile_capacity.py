@@ -8,7 +8,7 @@ __all__ = [
     'end_bearing_pile_capacity',
     'pile_width',
     'pile_effects',
-    'pile_group_effects'
+    'pile_group_effects_P06'
     ]
 
 from collections import OrderedDict
@@ -682,7 +682,7 @@ class pile_effects(abacus):
         t.insert(0, ['桩深(m)','弯矩M','剪力Q'])
         yield html.table2html(t, digits)
     
-class pile_group_effects(abacus):
+class pile_group_effects_P06(abacus):
     """
     按m法计算多排桩（群桩）作用力
     αh>2.5时，多排竖直桩桥台桩侧面受土压力作用时的作用效应及位移。
@@ -701,9 +701,9 @@ class pile_group_effects(abacus):
         '缺乏试验资料时按表P.0.2-1查用')),
         ('C0',('<i>C</i><sub>0</sub>','kN/m<sup>3</sup>',300000,'桩端地基竖向抗力系数',
         '非岩石地基C0=m0*h, h≥10；岩石地基查表P.0.2-2')),
-        ('P',('<i>P</i>','kN',0,'承台底面竖直力','荷载作用于承台底面原点口处的竖直力')),
-        ('H',('<i>H</i>','kN',0,'承台底面水平力','荷载作用于承台底面原点口处的水平力')),
-        ('M',('<i>M</i>','kN·m',0,'承台底面弯矩','荷载作用于承台底面原点口处的弯矩')),
+        ('P',('<i>P</i>','kN',0,'承台底面竖直力','荷载作用于承台底面原点处的竖直力')),
+        ('H',('<i>H</i>','kN',0,'承台底面水平力','荷载作用于承台底面原点处的水平力')),
+        ('M',('<i>M</i>','kN·m',0,'承台底面弯矩','荷载作用于承台底面原点处的弯矩')),
         ('bottom_fixed',('桩底嵌固','',False,'', '', {True:'是',False:'否'})),
         ('xi',('<i>x</i><sub>i</sub>','m',[-1.5, 1.5],'第i排桩至承台中心的距离')),
         ('Ki',('<i>K</i><sub>i</sub>','',[2, 2],'第i排桩根数')),
@@ -721,12 +721,15 @@ class pile_group_effects(abacus):
         ('kh',('<i>k</i><sub>h</sub>','',1.0,'土抗力对变形的影响系数')),
         ('x0',('<i>x</i><sub>0</sub>','m',0,'水平位移')),
         ('φ0',('<i>φ</i><sub>0</sub>','rad',0,'转角')),
-        ('Mmax',('<i>M</i><sub>max</sub>','kN·m',0,'桩身最大弯矩')),
-        ('z_Mmax',('<i>z</i><sub>Mmax</sub>','m',0,'最大弯矩处桩身深度')),
-        ('Qmax',('<i>Q</i><sub>max</sub>','kN',0,'桩身最大剪力')),
-        ('z_Qmax',('<i>z</i><sub>Qmax</sub>','m',0,'最大剪力处桩身深度')),
-        ('Mz',('<i>M</i><sub>z</sub>','kN·m',0,'深度z处桩身弯矩')),
-        ('Qz',('<i>Q</i><sub>z</sub>','kN',0,'深度z处桩身剪力')),
+        # ('Mmax',('<i>M</i><sub>max</sub>','kN·m',0,'桩身最大弯矩')),
+        # ('z_Mmax',('<i>z</i><sub>Mmax</sub>','m',0,'最大弯矩处桩身深度')),
+        # ('Qmax',('<i>Q</i><sub>max</sub>','kN',0,'桩身最大剪力')),
+        # ('z_Qmax',('<i>z</i><sub>Qmax</sub>','m',0,'最大剪力处桩身深度')),
+        ('γcc',('<i>γ</i><sub>cc</sub>','kN/m',0,'承台产生竖向单位位移时，桩顶竖向反力之和')),
+        ('γaa',('<i>γ</i><sub>aa</sub>','kN/m',0,'承台产生水平向单位位移时，桩顶水平反力之和')),
+        ('γaβ',('<i>γ</i><sub>aβ</sub>','kN/rad',0,'承台绕原点0产生单位转角，桩顶水平反力之和')),
+        ('γβa',('<i>γ</i><sub>βa</sub>','kN·m/m',0,'水平方向产生单位位移时，桩柱顶反弯矩之和')),
+        ('γββ',('<i>γ</i><sub>ββ</sub>','kN·m/rad',0,'承台发生单位转角时，桩顶反弯矩之和')),
         ('S',('<i>S</i>','m',0,'桩底面中心距')),
         ('c',('<i>c</i>','m',0,'承台竖直位移')),
         ('a',('<i>a</i>','m',0,'承台水平位移')),
@@ -829,9 +832,7 @@ class pile_group_effects(abacus):
         if l0 <= 0:
             self.γcβ = γcβ; self.γβc = γβc
         self.c = c; self.a = a; self.β = β
-        self.L1 = self.S = S; self.b2 = b2; 
-
-        return
+        self.L1 = self.S = S; self.b2 = b2
 
     def solve(self):
         self.validate('non-negative', 'l0')
@@ -841,7 +842,6 @@ class pile_group_effects(abacus):
         self.n = len(self.xi) if hasattr(self.xi, '__len__') else 1 # 平行于水平力作用方向的一排桩的桩数
         self.ξ = 1 if self.bottom_fixed else 2/3
         self.solveP06()
-        return
 
 def _test1():
     from math import pi

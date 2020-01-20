@@ -5,6 +5,7 @@
 
 __all__ = [
     'rib_size',
+    'flange_size',
     'compressed_rib',
     'effective_section',
     'stability',
@@ -50,6 +51,35 @@ class rib_size(abacus):
         ok = self.eql <= self.eqr
         yield '{} {} {}，{}满足规范要求。'.format(
             self.format('eql', digits,eq='hs/ts'), '≤' if ok else '&gt;', 
+            self.format('eqr', digits=digits, eq = '12√(345/fy)', omit_name=True),
+            '' if ok else '不')
+
+class flange_size(abacus):
+    """
+    钢板梁翼缘截面尺寸验算
+    《公路钢结构桥梁设计规范》（JTG D64-2015） 第7.2.1节
+    """
+    __title__ = '受压板件加劲肋几何尺寸验算'
+    __inputs__ = OrderedDict((
+        ('wfl',('<i>w</i><sub>fl</sub>','mm',100,'加劲肋宽度')),
+        ('tfl',('<i>t</i><sub>fl</sub>','mm',10,'加劲肋厚度')),
+        ('fyk',('<i>f</i><sub>yk</sub>','mm',345,'钢材的屈服强度')),
+        ))
+    __deriveds__ = OrderedDict((
+        ('eql',('','',0,'板肋的宽厚比')),
+        ('eqr',('','',0,'','')),
+        ))
+
+    def solve(self):
+        self.eql = self.wfl/self.tfl
+        self.eqr = 12*sqrt(345/self.fyk)
+
+    def _html(self, digits=2):
+        for para in ('wfl','tfl','fyk'):
+            yield self.format(para, digits=None)
+        ok = self.eql <= self.eqr
+        yield '{} {} {}，{}满足规范要求。'.format(
+            self.format('eql', digits,eq='wfl/tfl'), '≤' if ok else '&gt;', 
             self.format('eqr', digits=digits, eq = '12√(345/fy)', omit_name=True),
             '' if ok else '不')
 

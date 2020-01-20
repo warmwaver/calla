@@ -1148,7 +1148,7 @@ class shear_capacity(abacus, material_base):
         ('b',('<i>b</i>','mm',500,'抗剪计算宽度','斜截面剪压区对应正截面处，矩形截面宽度，或T形和I形截面腹板宽度')),
         ('h0',('<i>h</i><sub>0</sub>','mm',900,'截面有效高度')),
         material_base.concrete_item,
-        ('fcuk',('<i>f</i><sub>cu,k</sub>','MPa',50,'混凝土立方��抗压强度标准值','取混凝土标号')),
+        ('fcuk',('<i>f</i><sub>cu,k</sub>','MPa',50,'混凝土立方体抗压强度标准值','取混凝土标号')),
         ('fcd',('<i>f</i><sub>cd</sub>','N/mm<sup>2</sup>',22.4,'混凝土轴心抗压强度设计值')),
         ('ftd',('<i>f</i><sub>td</sub>','MPa',1.83,'混凝土轴心抗拉强度设计值')),
         material_base.rebar_item,

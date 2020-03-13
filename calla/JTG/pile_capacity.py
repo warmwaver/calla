@@ -721,16 +721,12 @@ class pile_group_effects_P06(abacus):
         ('kh',('<i>k</i><sub>h</sub>','',1.0,'土抗力对变形的影响系数')),
         ('x0',('<i>x</i><sub>0</sub>','m',0,'水平位移')),
         ('φ0',('<i>φ</i><sub>0</sub>','rad',0,'转角')),
-        # ('Mmax',('<i>M</i><sub>max</sub>','kN·m',0,'桩身最大弯矩')),
-        # ('z_Mmax',('<i>z</i><sub>Mmax</sub>','m',0,'最大弯矩处桩身深度')),
-        # ('Qmax',('<i>Q</i><sub>max</sub>','kN',0,'桩身最大剪力')),
-        # ('z_Qmax',('<i>z</i><sub>Qmax</sub>','m',0,'最大剪力处桩身深度')),
+        ('S',('<i>S</i>','m',0,'桩底面中心距')),
         ('γcc',('<i>γ</i><sub>cc</sub>','kN/m',0,'承台产生竖向单位位移时，桩顶竖向反力之和')),
         ('γaa',('<i>γ</i><sub>aa</sub>','kN/m',0,'承台产生水平向单位位移时，桩顶水平反力之和')),
         ('γaβ',('<i>γ</i><sub>aβ</sub>','kN/rad',0,'承台绕原点0产生单位转角，桩顶水平反力之和')),
         ('γβa',('<i>γ</i><sub>βa</sub>','kN·m/m',0,'水平方向产生单位位移时，桩柱顶反弯矩之和')),
         ('γββ',('<i>γ</i><sub>ββ</sub>','kN·m/rad',0,'承台发生单位转角时，桩顶反弯矩之和')),
-        ('S',('<i>S</i>','m',0,'桩底面中心距')),
         ('c',('<i>c</i>','m',0,'承台竖直位移')),
         ('a',('<i>a</i>','m',0,'承台水平位移')),
         ('β',('<i>β</i>','rad',0,'承台转角')),
@@ -768,7 +764,7 @@ class pile_group_effects_P06(abacus):
             Si = abs(xi[i] - xi[i-1])
             if S <= 0 or S < Si:
                 S = Si
-        self.S = L1 = S
+        L1 = S - d
 
         # 规范中h1在P.0.1、P.0.2、P.0.3中的意义各不相同，全局h1取P.0.3中的意义，其余加后缀_P0N以示区别
         h1_P01 = min(3*(d+1), h)
@@ -832,7 +828,7 @@ class pile_group_effects_P06(abacus):
         if l0 <= 0:
             self.γcβ = γcβ; self.γβc = γβc
         self.c = c; self.a = a; self.β = β
-        self.L1 = self.S = S; self.b2 = b2
+        self.L1 = L1; self.S = S; self.b2 = b2
 
     def solve(self):
         self.validate('non-negative', 'l0')
@@ -840,7 +836,8 @@ class pile_group_effects_P06(abacus):
         self.I0 = self.I
         self.npiles = sum(self.Ki) # 总桩数
         self.n = len(self.xi) if hasattr(self.xi, '__len__') else 1 # 平行于水平力作用方向的一排桩的桩数
-        self.ξ = 1 if self.bottom_fixed else 2/3
+        if self.ξ <= 0:
+            self.ξ = 1 if self.bottom_fixed else 0.5
         self.solveP06()
 
 def _test1():

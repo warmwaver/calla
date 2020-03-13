@@ -752,6 +752,7 @@ class biaxial_eccentric(abacus):
         ))
     
     def solve(self):
+        self.validate('positive', 'Nux', 'Nuy', 'Nu0')
         fNu = lambda Nux,Nuy,Nu0:1/(1/Nux+1/Nuy-1/Nu0)
         self.Nu = fNu(self.Nux,self.Nuy,self.Nu0)
         self.eql = self.γ0*self.Nd

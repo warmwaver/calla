@@ -12,7 +12,8 @@ __all__ = [
 
 from math import pi, sin, sqrt
 from collections import OrderedDict
-from calla import abacus, numeric, InputError
+import warnings
+from calla import abacus, numeric, InputError, InputWarning
 
 class fc_rect(abacus):
     """矩形截面或翼缘位于受拉边的倒T形截面混凝土构件正截面受弯承载力计算
@@ -306,7 +307,7 @@ class fc_round(abacus):
     """
     __title__ = '圆形截面承载力'
     __inputs__ = OrderedDict((
-        ('option',('选项','','1','','',{'0':'根据配筋复核承载力','1':'根据内力设计值计算配筋'})),
+        ('option',('','','design','选项','',{'review':'根据配筋复核承载力','design':'根据内力设计值计算配筋'})),
         ('α1',('<i>α</i><sub>1</sub>','',1.0,'系数')),
         ('fc',('<i>f</i><sub>c</sub>','N/mm<sup>2</sup>',14.3,'混凝土轴心抗压强度设计值')),
         ('fy',('<i>f</i><sub>y</sub>','N/mm<sup>2</sup>',360,'普通钢筋抗拉强度设计值')),
@@ -318,12 +319,13 @@ class fc_round(abacus):
         ))
     __deriveds__ = OrderedDict((
         ('A',('<i>A</i>','mm<sup>2</sup>',pi/4*800**2,'圆形截面面积')),
-        ('α',('<i>α</i>','',0,'受压区域圆心角与2π的比值')),
-        ('e0',('<i>e</i><sub>0</sub>','mm',0,'轴向压力对截面重心的偏心距')),
-        ('ea',('<i>e</i><sub>a</sub>','mm',0,'附加偏心距'))
+        ('α',('<i>α</i>','',0.0,'受压区域圆心角与2π的比值')),
+        ('e0',('<i>e</i><sub>0</sub>','mm',0.0,'轴向压力对截面重心的偏心距')),
+        ('ea',('<i>e</i><sub>a</sub>','mm',0.0,'附加偏心距')),
+        ('Mu',('<i>M</i><sub>u</sub>','kN·m',0.0,'抗弯承载力')),
         ))
     __toggles__ = {
-        'option':{'0':(), '1':('As',)},
+        'option':{'review':(), 'design':('As',)},
         }
     
     αt = lambda α:1.25-2*α if α<0.625 else 0
@@ -334,6 +336,7 @@ class fc_round(abacus):
     f_M = lambda α,α1,fc,fy,r,rs,A,As:2/3*α1*fc*A*r*sin(pi*α)**3/pi\
          +fy*As*rs*(sin(pi*α)+sin(pi*fc_round.αt(α)))/pi
     
+    @staticmethod
     def f_Ne(r, N, M):
         e0=M/N
         ea=r/30
@@ -342,7 +345,8 @@ class fc_round(abacus):
         ei=e0+ea
         M=N*ei
         return M
-         
+   
+    @staticmethod     
     def solve_As(α1,fc,fy,r,rs,A,N,M):
         """
         求解alpha和As,已知N和M
@@ -376,7 +380,8 @@ class fc_round(abacus):
         As = fc_round.f_As(α,α1,fc,fy,A,N)
         return (α,As)
     
-    def solve_M(α1,fc,fy,r,rs,A,As,N):
+    @classmethod
+    def solve_M(cls, α1,fc,fy,r,rs,A,As,N):
         """
         求解alpha和M,已知N和As
         """
@@ -396,31 +401,49 @@ class fc_round(abacus):
             except:
                 pass
         if α != None:
-            Mbc = fc_round.f_M(α,α1,fc,fy,r,rs,A,As)
-            return (α, Mbc)
-        return None
+            Mu = cls.f_M(α,α1,fc,fy,r,rs,A,As)
+            return (α, Mu)
+        raise numeric.NumericError('No real solution')
             
     def solve(self):
-        self._M = fc_round.f_Ne(self.r, self.N*1e3, self.M*1e6)*1e-6
+        self._M = self.M if self.N==0 else self.f_Ne(self.r, self.N*1e3, self.M*1e6)*1e-6
         self.A = pi*self.r**2
-        if self.option == '0':
-            self.α,self.Mbc = fc_round.solve_M(
-                self.α1,self.fc,self.fy,self.r,self.rs,self.A,self.As,self.N*1e3)
-            self.Mbc *= 1e-6
+        #self.has_solution = True
+        if self.option == 'review':
+            try:
+                self.α,self.Mu = self.solve_M(
+                    self.α1,self.fc,self.fy,self.r,self.rs,self.A,self.As,self.N*1e3)
+                self.Mu *= 1e-6
+            except:
+                # No solution means bearing capacity require can't be met.
+                #self.has_solution = False
+                self.α = 0
+                self.Mu = 0
         else:
-            self.α,self.As = fc_round.solve_As(
+            if self.option != 'design':
+                warnings.warn('Unknown input for "option", use "design" instead.', InputWarning)
+            self.α,self.As = self.solve_As(
                 self.α1,self.fc,self.fy,self.r,self.rs,self.A,self.N*1e3,self.M*1e6)
     
     def _html(self,digits=2):
-        yield '圆形截面抗弯承载力计算'
-        for item in abacus._html(self, digits):
-            yield item
-        if self.option == '0':
-            ok = self.Mbc > self._M
-            yield '抗弯承载力{1:.{0}f} kN·m {2} 偏心弯矩{3:.{0}f} kN·m，{4}满足规范要求。'.format(
-                digits, self.Mbc, '&gt;' if ok else '&lt;', self._M,'' if ok else '不')
+        for attr in self.inputs:
+            if self.option == 'review' or attr != 'As':
+                yield self.format(attr)
+        for attr in ('A', 'α'):
+            yield self.format(attr)
+        if hasattr(self, 'e0'):
+            yield self.format('e0')
+            yield self.format('ea')
+        if self.option == 'review':
+            #yield '圆形截面抗弯承载力计算'
+            ok = self.Mu > self._M
+            yield '{} {} {}，{}满足规范要求。'.format(
+                self.format('Mu',digits), 
+                '&gt;' if ok else '&lt;', 
+                self.format('M', digits, value=self._M),
+                '' if ok else '不')
         else:
-            yield self.format('As')
+            yield self.format('As', digits)
             
 
 if __name__ == '__main__':

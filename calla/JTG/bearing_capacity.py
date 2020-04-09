@@ -1123,6 +1123,7 @@ class biaxial_eccentric(abacus):
         ))
     
     def solve(self):
+        self.validate('positive', 'Nux', 'Nuy', 'Nu0')
         fNu = lambda Nux,Nuy,Nu0:1/(1/Nux+1/Nuy-1/Nu0)
         self.Nu = fNu(self.Nux,self.Nuy,self.Nu0)
         self.eql = self.γ0*self.Nd
@@ -1426,7 +1427,7 @@ class bc_round(abacus, material_base):
         if α != None:
             Mu = cls.f_M(α,fc,fy,r,rs,A,As)
             return (α, Mu)
-        return None
+        raise numeric.NumericError('No real solution')
             
     def solve(self):
         self.M = self.Md
@@ -1436,10 +1437,16 @@ class bc_round(abacus, material_base):
             self.e0, self.η, self.ζ1, self.ζ2 = f_η(self.Nd*1e3, self.Md*1e6, self.h, self.h0, self.l0)
             self.M = self.Nd*self.η*self.e0*1e-3 # kNm
         self.A = pi*self.r**2
+        self.has_solution = True
         if self.option == 'review':
-            self.α,self.Mud = self.solve_M(
-                self.fcd,self.fsd,self.r,self.rs,self.A,self.As,self.γ0*self.Nd*1e3)
-            self.Mud *= 1e-6 # kNm
+            try:
+                self.α,self.Mud = self.solve_M(
+                    self.fcd,self.fsd,self.r,self.rs,self.A,self.As,self.γ0*self.Nd*1e3)
+                self.Mud *= 1e-6 # kNm
+            except:
+                self.has_solution = False
+                self.α = 0
+                self.Mud = 0
             if hasattr(self,'e0') and self.e0>0:
                 self.Nud = self.Mud/(self.η*self.e0*1e-3) # kN
         else:
@@ -1462,7 +1469,10 @@ class bc_round(abacus, material_base):
             yield self.format('ζ1', digits=digits, eq='0.2+2.7*e0/h0')
             yield self.format('ζ2', digits=digits, eq='1.15-0.01*l0/h')
             yield self.format('η', digits=digits, eq='1+1/(1300*e0/h0)*(l0/h)<sup>2</sup>*ζ1*ζ2')
-        yield '根据5.3.8节内力平衡方程求解得：'
+        if self.has_solution:
+            yield '根据5.3.8节内力平衡方程求解得：'
+        else:
+            yield '5.3.8节内力平衡方程无解，故取'
         yield self.format('α',digits=digits)
         if ec:
             self.eql1 = self.γ0*self.Nd

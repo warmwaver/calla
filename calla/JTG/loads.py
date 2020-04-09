@@ -9,7 +9,7 @@ __all__ = [
     'wind_element'
     ]
 
-from calla import abacus
+from calla import abacus, InputError, numeric
 from collections import OrderedDict
 from math import pi, sqrt, sin, cos, tan
 
@@ -99,7 +99,11 @@ class earth_pressure(abacus):
     def active_earth_pressure_live(cls, φ, α, B, γ, H, G, δ = None):
         δ = δ or φ/2
         ω = α+δ+φ
-        tanθ = -tan(ω)+sqrt((1/tan(φ)+tan(ω))*(tan(ω)-tan(α)))
+        tmp = (1/tan(φ)+tan(ω))*(tan(ω)-tan(α))
+        if tmp<0:
+            raise numeric.NumericError('公式(4.2.3-7)tanθ=-tan(ω)+sqrt((1/tan(φ)+tan(ω))*(tan(ω)-tan(α)))\
+计算时根号中出现负值，请检查角度输入是否合理')
+        tanθ = -tan(ω)+sqrt(tmp) # (4.2.3-7)
         l0 = H*(tan(α)+tanθ)
         h = G/B/l0/γ # (4.3.4-1)
         β = 0
@@ -109,6 +113,8 @@ class earth_pressure(abacus):
         return (l0, h, E, C)
     
     def solve(self):
+        if self.α<0 or self.α>=90:
+            raise InputError(self, 'α', '应0 &le; α &lt; 90')
         self.ξ, self.sep = earth_pressure.static_earth_pressure(
             self.φ*pi/180, self.B, self.γ, self.H)
         φ = self.φ*pi/180

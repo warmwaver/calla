@@ -7,6 +7,7 @@ __all__ = [
     'fc_T',
     'axial_compression',
     'eccentric_compression',
+    'eccentric_compression_Ishape',
     'biaxial_eccentric',
     'axial_tension',
     'bc_round',
@@ -45,9 +46,9 @@ def f_ξb(fcuk, fsk):
         if fsk <= 300:
             ξb = 0.58 if fcuk<=50 else (0.56 if fcuk<= 60 else (0.54 if fcuk<=70 else ξb))
         elif fsk <= 400:
-            ξb = 0.56 if fcuk<=50 else (0.54 if fcuk<= 60 else (0.52 if fcuk<=70 else ξb))
-        elif fsk <= 500:
             ξb = 0.53 if fcuk<=50 else (0.51 if fcuk<= 60 else (0.49 if fcuk<=70 else ξb))
+        elif fsk <= 500:
+            ξb = 0.49 if fcuk<=50 else (0.47 if fcuk<= 60 else (0.46 if fcuk<=70 else ξb))
         else:
             ξb = 0.40 if fcuk<=50 else (0.38 if fcuk<= 60 else (0.36 if fcuk<=70 else 0.35))
         return ξb
@@ -453,8 +454,10 @@ class eccentric_compression(gb_eccentric_compression, material_base):
         ('ζ2',('<i>ζ</i><sub>2</sub>','',0,'构件长细比对截面曲率的影响系数')),
         ('x',('<i>x</i>','mm',0,'截面受压区高度')),
         ('xb',('<i>x</i><sub>b</sub>','mm',0,'截面界限受压区高度')),
+        ('ξ',('<i>ξ</i>','',0,'相对受压区高度')),
+        ('ξb',('<i>ξ</i><sub>b</sub>','',0,'相对界限受压区高度')),
         ('Nu',('<i>N</i><sub>u</sub>','kN',0,'截面受压承载力')),
-        ('Mu',('','kN·m',0,'截面受弯承载力')),
+        ('Mu',('<i>M</i><sub>u</sub>','kN·m',0,'截面受弯承载力')),
         ('γ0Nd',('','kN',0,'')),
         ('γ0Md',('','kN·m',0,'')),
         ('σs', ('<i>σ</i><sub>s</sub>','',0,'')),
@@ -473,11 +476,16 @@ class eccentric_compression(gb_eccentric_compression, material_base):
     # def fNu(fcd,b,x,fsd_,As_,σs,As,fpd_,σp0_,σp,Ap_,Ap):
     #     return fcd*b*x+fsd_*As_+(fpd_-σp0_)*Ap_-σs*As-σp*Ap
 
-    # (5.3.4-2)
+    # (5.3.4-2) 与GB 相同
+    # @staticmethod
+    # def fMu(fcd,b,x,h0,fsd_,As_,as_,fpd_,σp0_,Ap_,ap_):
+    #     return fcd*b*x*(h0-x/2)+fsd_*As_*(h0-as_)+(fpd_-σp0_)*Ap_*(h0-ap_)
+
+    # (5.3.4-4)
     @staticmethod
-    def fMu(fcd,b,x,h0,fsd_,As_,as_,fpd_,σp0_,σp,Ap_,Ap,ap_):
-        return fcd*b*x*(h0-x/2)+fsd_*As_*(h0-as_)+(fpd_-σp0_)*Ap_*(h0-ap_)
-    #f_e = lambda e0,ea,h,a: e0+ea+h/2-a
+    def fMu_(fcd,b,x,h0,fsd_,As_,as_,fpd_,σp0_,Ap_,ap_):
+        return fcd*b*x*(h0_-h/2)+fsd_*As*(h0_-a_s)+(fpd_-σp0)*Ap*(h0_-ap)
+    
     @staticmethod
     def f_σsi(β,Es,εcu,h0i,x): 
         '''5.1.5节 (5.1.5-1)'''
@@ -503,14 +511,20 @@ class eccentric_compression(gb_eccentric_compression, material_base):
         '''5.2.4节 (5.2.4-2)'''
         return fpd*Ap*(h-ap-as_)+fsd*As*(h-a_s-as_)-(fpd_-σp0_)*Ap_*(ap_-as_)
     
-    def solve(self):
-        self.validate('positive','Nd')
+    def init_params(self):
+        ''' 初始化基本计算参数 '''
+        self.validate('positive', 'b', 'h', 'Nd')
         # 5.1.4节
         self.β = 0.8 if self.fcuk <= 50 else 0.8+(self.fcuk-50)*(0.74-0.8)/(80-50)
         # strictly, a = (σs*As*a_s+σp*Ap*ap)/(σs*As+σp*Ap)
         self.a = self.a_s if self.Ap == 0 else \
             (self.fsd*self.As*self.a_s+(self.fpd-self.σp0)*self.Ap*self.ap)/(self.fsd*self.As+(self.fpd-self.σp0)*self.Ap)
         self.h0 = self.h - self.a
+        # 式(5.3.5-3)验算时需要如下参数
+        self.a_ = self.as_ if self.Ap <= 0 else \
+            (self.fsd_*self.As_*self.a_s+(self.fpd_-self.σp0_)*self.Ap_*self.ap_)\
+                /(self.fsd_*self.As_+(self.fpd_-self.σp0_)*self.Ap_)
+        self.h0_ = self.h - self.a_
         # 计算偏心距增大系数
         self.A = self.b*self.h
         self.I = self.b*self.h**3/12
@@ -520,16 +534,21 @@ class eccentric_compression(gb_eccentric_compression, material_base):
             self.η = 1
         ei = self.η*self.e0
         self.e = ei+self.h/2-self.a # (5.3.4-3)
+        self.e_ = ei-self.h/2+self.a_
         self.es = ei+self.h/2-self.a_s
         self.ep = ei+self.h/2-self.ap
         self.es_ = ei-self.h/2+self.as_
         self.ep_ = ei-self.h/2+self.ap_
+        self.ei = ei
         self.γ0Nd = self.γ0*self.Nd
         self.β = fβ(self.fcuk)        
         self.εcu = f_εcu(self.fcuk)
         self.ξb = f_ξb(self.fcuk, self.fsk)
         self.xb = self.ξb*self.h0
         self.Asmin = self.ρmin*self.b*self.h
+
+    def solve(self):
+        self.init_params()
         if self.option == 'review': 
             if self.symmetrical:
                 self.As_ = self.As
@@ -538,37 +557,56 @@ class eccentric_compression(gb_eccentric_compression, material_base):
                 self.Es, self.fsd, self.As, self.es, self.fsd_, self.As_, self.as_, self.es_, 
                 self.Ep, self.fpd, self.σp0, self.Ap, self.ep, self.fpd_, self.σp0_, self.Ap_, self.ap_, self.ep_,
                 self.εcu, self.ξb) 
+            self.σs = self.f_σsi(self.β, self.Es, self.εcu, self.h0, self.x)
+            self.σp = self.f_σpi(self.β, self.Ep, self.εcu, self.h0, self.x, self.σp0)
             self.Nu = Nu/1000 #kN
-            # 5.2.4节
-            self.σp_ = self.fpd_-self.σp0
+            self.Mu = self.fMu(
+                1.0, self.fcd,self.b,self.x,self.h0,self.fsd_,self.As_,self.as_,
+                self.σp0_,self.fpd_,self.Ap_,self.ap_)*1e-6 # kNm
+            self.γ0Md = self.γ0Nd*self.e*1e-3
+            # 承载力计算中，当考虑截面受压较大边的纵向受压钢筋时，受压区高度应符合式(5.2.2-4)、式(5.2.2-5)的要求            
+            self.σp_ = self.fpd_-self.σp0_
             if self.ps != '无' and self.Ap_>0 and self.σp_>0:
-                self.a_ = self.as_ if self.Ap_ == 0 else \
-                    (self.fsd_*self.As_*self.as_+(self.fpd_-self.σp0_)*self.Ap_*self.ap_)/(self.fsd_*self.As_+self.fpd_*self.Ap_)
-                self.e_ = ei-(self.h/2-self.a_) # 偏心压力作用点至受压钢筋和钢束合力点的距离
-                self.γ0Md = self.γ0Nd*self.e_*1e-3
-                self.Mu = self.fMu1(self.h, self.a_, self.fsd, self.As, self.a_s, self.fpd, self.Ap, self.ap)*1e-6 # kNm
-            elif (self.ps != '无' or self.Ap_<=0) or (self.ps != '无' and self.Ap_>0 and self.σp_<0):
-                self.es_ = ei-(self.h/2-self.as_) # 偏心压力作用点至受压钢筋合力点的距离
-                self.γ0Md = self.γ0Nd*self.es_*1e-3
-                self.Mu = self.fMu2(
-                    self.h, self.fsd, self.As, self.a_s, self.as_, self.fpd, self.Ap, self.ap,
-                    self.fpd_, self.σp0_, self.Ap_, self.ap_
-                    )*1e-6 # kNm
+                # 当受压区配有纵向普通钢筋和预应力钢筋，且预应力钢筋受压，即(fpd'-σp0')为正时:
+                # 按式(5.2.2-4)验算
+                ok = self.x >= 2*self.a_
+                if not ok:
+                    # 5.2.4节, 当计算中考虑受压区纵向钢筋但不符合式(5. 2. 2-4)或式(5. 2. 2-5 )条件时，
+                    # 仅采用纵向体内钢筋的受弯构件正截面抗弯承载力的计算应符合下列规定(图5.2.2} ,
+                    # 1当受压区配有纵向普通钢筋和预应力钢筋，且预应力钢筋受压时:
+                    self.a_ = self.as_ if self.Ap_ == 0 else \
+                        (self.fsd_*self.As_*self.as_+(self.fpd_-self.σp0_)*self.Ap_*self.ap_)/(self.fsd_*self.As_+self.fpd_*self.Ap_)
+                    self.e_ = self.ei-(self.h/2-self.a_) # 偏心压力作用点至受压钢筋和钢束合力点的距离
+                    self.γ0Md = self.γ0Nd*self.e_*1e-3
+                    self.Mu = self.fMu1(self.h, self.a_, self.fsd, self.As, self.a_s, self.fpd, self.Ap, self.ap)*1e-6 # kNm
+            elif (self.ps == '无' or self.Ap_<=0) or (self.ps != '无' and self.Ap_>0 and self.σp_<0):
+                #  当受压区仅配纵向普通钢筋，或配有普通钢筋和预应力钢筋且预应力钢筋受拉，即(fpd'-σp0')为负时:
+                ok = self.x >= 2*self.as_
+                if not ok:
+                    # 当受压区仅配纵向普通钢筋，或配有普通钢筋和预应力钢筋且，预应力钢筋受拉时:
+                    self.es_ = self.ei-(self.h/2-self.as_) # 偏心压力作用点至受压钢筋合力点的距离
+                    self.γ0Md = self.γ0Nd*self.es_*1e-3
+                    self.Mu = self.fMu2(
+                        self.h, self.fsd, self.As, self.a_s, self.as_, self.fpd, self.Ap, self.ap,
+                        self.fpd_, self.σp0_, self.Ap_, self.ap_
+                        )*1e-6 # kNm
         else:
             self.large_eccentric, self.x, self.As, self._As, self.As_, self._As_ = self.solve_As(
                 self.symmetrical, self.Asp_known, self.Asmin, 
-                self.b, self.h, self.h0, self.γ0Nd*1e3, ei, self.e, 1.0, self.β, self.fcd, 
+                self.b, self.h, self.h0, self.γ0Nd*1e3, self.ei, self.e, 1.0, self.β, self.fcd, 
                 self.Es, self.fsd, self.As, self.es, self.fsd_, self.As_, self.as_, self.es_, 
                 self.Ep, self.fpd, self.σp0, self.Ap, self.ep, 
                 self.fpd_, self.σp0_, self.Ap_, self.ap_, self.ep_, self.εcu, self.ξb
             )
+        self.ξ = self.x/self.h0
         
     def _html(self, digits = 2):
         return self._html_Nu(digits) if self.option == 'review' else self._html_As(digits)
     
     def _html_Nu(self, digits = 2):
         yield self.format('γ0')
-        yield '截面尺寸:{}'.format(self.formatx('b','h','h0',digits=None,omit_name=True))
+        yield '截面尺寸:'
+        yield self.formatx('b','h','a_s', 'as_','h0',digits=None,omit_name=True)
         yield self.format('l0')
         yield '设计内力:{}'.format(self.formatx('Nd','Md',digits=digits,omit_name=True))
         yield '材料特性:'
@@ -581,17 +619,18 @@ class eccentric_compression(gb_eccentric_compression, material_base):
                 yield self.format(param, digits)
         yield self.format('e0',digits=digits)
         yield self.format('e',digits=digits)
-        yield self.format('xb', digits)
-        ok = self.x<self.xb
-        yield '{} {} {}，满足规范公式(5.2.2-3)要求。'.format(
-            self.format('x'), 
+        yield self.format('ξb', digits)
+        yield self.format('x', digits)
+        ok = self.ξ<self.ξb #self.x<self.xb
+        yield '{} {} {}'.format(
+            self.format('ξ'), 
             '&lt;' if ok else '&gt;', 
-            self.format('xb', omit_name = True)
+            self.format('ξb', omit_name = True)
             )
         yield '按{}受压构件计算'.format('大偏心' if self.large_eccentric else '小偏心')
         # 在承载力计算中，若考虑截面受压较大边的纵向受压钢筋时，受压区高度应符合公式
         # (5.2.2-4)、(5.2.2-5)的要求。
-        if self.Asp_known:
+        if self.Asp_known or self.symmetrical:
             # 当受压区配有纵向普通钢筋和预应力钢筋，且预应力钢筋受压即(fpd'-σp0)为正时
             if self.ps != '无' and self.Ap_>0 and self.σp_>0:
                 self.eqr = 2*self.a_
@@ -619,7 +658,7 @@ class eccentric_compression(gb_eccentric_compression, material_base):
                         )
             # 当受压区仅配纵向普通钢筋，或配有普通钢筋和预应力钢筋且预应力钢筋受拉即
             # (fpd'-σp0)为负时
-            elif (self.ps != '无' or self.Ap_<=0) or (self.ps != '无' and self.Ap_>0 and self.σp_<0):
+            elif (self.ps == '无' or self.Ap_<=0) or (self.ps != '无' and self.Ap_>0 and self.σp_<0):
                 self.eqr = 2*self.as_
                 ok = self.x >= self.eqr
                 yield '{} {} {}，{}满足规范公式(5.2.2-5)要求{}。'.format(
@@ -648,6 +687,13 @@ class eccentric_compression(gb_eccentric_compression, material_base):
             self.format('γ0Nd',digits=digits,eq='γ0*Nd'), 
             '&le;' if ok else '&gt;', 
             self.format('Nu',digits=digits,omit_name=True),
+            '' if ok else '不')
+        yield self.format('Mu', digits, eq='fcd*b*x*(h0-x/2)+fsd_*As_*(h0-as_)+(fpd_-σp0_)*Ap_*(h0-ap_)')
+        ok = self.γ0Md < self.Mu
+        yield '{} {} {}，{}满足规范要求。'.format(
+            self.format('γ0Md',digits=digits,eq='γ0*Md'), 
+            '&le;' if ok else '&gt;', 
+            self.format('Mu',digits=digits,omit_name=True),
             '' if ok else '不')
 
     def _html_As(self, digits = 2):
@@ -732,6 +778,331 @@ class eccentric_compression(gb_eccentric_compression, material_base):
                     '&ge;' if self.As >= self.Asmin else '&lt;', 
                     self.format('Asmin', digits, omit_name=True)
                     )
+
+class eccentric_compression_Ishape(eccentric_compression):
+    """
+    I形或T形截面偏心受压构件正截面抗压承载力计算
+    《公路钢筋混凝土及预应力混凝土桥涵设计规范》（JTG 3362-2018）第5.3.5节
+    """
+    __title__ = "I形截面偏心受压承载力"
+    __inputs__ = OrderedDict((
+        ('bf',('<i>b</i><sub>f</sub>','mm',0,'受拉翼缘宽度')),
+        ('hf',('<i>h</i><sub>f</sub>','mm',0,'受拉翼缘厚度')),
+        ('bf_',('<i>b</i><sub>f</sub><sup>\'</sup>','mm',0,'受压翼缘宽度')),
+        ('hf_',('<i>h</i><sub>f</sub><sup>\'</sup>','mm',0,'受压翼缘厚度')),
+    ))
+    __inputs__.update(eccentric_compression.__inputs__)
+        
+    @staticmethod
+    def fNu(fcd,b, h, bf, hf, bf_, hf_,x,fsd_,As_,σs,As,σp0_,fpd_,Ap_,σp,Ap):
+        if x <= hf_:
+            # (5.3.4-1)
+            return fcd*bf_*x+fsd_*As_-σs*As-(σp0_-fpd_)*Ap_-σp*Ap
+        # (5.3.5-1)
+        return fcd*(b*x+(bf_-b)*hf_)+fsd_*As_-σs*As-(σp0_-fpd_)*Ap_-σp*Ap
+
+    @staticmethod
+    def fMu(fcd,b, h, bf, hf, bf_, hf_,x,h0,fsd_,As_,as_,fpd_,σp0_,σp,Ap_,Ap,ap_):
+        if x <= hf_:
+            # (5.3.4-2)
+            return fcd*bf_*x*(h0-x/2)+fsd_*As_*(h0-as_)+(fpd_-σp0_)*Ap_*(h0-ap_)
+        # (5.3.5-2)
+        return fcd*(b*x*(h0-x/2)+(bf_-b)*hf_*(h0-hf_/2))+fsd_*As_*(h0-as_)+(fpd_-σp0_)*Ap_*(h0-ap_)
+
+    @staticmethod
+    def fMu_1(fcd,b, h, bf, hf, bf_, hf_,x,h0_, As, a_s, fsd_,As_,as_, σp0,Ap,ap, fpd_, a_):
+        if x <= hf_:
+            # (5.3.4-4)
+            return fcd*b*x*(h0_-h/2)+fsd_*As*(h0_-a_s)+(fpd_-σp0)*Ap*(h0_-ap)
+        # (5.3.5-3)
+        return fcd*(b*h*(h0_-h/2)+(bf_-b)*hf_*(hf_/2-a_))+fsd_*As*(h0_-a_s)+(fpd_-σp0)*Ap*(h0_-ap)
+
+    @staticmethod
+    def fMu_2(fcd,b, h, bf, hf, bf_, hf_, x,h0_, As, a_s, fsd_,As_,as_, σp0,Ap, fpd_):
+        # (5.3.5-4)
+        return fcd*(b*h*(h0_-h/2)+(bf_-b)*hf_*(h0_-hf/2))+fsd_*As*(h0_-a_s)+(fpd_-σp0)*Ap*(h0_-ap)
+
+    @staticmethod
+    def solve_x(α1, fc, b, h, bf, hf, bf_, hf_, e, h0, fy_, As_, es_, fpy_, σp0_, Ap_, ep_, σs, As, es, σp, Ap, ep):
+        '''
+        大偏心求解x
+        x < hf'时，按宽度为bf'的矩形截面计算
+        x > hf'时，增加受压翼缘的受压作用：
+        + α1*fc*(bf'-b)*hf'*(e-h0+hf'/2) 
+        x > h-hf时，增加受拉翼缘的受压作用：
+        + α1*fc*(bf-b)*(x+hf-h)*(e-h0+(x+h-hf)/2)
+        对弯矩的偏心力作用点取矩:
+        α1*fc*b*x*(e-h0+x/2) 
+        + α1*fc*(bf'-b)*hf'*(e-h0+hf'/2) + α1*fc*(bf-b)*(x+hf-h)*(e-h0+(x+h-hf)/2)
+        + fy'*As'*es'+(fpy'-σp0')*Ap'*ep' = σs*As*es+σp*Ap*ep
+        可能的异常:
+            math domain error: 对负数求平方根，方程无解
+        '''
+        def _getx_(a, b, c):
+            x1 = (-b+sqrt(b**2-4*a*c))/2/a
+            x2 = (-b-sqrt(b**2-4*a*c))/2/a
+            return x2 if x2 > 0 else x1
+        # 假设 x < hf'
+        _a = α1*fc*bf_/2
+        _b = α1*fc*bf_*(e-h0)
+        _c = fy_*As_*es_+(fpy_-σp0_)*Ap_*ep_ - σs*As*es+σp*Ap*ep
+        x = _getx_(_a, _b, _c)
+        if x < hf_:
+            return x
+        # 假设 x < h - hf
+        _a = α1*fc*b/2
+        _b = α1*fc*b*(e-h0)
+        _c += α1*fc*(bf_-b)*hf_*(e-h0+hf_/2)
+        x = _getx_(_a, _b, _c)
+        if x < h - hf:
+            return x
+        # 否则 x > h - hf
+        _a = α1*fc*bf/2 # TODO: 需按规范折减
+        _b = α1*fc*b*(e-h0) + α1*fc*(bf-b)*(e-h0)
+        _c += α1*fc*(bf-b)*(hf-h)*(e-h0+(h-hf)/2)
+        x = _getx_(_a, _b, _c)
+        return x
+
+    @staticmethod
+    def f_x(x, α1, β1, εcu, fc, b, h, bf, hf, bf_, hf_, e, h0, Es, Ep, fy_, As_, as_, es_, fpy_, σp0_, Ap_, ap_, ep_, As, es, σp0, Ap, ep):
+        '''
+        小偏心时求解受压区高度x的构造方程
+        假设 x > hf_ and x < h-hf， 因为x < hf_的情况会先使按矩形截面计算， 而不考虑受拉翼缘的贡献更为保守。
+        TODO: 暂时先这样处理，后续再增加x > h-hf 情况的处理。
+        联立公式(6.2.17-1)和(6.2.17-2)构造关于x的方程，用于牛顿法求解x
+        具体方法：
+        (1) 对公式(6.2.17-1)和(6.2.17-2)左右两边取等号，
+        (2) 公式(6.2.17-1)中的钢筋应力σs按6.2.8节公式计算
+            σs = Es*εcu*(β1*h0i/x-1)
+            σp = Ep*εcu*(β1*h0i/x-1)+σp0i # 公式(6.2.8-2)中的Es应为Ep
+        (3) 将公式(6.2.17-1)代入(6.2.17-2)，消除Nd，得到关于x的一元三次方程f(x)=Ax^3+Bx^2+Cx+D
+            e*α1*fc*(b*x+(bf_-b)*hf_)+e*(fy_*As_+(fpy_-σp0_)*Ap_)-e*Es*εcu*(β1*h0/x-1)*As-e*(Ep*εcu*(β1*h0/x-1)+σp0)*Ap
+            = α1*fc*(b*x*(h0-x/2)+(bf_-b)*hf_*(h0-hf_/2))+fy_*As_*(h0-as_)+(fpy_-σp0_)*Ap_*(h0-ap_)
+            分解多项式得
+            e*α1*fc*b*x^2 + e*α1*fc*(bf_-b)*hf_*x + e*(fy_*As_+(fpy_-σp0_)*Ap_)*x - e*Es*εcu*β1*h0*As + e*Es*εcu*As*x 
+            - e*Ep*εcu*β1*h0*Ap - e*(-Ep*εcu+σp0)*Ap*x
+            = -α1*fc*b/2*x^3 + α1*fc*b*h0*x^2 + α1*fc*(bf_-b)*hf_*(h0-hf_/2)*x + fy_*As_*(h0-as_)*x + (fpy_-σp0_)*Ap_*(h0-ap_)*x
+            合并同类项并简化常数项得
+            α1*fc*b/2*x^3 + α1*fc*b*(e-h0)*x^2 
+            + (e*α1*fc*(bf_-b)*hf_ + e*(fy_*As_+(fpy_-σp0_)*Ap_) + e*Es*εcu*As
+            + e*(Ep*εcu-σp0)*Ap - α1*fc*(bf_-b)*hf_*(h0-hf_/2) - fy_*As_*(h0-as_) - (fpy_-σp0_)*Ap_*(h0-ap_))*x
+            - e*(Es*As + Ep*Ap)*εcu*β1*h0 = 0
+        (4) 构造用于牛顿法求解的方程f(x)=x-f/f'
+        '''
+        C1 = e*α1*fc*(bf_-b)*hf_ + e*(fy_*As_+(fpy_-σp0_)*Ap_)
+        C2 = e*(εcu*Es*As+(εcu*Ep-σp0)*Ap)
+        C3 = α1*fc*(bf_-b)*hf_*(h0-hf_/2) + fy_*As_*(h0-as_) + (fpy_-σp0_)*Ap_*(h0-ap_)
+        # f(x) = Ax^3+Bx^2+Cx+D
+        A = α1*fc*b/2
+        B = α1*fc*b*(e-h0)
+        C = C1+C2-C3
+        D = -e*(Es*As+Ep*Ap)*εcu*β1*h0
+        f = A*x**3 + B*x**2 + C*x + D
+        f_ = 3*A*x**2 + 2*B*x + C
+        return x-f/f_
+
+    @classmethod
+    def solve_Nu(cls, b, h, bf, hf, bf_, hf_, h0, e, α1, β1, fc, Es, fy, As, es, fy_, As_, as_, es_, 
+    Ep, fpy, σp0, Ap, ep, fpy_, σp0_, Ap_, ap_, ep_, εcu, ξb):
+        '''
+        截面复核
+        已知：配筋（As, As', Ap, Ap')，偏心距e
+        计算：承载力(Nu, Mu)
+        '''
+        # 假设为大偏心
+        large_eccentric = True
+        try:
+            x = cls.solve_x(
+                α1, fc, b, h, bf, hf, bf_, hf_, e, h0, fy_, As_, es_, fpy_, σp0_, Ap_, ep_, fy, As, es, fpy, Ap, ep
+                )
+            if x < 0:
+                large_eccentric = False
+            else:
+                ξ = x/h0
+                large_eccentric = (ξ <= ξb)
+        except:
+            large_eccentric = False
+        if large_eccentric: # 大偏心受压
+            if x >= 2*as_:
+                Nu = cls.fNu(fc,b, h, bf, hf, bf_, hf_,x,fy_,As_,fy,As,σp0_,fpy_,Ap_,fpy,Ap)
+            else:
+                Mu = fy*As*(h0-as_) #N·mm
+                Nu = Mu/es_
+        else: # 小偏心受压
+            xb = ξb*h0
+            x = numeric.iteration_method_solve(cls.f_x, xb, α1=α1, β1=β1, εcu=εcu, fc=α1*fc, 
+            b=b, h=h, bf=bf, hf=hf, bf_=bf_, hf_=hf_, e=e, h0=h0, Es=Es, Ep=Ep, fy_=fy_, As_=As_, as_=as_, es_=es_, 
+            fpy_=fpy_, σp0_=σp0_, Ap_=Ap_, ap_=ap_, ep_=ep_, As=As, es=es, 
+            σp0=σp0, Ap=Ap, ep=ep)
+            σs = cls.f_σsi(β1, Es, εcu, h0, x)
+            σp = cls.f_σpi(β1, Ep, εcu, h0, x, σp0)
+            Nu = cls.fNu(fc, b, h, bf, hf, bf_, hf_,x,fy_,As_,σs,As, σp0_,fpy_,Ap_,σp,Ap)
+        return (large_eccentric, x, Nu)
+
+    def solve(self):
+        self.init_params()
+        if self.option == 'review': 
+            if self.symmetrical:
+                self.As_ = self.As
+            self.large_eccentric, self.x, Nu = self.solve_Nu(
+                self.b, self.h, self.bf, self.hf, self.bf_, self.hf_, self.h0, self.e, 1.0, self.β, self.fcd,  
+                self.Es, self.fsd, self.As, self.es, self.fsd_, self.As_, self.as_, self.es_, 
+                self.Ep, self.fpd, self.σp0, self.Ap, self.ep, self.fpd_, self.σp0_, self.Ap_, self.ap_, self.ep_,
+                self.εcu, self.ξb) 
+            self.σs = self.f_σsi(self.β, self.Es, self.εcu, self.h0, self.x)
+            self.σp = self.f_σpi(self.β, self.Ep, self.εcu, self.h0, self.x, self.σp0)
+            self.Nu = Nu/1000 #kN
+            self.Mu = self.fMu(
+                self.fcd,self.b, self.h, self.bf, self.hf, self.bf_, self.hf_,self.x,self.h0,
+                self.fsd_,self.As_,self.as_,
+                self.fpd_,self.σp0_,self.σp,self.Ap_,self.Ap,self.ap_)*1e-6 # kNm
+            self.γ0Md = self.γ0Nd*self.e*1e-3
+            # 承载力计算中，当考虑截面受压较大边的纵向受压钢筋时，受压区高度应符合式(5.2.2-4)、式(5.2.2-5)的要求            
+            self.σp_ = self.fpd_-self.σp0_
+            if self.ps != '无' and self.Ap_>0 and self.σp_>0:
+                # 当受压区配有纵向普通钢筋和预应力钢筋，且预应力钢筋受压，即(fpd'-σp0')为正时:
+                # 按式(5.2.2-4)验算
+                ok = self.x >= 2*self.a_
+                if not ok:
+                    # 5.2.4节, 当计算中考虑受压区纵向钢筋但不符合式(5. 2. 2-4)或式(5. 2. 2-5 )条件时，
+                    # 仅采用纵向体内钢筋的受弯构件正截面抗弯承载力的计算应符合下列规定(图5.2.2} ,
+                    # 1当受压区配有纵向普通钢筋和预应力钢筋，且预应力钢筋受压时:
+                    self.a_ = self.as_ if self.Ap_ == 0 else \
+                        (self.fsd_*self.As_*self.as_+(self.fpd_-self.σp0_)*self.Ap_*self.ap_)/(self.fsd_*self.As_+self.fpd_*self.Ap_)
+                    self.e_ = self.ei-(self.h/2-self.a_) # 偏心压力作用点至受压钢筋和钢束合力点的距离
+                    self.γ0Md = self.γ0Nd*self.e_*1e-3
+                    self.Mu = self.fMu1(self.h, self.a_, self.fsd, self.As, self.a_s, self.fpd, self.Ap, self.ap)*1e-6 # kNm
+            elif (self.ps == '无' or self.Ap_<=0) or (self.ps != '无' and self.Ap_>0 and self.σp_<0):
+                #  当受压区仅配纵向普通钢筋，或配有普通钢筋和预应力钢筋且预应力钢筋受拉，即(fpd'-σp0')为负时:
+                ok = self.x >= 2*self.as_
+                if not ok:
+                    # 当受压区仅配纵向普通钢筋，或配有普通钢筋和预应力钢筋且，预应力钢筋受拉时:
+                    self.es_ = self.ei-(self.h/2-self.as_) # 偏心压力作用点至受压钢筋合力点的距离
+                    self.γ0Md = self.γ0Nd*self.es_*1e-3
+                    self.Mu = self.fMu2(
+                        self.h, self.fsd, self.As, self.a_s, self.as_, self.fpd, self.Ap, self.ap,
+                        self.fpd_, self.σp0_, self.Ap_, self.ap_
+                        )*1e-6 # kNm
+            if (not self.large_eccentric):
+                # 对翼缘位于截面受压较大边的T形截面小偏心受压构件，当轴向力作用在纵向钢筋火和砚合力点与A，和Ap合力点之间时，
+                # 尚应按下列规定进行计算:(5.3.5-3)
+                if self.e>0 and self.e_<0:
+                    self.Mu_ = self.fMu_1(
+                        self.fcd, self.b, self.h, self.bf, self.hf, self.bf_, self.hf_,
+                        self.x, self.h0_, self.As, self.a_s, self.fsd_,self.As_,self.as_, 
+                        self.σp0,self.Ap,self.ap, self.fpd_, self.a_)
+                # 对翼缘位于截面受压较小边的T形截面小偏心受压构件，尚应按下列规定计算:(5.3.5-4)
+                elif self.large_eccentric:
+                    self.Mu_ = self.fMu_2(
+                        self.fcd,self.b, self.h, self.bf, self.hf, self.bf_, self.hf_, self.x,self.h0_, 
+                        self.As, self.a_s, self.fsd_,self.As_,self.as_, self.σp0,self.Ap, self.fpd_)
+        else:
+            # self.large_eccentric, self.x, self.As, self._As, self.As_, self._As_ = self.solve_As(
+            #     self.symmetrical, self.Asp_known, self.Asmin, 
+            #     self.b, self.h, self.h0, self.γ0Nd*1e3, self.ei, self.e, 1.0, self.β, self.fcd, 
+            #     self.Es, self.fsd, self.As, self.es, self.fsd_, self.As_, self.as_, self.es_, 
+            #     self.Ep, self.fpd, self.σp0, self.Ap, self.ep, 
+            #     self.fpd_, self.σp0_, self.Ap_, self.ap_, self.ep_, self.εcu, self.ξb
+            # )
+            raise Exception('抱歉，I形截面偏心受压截面设计功能尚在开发中，敬请期待')
+        self.ξ = self.x/self.h0
+
+    def _html_Nu(self, digits = 2):
+        yield self.format('γ0')
+        yield 'I形截面尺寸：'
+        yield self.formatx('b','h', 'bf', 'hf', 'bf_', 'hf_','a_s', 'as_','h0',digits=None,omit_name=True)
+        yield self.format('l0')
+        yield '设计内力：{}'.format(self.formatx('Nd','Md',digits=digits,omit_name=True))
+        yield '材料特性：'
+        yield self.formatx('fcd','fcuk','fsd','fsd_',omit_name=True, toggled = False)
+        yield self.format('As',digits=digits)
+        yield self.format('As_',digits=digits)
+        yield self.format('Es',digits=None)
+        if self.ps != '无':
+            for param in ('fpd','σp0','Ap','ap','fpd_','σp0_','Ap_','ap_','Ep'):
+                yield self.format(param, digits)
+        yield self.format('e0',digits=digits)
+        yield self.format('e',digits=digits)
+        yield self.format('ξb', digits)
+        yield self.format('x', digits)
+        ok = self.ξ<self.ξb #self.x<self.xb
+        yield '{} {} {}'.format(
+            self.format('ξ'), 
+            '&lt;' if ok else '&gt;', 
+            self.format('ξb', omit_name = True)
+            )
+        yield '按{}受压构件计算'.format('大偏心' if self.large_eccentric else '小偏心')
+        # 在承载力计算中，若考虑截面受压较大边的纵向受压钢筋时，受压区高度应符合公式
+        # (5.2.2-4)、(5.2.2-5)的要求。
+        if self.Asp_known or self.symmetrical:
+            # 当受压区配有纵向普通钢筋和预应力钢筋，且预应力钢筋受压即(fpd'-σp0)为正时
+            if self.ps != '无' and self.Ap_>0 and self.σp_>0:
+                self.eqr = 2*self.a_
+                ok = self.x >= self.eqr
+                yield '{} {} {}，{}满足规范公式(5.2.2-4)要求{}。'.format(
+                    self.format('x'), 
+                    '&ge;' if ok else '&lt;', 
+                    self.format('eqr', omit_name = True, eq='2a_'),
+                    '' if ok else '不',
+                    '' if ok else '，需按5.2.4条要求验算'
+                    )
+                if not ok:
+                    # 在偏心受压构件正截面抗压承载力计算中，当考虑截面受压较大边的纵向受压钢
+                    # 筋，但受压区高度又不符合公式(5.2.2-4)或(5.2.2-5)的要求时，其正截面抗压承载力可按
+                    # 公式(5.2.4-1)、(5.2.4-2)计算，此时，上述公式中的Md 应分别以Nde′、Nde′s 代替，计算时
+                    # 应考虑偏心距增大系数η。
+                    # γ0*Md≤fpd*Ap*(h-ap-a')+fsd*As*(h-as-a')
+                    # fpd*Ap*(h-ap-as_)+fsd*As*(h-a_s-as_)-(fpd_-σp0_)*Ap_*(ap_-as_)
+                    ok = self.γ0Md <= self.Mu
+                    yield '{} {} {}，{}满足规范公式(5.2.4-1)要求。'.format(
+                        self.format('γ0Md', digits, omit_name = True, eq='γ0 Md'), 
+                        '&le;' if ok else '&gt;', 
+                        self.format('Mu', omit_name = True, eq='fpd*Ap*(h-ap-a_)+fsd*As*(h-a_s-a_)'),
+                        '' if ok else '不'
+                        )
+            # 当受压区仅配纵向普通钢筋，或配有普通钢筋和预应力钢筋且预应力钢筋受拉即
+            # (fpd'-σp0)为负时
+            elif (self.ps == '无' or self.Ap_<=0) or (self.ps != '无' and self.Ap_>0 and self.σp_<0):
+                self.eqr = 2*self.as_
+                ok = self.x >= self.eqr
+                yield '{} {} {}，{}满足规范公式(5.2.2-5)要求{}。'.format(
+                    self.format('x'), 
+                    '&ge;' if ok else '&lt;', 
+                    self.format('eqr', omit_name = True, eq='2as_'),
+                    '' if ok else '不',
+                    '' if ok else '，需按5.2.4条要求验算'
+                    )
+                if not ok:
+                    # 在偏心受压构件正截面抗压承载力计算中，当考虑截面受压较大边的纵向受压钢
+                    # 筋，但受压区高度又不符合公式(5.2.2-4)或(5.2.2-5)的要求时，其正截面抗压承载力可按
+                    # 公式(5.2.4-1)、(5.2.4-2)计算，此时，上述公式中的Md 应分别以Nde′、Nde′s 代替，计算时
+                    # 应考虑偏心距增大系数η。
+                    # γ0*Md≤fpd*Ap*(h-ap-a')+fsd*As*(h-as-a_)
+                    ok = self.γ0Md <= self.Mu
+                    yield '{} {} {}，{}满足规范公式(5.2.4-2)要求。'.format(
+                        self.format('γ0Md', digits, omit_name = True, eq='γ0 Md'), 
+                        '&le;' if ok else '&gt;', 
+                        self.format('Mu', omit_name = True, eq='fpd*Ap*(h-ap-as_)+fsd*As*(h-a_s-as_)-(fpd_-σp0_)*Ap_*(ap_-as_)'),
+                        '' if ok else '不'
+                        )
+        eq = 'fcd*bf_*x+fsd_*As_+(fpd_-σp0_)*Ap_-σs*As-σp*Ap' if self.x <= self.hf_ else \
+            'fcd*(b*x+(bf_-b)*hf_)+fsd_*As_+(fpd_-σp0_)*Ap_-σs*As-σp*Ap'
+        yield self.format('Nu', digits, eq=eq)
+        ok = self.γ0Nd < self.Nu
+        yield '{} {} {}，{}满足规范要求。'.format(
+            self.format('γ0Nd',digits=digits,eq='γ0*Nd'), 
+            '&le;' if ok else '&gt;', 
+            self.format('Nu',digits=digits,omit_name=True),
+            '' if ok else '不')
+        eq='fcd*b*x*(h0-x/2)+fsd_*As_*(h0-as_)+(fpd_-σp0_)*Ap_*(h0-ap_)' if self.x <= self.hf_ else \
+            'fcd*(b*x*(h0-x/2)+(bf_-b)*hf_*(h0-hf_/2))+fsd_*As_*(h0-as_)+(fpd_-σp0_)*Ap_*(h0-ap_)'
+        yield self.format('Mu', digits, eq=eq)
+        ok = self.γ0Md < self.Mu
+        yield '{} {} {}，{}满足规范要求。'.format(
+            self.format('γ0Md',digits=digits,eq='γ0*Md'), 
+            '&le;' if ok else '&gt;', 
+            self.format('Mu',digits=digits,omit_name=True),
+            '' if ok else '不')
 
 class biaxial_eccentric(abacus):
     """

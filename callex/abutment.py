@@ -8,7 +8,7 @@ from math import pi
 from calla import abacus,InputError
 from calla.JTG import material
 from calla.JTG.loads import load_combination
-from calla.JTG.pile_capacity import pile_group_effects
+from calla.JTG.pile_capacity import pile_group_effects_P06
 from callex.pile import Pile
 
 material_base = material.material_base
@@ -112,7 +112,7 @@ class Abutment(abacus):
             P = cbn[0]
             H = cbn[1]
             M = cbn[5]
-            f = pile_group_effects(
+            f = pile_group_effects_P06(
                 L1=self.L1, d=self.d, h=self.h, l0=self.h1, h2=self.h2, hc=self.hc, b2=self.b2, 
                 kf=self.kf, Ec=self.Ec, m=self.m, C0=self.C0, P=P, H=H, M=M,
                 bottom_fixed=self.bottom_fixed, z=self.z, xi=self.xi, Ki=self.Ki, ξ=self.ξ, ψ=self.ψ)

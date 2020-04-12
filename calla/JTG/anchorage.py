@@ -52,6 +52,7 @@ class end_anchorage(abacus):
         }
 
     def solve(self):
+        self.validate('positive', 'h')
         fTbd = lambda Pd,γ,a,h,α: 0.25*Pd*(1+γ)**2*((1-γ)-a/h)+0.5*Pd*abs(sin(α)) # (8.2.2-1)
         fdb = lambda h,e,α: 0.5*(h-2*e)+e*sin(α) # (8.2.2-2)
         fTsd = lambda Pdimax:0.02*Pdimax # (8.2.3)

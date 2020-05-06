@@ -5,7 +5,7 @@
 __all__ = [
     'axial_compression',
     'eccentric_compression',
-    'eccentric_compression_Ishape'
+    #'eccentric_compression_Ishape'
     ]    
 
 from collections import OrderedDict

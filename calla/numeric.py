@@ -75,7 +75,8 @@ def secant_method_solve(function, start, end, **kwargs):
         count += 1
 
 def query_table(table, rh, ch: int):
-    """表格数据插值查询
+    """
+    表格数据插值查询
     Args:
         table: 要查询的数据表格
         rh: 行表头，为第一列值

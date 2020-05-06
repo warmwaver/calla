@@ -823,7 +823,8 @@ class pile_group_effects_P06(abacus):
         self.H0 = Qi
         self.M0 = Mi + Qi*l0
         self.Ni = Ni
-
+        
+        self.α = α
         self.γcc=γcc; self.γaa=γaa; self.γaβ=γaβ; self.γβa=γβa; self.γββ=γββ
         if l0 <= 0:
             self.γcβ = γcβ; self.γβc = γβc

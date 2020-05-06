@@ -7,7 +7,7 @@ __all__ = [
     'fc_T',
     'axial_compression',
     'eccentric_compression',
-    'eccentric_compression_Ishape',
+    #'eccentric_compression_Ishape',
     'biaxial_eccentric',
     'axial_tension',
     'bc_round',
@@ -20,6 +20,7 @@ from math import pi, sin, cos, acos, sqrt
 from collections import OrderedDict
 from calla import abacus, numeric, InputError, SolvingError
 from calla.JTG import material
+from calla.GB.flexural_capacity import fc_rect as gb_fc_rect
 from calla.GB.compressive_capacity import eccentric_compression as gb_eccentric_compression
 
 material_base = material.material_base
@@ -92,10 +93,11 @@ class fc_rect(abacus, material_base):
         ('fcuk',('<i>f</i><sub>cu,k</sub>','MPa',35,'混凝土立方体抗压强度标准值','取混凝土标号')),
         ('Es',('<i>E</i><sub>s</sub>','MPa',2.0E5,'钢筋弹性模量')),
         ('b',('<i>b</i>','mm',500,'截面宽度','矩形截面宽度或T形截面腹板宽度')),
-        ('h0',('<i>h</i><sub>0</sub>','mm',900,'截面有效高度')),
+        ('h',('<i>h</i>','mm',1000,'矩形截面高度')),
         material_base.rebar_item,
         ('fsd',('<i>f</i><sub>sd</sub>','MPa',330,'钢筋抗拉强度设计值')),
         ('As',('<i>A</i><sub>s</sub>','mm<sup>2</sup>',0,'受拉钢筋面积')),
+        ('a_s',('<i>a</i><sub>s</sub>','mm',60,'受拉区纵向普通钢筋合力点至受拉边缘的距离')),
         ('fsd_',('<i>f</i><sub>sd</sub><sup>\'</sup>','MPa',330,'受压区普通钢筋抗压强度设计值')),
         ('As_',('<i>A</i><sub>s</sub><sup>\'</sup>','mm<sup>2</sup>',0,'受压区钢筋面积', '受压区纵向普通钢筋的截面面积')),
         ('as_',('<i>a</i><sub>s</sub><sup>\'</sup>','mm',30,'受压钢筋合力点边距','受压区纵向普通钢筋合力点至截面受压边缘的距离')),
@@ -110,6 +112,7 @@ class fc_rect(abacus, material_base):
         ('Md',('<i>M</i><sub>d</sub>','kN·m',600,'弯矩组合设计值')),
         ))
     __deriveds__ = OrderedDict((
+        ('h0',('<i>h</i><sub>0</sub>','mm',900,'截面有效高度')),
         ('σs',('<i>σ</i><sub>s</sub>','MPa',0,'受拉钢筋等效应力')),
         ('x',('<i>x</i>','mm',0,'截面受压区高度')),
         ('xb',('<i>x</i><sub>b</sub>','mm',0,'界限受压区高度')),
@@ -124,16 +127,20 @@ class fc_rect(abacus, material_base):
     __toggles__.update(material_base.material_toggles)
 
     # (5.2.2-1)
-    fMu = lambda fcd,b,x,h0,fsd_,As_,as_,σp0_,fpd_,Ap_,ap_:\
-         fcd*b*x*(h0-x/2)+fsd_*As_*(h0-as_)+(fpd_-σp0_)*Ap_*(h0-ap_)
+    @staticmethod
+    def fMu(fcd,b,x,h0,fsd_,As_,as_,σp0_,fpd_,Ap_,ap_):
+         return fcd*b*x*(h0-x/2)+fsd_*As_*(h0-as_)+(fpd_-σp0_)*Ap_*(h0-ap_)
 
     # (5.2.2-2)
-    fx = lambda fcd,b,fsd,As,fsd_,As_,fpd,Ap,σp0_,fpd_,Ap_:\
-          (fsd*As-fsd_*As_+fpd*Ap+(σp0_-fpd_)*Ap_)/(fcd*b)
+    @staticmethod
+    def fx(fcd,b,fsd,As,fsd_,As_,fpd,Ap,σp0_,fpd_,Ap_):
+          return (fsd*As-fsd_*As_+fpd*Ap+(σp0_-fpd_)*Ap_)/(fcd*b)
 
     def solve_Mu(self):
         """计算正截面抗弯承载力设计值"""
-        self.x=fc_rect.fx(
+        fsd=self.fsd; As=self.As; h=self.h; a_s=self.a_s; as_=self.as_; fpd=self.fpd
+        Ap=self.Ap; ap=self.ap; σp0_=self.σp0_; fpd_=self.fpd_; Ap_=self.Ap_; ap_=self.ap_
+        self.x=self.fx(
             self.fcd,self.b,self.fsd,self.As,self.fsd_,self.As_,
             self.fpd,self.Ap,self.σp0_,self.fpd_,self.Ap_)
         if (self.x > self.xb):
@@ -142,16 +149,29 @@ class fc_rect(abacus, material_base):
             self.Mu = self.fcd*self.b*x*(self.h0-x/2)/1E6
             self._x = x
             return
-        self.xmin = 2*self.as_
-        if self.x < self.xmin:
-            # 受压钢筋达不到强度设计值
-            self._x = self.xmin
-        else:
+        ok = True
+        if self.Ap_>0 and (self.fpd_-self.σp0_)>0:
+            # (5.2.2-4)
+            self.xmin = 2*self.a_
+            ok = self.x >= self.xmin
+            if not ok:
+                # (5.2.4-1)
+                Mu = fpd*Ap*(h-ap-a_)+fsd*As*(h-a_s-a_)
+        elif self.As_>0 or (self.Ap_>0 and (self.fpd_-self.σp0_)<0):
+            # (5.2.2-5)
+            self.xmin = 2*self.as_
+            ok = self.x >= self.xmin
+            if not ok:
+                # (5.2.4-2)
+                # 受压钢筋达不到强度设计值（《混凝土结构设计原理》P61）
+                # 此时，对受压钢筋As'取矩（《混凝土结构设计原理》P62）
+                Mu = fpd*Ap*(h-ap-as_)+fsd*As*(h-a_s-as_)-(fpd_-σp0_)*Ap_*(ap_-as_)
+        if ok:
             self._x = self.x
-        self.Mu = fc_rect.fMu(
-            self.fcd,self.b,self._x,self.h0,self.fsd_,self.As_,self.as_,
-            self.σp0_,self.fpd_,self.Ap_,self.ap_)
-        self.Mu=self.Mu/1E6
+            Mu = self.fMu(
+                self.fcd,self.b,self._x,self.h0,self.fsd_,self.As_,self.as_,
+                self.σp0_,self.fpd_,self.Ap_,self.ap_)
+        self.Mu=Mu/1E6
         return self.Mu
     
     def solve_As(self):
@@ -175,6 +195,14 @@ class fc_rect(abacus, material_base):
         
     def solve(self):
         self.validate('positive', 'γ0', 'b', 'h0', 'as_')
+        self.a = self.a_s if self.Ap == 0 else \
+            (self.fsd*self.As*self.a_s+(self.fpd-self.σp0)*self.Ap*self.ap)/(self.fsd*self.As+(self.fpd-self.σp0)*self.Ap)
+        self.h0 = self.h - self.a
+        # 验算(5.2.2-4) 所需参数
+        self.a_ = self.as_ if self.Ap <= 0 else \
+            (self.fsd_*self.As_*self.a_s+(self.fpd_-self.σp0_)*self.Ap_*self.ap_)\
+                /(self.fsd_*self.As_+(self.fpd_-self.σp0_)*self.Ap_)
+        # self.h0_ = self.h - self.a_
         self.ξb = f_ξb(self.fcuk, self.fsd)
         self.xb=self.ξb*self.h0
         self.solve_Mu() if self.option == 'review' else self.solve_As()
@@ -197,9 +225,11 @@ class fc_rect(abacus, material_base):
             self.format('x'), '&lt;' if ok else '&gt;', 
             self.format('xb', omit_name = True))
         if not ok:
-            yield '超筋，受压区高度按界限受压区高度计算，即'+self.format('x', omit_name = True, value=self._x)
+            yield '超筋，不满足公式（5.2.2-3）要求。'
+            yield '受压区高度按界限受压区高度计算，即'+self.format('x', omit_name = True, value=self._x)
             eq = 'fcd*b*x*(h0-x/2)'
         else:
+            eq = 'fcd*b*x*(h0-x/2)+fsd_*As_*(h0-as_)+(fpd_-σp0_)*Ap_*(h0-ap_)'
             ok = self.x >= self.xmin
             yield '{} {} {}'.format(
                 self.format('x'), '≥' if ok else '&lt;', 
@@ -208,8 +238,8 @@ class fc_rect(abacus, material_base):
                 if self.As_ <= 0:
                     yield '少筋，需增加受拉钢筋面积。'
                 else:
-                    yield '受压钢筋达不到强度设计值，取{}。'.format(self.format('x', value=self._x))
-            eq = 'fcd*b*x*(h0-x/2)+fsd_*As_*(h0-as_)+(fpd_-σp0_)*Ap_*(h0-ap_)'
+                    yield '受压钢筋达不到强度设计值，按5.2.4条计算。'
+                eq = 'fpd*Ap*(h-ap-as_)+fsd*As*(h-a_s-as_)-(fpd_-σp0_)*Ap_*(ap_-as_)'
         ok = self.eql <= self.Mu
         yield '{} {} {}，{}满足规范要求。'.format(
             self.format('eql', eq='γ0 Md'), '≤' if ok else '&gt;', 
@@ -630,7 +660,7 @@ class eccentric_compression(gb_eccentric_compression, material_base):
         yield '按{}受压构件计算'.format('大偏心' if self.large_eccentric else '小偏心')
         # 在承载力计算中，若考虑截面受压较大边的纵向受压钢筋时，受压区高度应符合公式
         # (5.2.2-4)、(5.2.2-5)的要求。
-        if self.Asp_known or self.symmetrical:
+        if self.As_ > 0: #self.Asp_known or self.symmetrical:
             # 当受压区配有纵向普通钢筋和预应力钢筋，且预应力钢筋受压即(fpd'-σp0)为正时
             if self.ps != '无' and self.Ap_>0 and self.σp_>0:
                 self.eqr = 2*self.a_
@@ -640,22 +670,25 @@ class eccentric_compression(gb_eccentric_compression, material_base):
                     '&ge;' if ok else '&lt;', 
                     self.format('eqr', omit_name = True, eq='2a_'),
                     '' if ok else '不',
-                    '' if ok else '，需按5.2.4条要求验算'
+                    '' #if ok else '，需按5.2.4条要求验算'
                     )
+                # 为了避免不必要的争议，计算程序已作出修改，对不满足x>=2a'的情况直接结束，不再进一步验算。
                 if not ok:
+                    return
                     # 在偏心受压构件正截面抗压承载力计算中，当考虑截面受压较大边的纵向受压钢
                     # 筋，但受压区高度又不符合公式(5.2.2-4)或(5.2.2-5)的要求时，其正截面抗压承载力可按
                     # 公式(5.2.4-1)、(5.2.4-2)计算，此时，上述公式中的Md 应分别以Nde′、Nde′s 代替，计算时
                     # 应考虑偏心距增大系数η。
                     # γ0*Md≤fpd*Ap*(h-ap-a')+fsd*As*(h-as-a')
                     # fpd*Ap*(h-ap-as_)+fsd*As*(h-a_s-as_)-(fpd_-σp0_)*Ap_*(ap_-as_)
-                    ok = self.γ0Md <= self.Mu
-                    yield '{} {} {}，{}满足规范公式(5.2.4-1)要求。'.format(
-                        self.format('γ0Md', digits, omit_name = True, eq='γ0 Md'), 
-                        '&le;' if ok else '&gt;', 
-                        self.format('Mu', omit_name = True, eq='fpd*Ap*(h-ap-a_)+fsd*As*(h-a_s-a_)'),
-                        '' if ok else '不'
-                        )
+                    # ----------------------------------------------
+                    # ok = self.γ0Md <= self.Mu
+                    # yield '{} {} {}，{}满足规范公式(5.2.4-1)要求。'.format(
+                    #     self.format('γ0Md', digits, omit_name = True, eq='γ0 Md'), 
+                    #     '&le;' if ok else '&gt;', 
+                    #     self.format('Mu', omit_name = True, eq='fpd*Ap*(h-ap-a_)+fsd*As*(h-a_s-a_)'),
+                    #     '' if ok else '不'
+                    #     )
             # 当受压区仅配纵向普通钢筋，或配有普通钢筋和预应力钢筋且预应力钢筋受拉即
             # (fpd'-σp0)为负时
             elif (self.ps == '无' or self.Ap_<=0) or (self.ps != '无' and self.Ap_>0 and self.σp_<0):
@@ -666,21 +699,24 @@ class eccentric_compression(gb_eccentric_compression, material_base):
                     '&ge;' if ok else '&lt;', 
                     self.format('eqr', omit_name = True, eq='2as_'),
                     '' if ok else '不',
-                    '' if ok else '，需按5.2.4条要求验算'
+                    '' #if ok else '，需按5.2.4条要求验算'
                     )
+                # 为了避免不必要的争议，计算程序已作出修改，对不满足x>=2as'的情况直接结束，不再进一步验算。
                 if not ok:
+                    return
                     # 在偏心受压构件正截面抗压承载力计算中，当考虑截面受压较大边的纵向受压钢
                     # 筋，但受压区高度又不符合公式(5.2.2-4)或(5.2.2-5)的要求时，其正截面抗压承载力可按
                     # 公式(5.2.4-1)、(5.2.4-2)计算，此时，上述公式中的Md 应分别以Nde′、Nde′s 代替，计算时
                     # 应考虑偏心距增大系数η。
                     # γ0*Md≤fpd*Ap*(h-ap-a')+fsd*As*(h-as-a_)
-                    ok = self.γ0Md <= self.Mu
-                    yield '{} {} {}，{}满足规范公式(5.2.4-2)要求。'.format(
-                        self.format('γ0Md', digits, omit_name = True, eq='γ0 Md'), 
-                        '&le;' if ok else '&gt;', 
-                        self.format('Mu', omit_name = True, eq='fpd*Ap*(h-ap-as_)+fsd*As*(h-a_s-as_)-(fpd_-σp0_)*Ap_*(ap_-as_)'),
-                        '' if ok else '不'
-                        )
+                    # -----------------------------------------------
+                    # ok = self.γ0Md <= self.Mu
+                    # yield '{} {} {}，{}满足规范公式(5.2.4-2)要求。'.format(
+                    #     self.format('γ0Md', digits, omit_name = True, eq='γ0 Md'), 
+                    #     '&le;' if ok else '&gt;', 
+                    #     self.format('Mu', omit_name = True, eq='fpd*Ap*(h-ap-as_)+fsd*As*(h-a_s-as_)-(fpd_-σp0_)*Ap_*(ap_-as_)'),
+                    #     '' if ok else '不'
+                    #     )
         yield self.format('Nu', digits, eq='fcd*b*x+fsd_*As_+(fpd_-σp0_)*Ap_-σs*As-σp*Ap')
         ok = self.γ0Nd < self.Nu
         yield '{} {} {}，{}满足规范要求。'.format(

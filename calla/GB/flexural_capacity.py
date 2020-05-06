@@ -25,17 +25,18 @@ class fc_rect(abacus):
     """
     __title__ = '矩形或倒T形截面受弯承载力'
     __inputs__ = OrderedDict((
-        ('option',('选项','','design','','',{'review':'计算承载力','design':'计算钢筋面积'})),
+        ('option',('选项','','design','','',{'review':'截面复核','design':'截面设计'})),
         ('γ0',('<i>γ</i><sub>0</sub>','',1.0,'重要性系数')),
         ('β1',('<i>β</i><sub>1</sub>','',0.8,'系数','按本规范第6.2.6条的规定计算')),
         ('α1',('<i>α</i><sub>1</sub>','',1,'系数')),
         ('fc',('<i>f</i>c','MPa',16.7,'混凝土轴心抗压强度设计值')),
         ('fcuk',('<i>f</i><sub>cu,k</sub>','MPa',35,'混凝土立方体抗压强度标准值','取混凝土标号')),
         ('Es',('<i>E</i><sub>s</sub>','MPa',2.0E5,'钢筋弹性模量')),
-        ('b',('<i>b</i>','mm',500,'矩形截面的短边尺寸')),
-        ('h0',('<i>h</i><sub>0</sub>','mm',900,'截面有效高度')),
+        ('b',('<i>b</i>','mm',500,'矩形截面的宽度','矩形截面的宽度或倒T形截面的腹板宽度')),
+        ('h',('<i>h</i>','mm',1000,'矩形截面高度')),
         ('fy',('<i>f</i><sub>y</sub>','MPa',360,'钢筋抗拉强度设计值')),
         ('As',('<i>A</i><sub>s</sub>','mm<sup>2</sup>',0,'受拉钢筋面积')),
+        ('a_s',('<i>a</i><sub>s</sub>','mm',60,'受拉区纵向普通钢筋合力点至受拉边缘的距离')),
         ('fy_',('<i>f</i><sub>y</sub><sup>\'</sup>','MPa',360,'受压区普通钢筋抗压强度设计值')),
         ('As_',('<i>A</i><sub>s</sub><sup>\'</sup>','mm<sup>2</sup>',0,'受压区钢筋面积', '受压区纵向普通钢筋的截面面积')),
         ('as_',('<i>a</i><sub>s</sub><sup>\'</sup>','mm',30,'受压钢筋合力点边距','受压区纵向普通钢筋合力点至截面受压边缘的距离')),
@@ -49,10 +50,12 @@ class fc_rect(abacus):
         ('M',('<i>M</i>','kN·m',600,'弯矩设计值')),
         ))
     __deriveds__ = OrderedDict((
+        ('h0',('<i>h</i><sub>0</sub>','mm',900,'截面有效高度')),
         ('σs',('<i>σ</i><sub>s</sub>','MPa',0,'受拉钢筋等效应力')),
         ('x',('<i>x</i>','mm',0,'截面受压区高度')),
         ('xb',('<i>x</i><sub>b</sub>','mm',0,'界限受压区高度')),
         ('ξb',('<i>ξ</i><sub>b</sub>','',0,'相对界限受压区高度')),
+        ('xmin',('','mm',0,'')),
         ('eql',('','kN·m',0,'')),
         ('Mu',('','kN·m',0,'正截面抗弯承载力设计值')),
         ))
@@ -76,6 +79,8 @@ class fc_rect(abacus):
 
     def solve_Mu(self):
         """计算正截面抗弯承载力设计值"""
+        fy=self.fy; As=self.As; h=self.h; a_s=self.a_s; as_=self.as_; fpy=self.fpy
+        Ap=self.Ap; ap=self.ap; σp0_=self.σp0_; fpy_=self.fpy_; Ap_=self.Ap_; ap_=self.ap_
         self.x=fc_rect.f_x(
             self.α1,self.fc,self.b,self.fy,self.As,self.fy_,self.As_,
             self.fpy,self.Ap,self.σp0_,self.fpy_,self.Ap_)
@@ -87,14 +92,16 @@ class fc_rect(abacus):
             return
         self.xmin = 2*self.as_
         if self.x < self.xmin:
-            # 受压钢筋达不到强度设计值
-            self._x = self.xmin
+            # 受压钢筋达不到强度设计值（《混凝土结构设计原理》P61）
+            # 此时，对受压钢筋As'取矩（《混凝土结构设计原理》P62, 规范公式6.2.14）
+            Mu = fpy*Ap*(h-ap-as_) + fy*As*(h-a_s-as_) + (σp0_-fpy_)*Ap_*(ap_-as_)
+            # self._x = self.xmin
         else:
             self._x = self.x
-        self.Mu = fc_rect.f_M(
-                self.α1,self.fc,self.b,self.x,self.h0,self.fy_,self.As_,self.as_,
-                self.σp0_,self.fpy_,self.Ap_,self.ap_)
-        self.Mu=self.Mu/1E6
+            Mu = fc_rect.f_M(
+                    self.α1,self.fc,self.b,self.x,self.h0,self.fy_,self.As_,self.as_,
+                    self.σp0_,self.fpy_,self.Ap_,self.ap_)
+        self.Mu=Mu/1E6
         return self.Mu
     
     def solve_As(self):
@@ -119,6 +126,9 @@ class fc_rect(abacus):
             raise InputError(self, 'h0', '弯矩无法平衡，需增大截面尺寸')
         
     def solve(self):
+        self.a = self.a_s if self.Ap == 0 else \
+            (self.fsd*self.As*self.a_s+(self.fpd-self.σp0)*self.Ap*self.ap)/(self.fsd*self.As+(self.fpd-self.σp0)*self.Ap)
+        self.h0 = self.h - self.a
         self.ξb = self.f_ξb()
         self.xb=self.ξb*self.h0
         self.solve_Mu() if self.option == 'review' else self.solve_As()
@@ -145,6 +155,7 @@ class fc_rect(abacus):
             yield '超筋，受压区高度按界限受压区高度计算，即'+self.format('x', omit_name = True, value=self._x)
             eq = 'α1*fcd*b*x*(h0-x/2)'
         else:
+            eq = 'α1*fc*b*x*(h0-x/2)+fy_*As_*(h0-as_)+(fpy_-σp0_)*Ap_*(h0-ap_)'
             ok = self.x >= self.xmin
             yield '{} {} {}'.format(
                 self.format('x'), '≥' if ok else '&lt;', 
@@ -153,8 +164,9 @@ class fc_rect(abacus):
                 if self.As_ <= 0:
                     yield '少筋，需增加受拉钢筋面积。'
                 else:
-                    yield '受压钢筋达不到强度设计值，取{}。'.format(self.format('x', value=self._x))
-            eq = 'α1*fc*b*x*(h0-x/2)+fy_*As_*(h0-as_)+(fpy_-σp0_)*Ap_*(h0-ap_)'
+                    # yield '受压钢筋达不到强度设计值，取{}。'.format(self.format('x', value=self._x))
+                    yield '受压钢筋达不到强度设计值，按6.2.14条计算。'
+                eq = 'fy*As*(h-a_s-as_)+fpy*Ap*(h-ap-as_)+(σp0_-fpy_)*Ap*(ap_-as_)'
         ok = self.eql <= self.Mu
         yield '{} {} {}，{}满足规范要求。'.format(
             self.format('eql', eq='γ0 Md'), '≤' if ok else '&gt;', 

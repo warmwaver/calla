@@ -11,6 +11,8 @@ from collections import OrderedDict
 from math import pi, sin, cos, tan, atan
 from calla import abacus, InputError, html
 import calla.JTG.pile_cap as cap
+import calla.JTG.bearing_capacity as bc
+from calla.JTG.pile_cap import punching_capacity
 
 class pile_cap(abacus):
     """
@@ -19,11 +21,12 @@ class pile_cap(abacus):
     """
     __title__ = '桩基承台'
     __inputs__ = OrderedDict((
+        ('γ0',('<i>γ</i><sub>0</sub>','',1.1,'重要性系数')),
         ('Fd',('<i>F</i><sub>d</sub>','kN',0,'承台底竖向力设计值','由承台底面以上的作用组合产生的竖向力设计值')),
         ('Mxd',('<i>M</i><sub>xd</sub>','kN·m',0,'承台底弯矩设计值','由承台底面以上的作用组合绕通过桩群形心的x轴的弯矩设计值')),
         ('Myd',('<i>M</i><sub>yd</sub>','kN·m',0,'承台底弯矩设计值','由承台底面以上的作用组合绕通过桩群形心的y轴的弯矩设计值')),
-        ('xi',('<i>x</i><sub>i</sub>','mm',[-1500, 1500],'第i排桩中心至y轴的距离')),
-        ('yi',('<i>y</i><sub>i</sub>','mm',[-1500, 1500],'第i排桩中心至x轴的距离')),
+        ('xi',('<i>x</i><sub>i</sub>','m',[-1.5, 1.5],'第i排桩中心至y轴的距离')),
+        ('yi',('<i>y</i><sub>i</sub>','m',[-1.5, 1.5],'第i排桩中心至x轴的距离')),
         ('b',('<i>b</i>','mm',500,'桩的支撑面计算宽度','方形截面取截面边长，圆形截面取直径的0.8倍')),
         ('s',('<i>s</i>','mm',100,'拉杆钢筋的顶层钢筋中心至承台底的距离')),
         ('d',('<i>d</i>','mm',25,'拉杆钢筋直径','当采用不同直径的钢筋时，d取加权平均值')),
@@ -68,6 +71,8 @@ class pile_cap(abacus):
 
     def solve(self):
         self.positive_check('As')
+        xi = [x*1000 for x in self.xi]
+        yi = [y*1000 for y in self.yi]
 
         pvf = cap.pile_vertical_force(**self.inputs)
         pvf.solve()
@@ -81,26 +86,36 @@ class pile_cap(abacus):
                 _Nd = Nd(ix, iy)
                 print(_Nd)
               
+        self.fc_beams = []
         self.Rstx = [] # 设计方法：单梁0， 拉压杆1；Cu
         self.Rsty = []
         a = 0.15*self.h0 # 压杆中线与承台顶面的交点至墩台边缘的距离
-        for o in ['x', 'y']:
-            li = self.xi if o == 'x' else self.yi
+        for o in ['x', 'y']: # 分别计算平行于x轴方向和平行于y轴方向的弯曲
+            li = xi if o == 'x' else yi
+            # 对于撑杆系杆模型，只算最外排桩；对于梁模型，只算最大的截面
             for i in [0, len(li)-1]:
                 # 计算第i排桩
-                x = abs(li[i]) - (self.by if o == 'x' else self.bx)/2
+                x = abs(li[i]) - (self.bx if o == 'x' else self.by)/2 #第i排桩距柱边距离
+                bs = 2*self.a+3*self.D*(n-1) #承台截面计算宽度
+                w = self.wy if o == 'x' else self.wx
+                if bs > w:
+                    bs = w
+                # 计算第i排桩竖向力设计值
+                group = yi if o == 'x' else xi
+                ngp = len(group)
+                Nid = max([Nd(i,j) for j in range(ngp)])*ngp
                 if x <= self.h:
                     # 按拉压杆模型计算承载力（8.5.4条）
-                    group = self.yi if o == 'x' else self.xi
-                    ngp = len(group)
-                    Nid = max([Nd(i,j) for j in range(ngp)])*ngp
+                    # group = yi if o == 'x' else xi
+                    # ngp = len(group)
+                    # Nid = max([Nd(i,j) for j in range(ngp)])*ngp
                     θi = atan(self.h0/(a+x))
                     Cid = Nid/sin(θi)
                     Tid = Nid/tan(θi)
-                    bs = 2*self.a+3*self.D*(n-1)
-                    w = self.wy if o == 'x' else self.wx
-                    if bs > w:
-                        bs = w
+                    # bs = 2*self.a+3*self.D*(n-1)
+                    # w = self.wy if o == 'x' else self.wx
+                    # if bs > w:
+                    #     bs = w
                     t, ε1, fced, Ciu = self.capacity(
                         self.s, self.d, self.b, θi, Tid*1e3, self.As, self.Es, self.fcd, bs, self.βc)
                     Tiu = self.fsd*self.As
@@ -109,8 +124,28 @@ class pile_cap(abacus):
                     else:
                         self.Rsty.append(('{}={}'.format(o, li[i]), '拉压杆模型', t, bs, ε1, fced, Cid, Ciu/1e3, Tid, Tiu/1e3))
                 else:
-                    # TODO: 按梁构件计算抗弯承载力（8.5.2条）
-                    pass
+                    # 按梁构件计算抗弯承载力（8.5.2条）
+                    j = i
+                    Mcd = 0
+                    while True:
+                        Mcd += Nid*x
+                        if i == 0:
+                            j += 1
+                            if li[j] >= 0:
+                                break
+                        else:
+                            j -= 1
+                            if li[j] <= 0:
+                                break
+                        x = abs(li[j]) - (self.bx if o == 'x' else self.by)/2
+                        Nid = max([Nd(i,j) for j in range(ngp)])*ngp
+                    fc = bc.fc_rect(
+                        option="review", γ0=1.1, fcd=self.fcd, fcuk=35, Es=200000, b=bs, h0=self.h0,
+                        ftd=self.ftd, fsd=self.fsd, As=self.As, fsd_=self.fsd, As_=0, ps="无", 
+                        Md = Mcd*1e-3)
+                    # f = fc_rect(concrete="C50", rebar="HRB400")
+                    fc.solve()
+                    self.fc_beams.append(fc)
 
         # 8.5.5节 冲切承载力验算
         # 1 柱或墩台向下冲切
@@ -118,11 +153,11 @@ class pile_cap(abacus):
         for ix in range(1, nx-1):
             for iy in range(1, ny-1):
                 Fld -= Nd(ix, iy)
-        ax0 = abs(self.xi[0]) - self.D/2 - self.bx/2
-        ax1 = abs(self.xi[-1]) - self.D/2 - self.bx/2
+        ax0 = abs(xi[0]) - self.D/2 - self.bx/2
+        ax1 = abs(xi[-1]) - self.D/2 - self.bx/2
         ax = (ax0+ax1)/2
-        ay0 = abs(self.yi[0]) - self.D/2 - self.by/2
-        ay1 = abs(self.yi[-1]) - self.D/2 - self.by/2
+        ay0 = abs(yi[0]) - self.D/2 - self.by/2
+        ay1 = abs(yi[-1]) - self.D/2 - self.by/2
         ay = (ay0+ay1)/2
         λx = max(ax/self.h0, 0.2)
         λy = max(ay/self.h0, 0.2)
@@ -132,21 +167,26 @@ class pile_cap(abacus):
         Flu = f_Flu(self.ftd,self.h0,αpx,self.by,ay,αpy,self.bx,ax)/1e3 # kN
         # 保存计算结果
         self.punching_down = {'Fld':Fld, 'Flu':Flu}
+        # 替代上面的代码
+        self.punching_capacity_down = punching_capacity(
+            option="down", γ0=self.γ0, ftd=self.ftd, ax=ax, ay=ay, bx=self.bx, by=self.by, h0=self.h0, Fld=Fld)
+        self.punching_capacity_down.solve()
 
         # 2 角桩向上冲切
         f_Flu = lambda ftd,h0,αpx,by,ay,αpy,bx,ax:0.6*ftd*h0*(αpx_*(by+ay/2)+αpy_*(bx+ax/2)) # (8.5.5-4)
         self.punching_up = []
+        self.punching_capacity_ups = []
         for ix in (0, nx-1):
             for iy in (0, ny-1):
                 Fld = Nd(ix, iy)
-                ax0 = abs(self.xi[0]) - self.D/2 - self.bx/2
-                ax1 = abs(self.xi[-1]) - self.D/2 - self.bx/2
+                ax0 = abs(xi[0]) - self.D/2 - self.bx/2
+                ax1 = abs(xi[-1]) - self.D/2 - self.bx/2
                 ax = (ax0+ax1)/2
-                bx = self.wx/2 - abs(self.xi[ix]) + self.D/2
-                ay0 = abs(self.yi[0]) - self.D/2 - self.by/2
-                ay1 = abs(self.yi[-1]) - self.D/2 - self.by/2
+                bx = self.wx/2 - abs(xi[ix]) + self.D/2
+                ay0 = abs(yi[0]) - self.D/2 - self.by/2
+                ay1 = abs(yi[-1]) - self.D/2 - self.by/2
                 ay = (ay0+ay1)/2
-                by = self.wy/2 - abs(self.yi[iy]) + self.D/2
+                by = self.wy/2 - abs(yi[iy]) + self.D/2
                 λx = max(ax/self.h0, 0.2)
                 λy = max(ay/self.h0, 0.2)
                 αpx_ = 0.8/(λx+0.2) # (8.5.5-5)
@@ -154,32 +194,43 @@ class pile_cap(abacus):
                 Flu = f_Flu(self.ftd,self.h0,αpx_,by,ay,αpy_,bx,ax)/1e3 # kN
                 # 保存计算结果
                 self.punching_up.append({'type':'角桩', 'ix':ix, 'iy':iy, 'Fld':Fld, 'Flu':Flu})
+                # 替代上面的代码
+                punching_capacity_up = punching_capacity(
+                    option="up_corner", γ0=self.γ0, ftd=self.ftd, ax=ax, ay=ay, bx=self.bx, by=self.by, h0=self.h0, Fld=Fld)
+                punching_capacity_up.solve()
+                self.punching_capacity_ups.append(punching_capacity_up)
 
         # 3 边桩向上冲切
-        f_Flu = lambda ftd,h0,αpx,by,ay,αpy,bx,ax:0.6*ftd*h0*(αpx_*(bp+h0)+0.667*(2*bx+ax)) # (8.5.5-7)
+        # f_Flu = lambda ftd,h0,αpx,by,ay,αpy,bx,ax:0.6*ftd*h0*(αpx_*(bp+h0)+0.667*(2*bx+ax)) # (8.5.5-7)
         for o in ('x', 'y'):
-            ni = nx-1 if o == 'x' else ny-1
-            nj = ny-1 if o == 'x' else nx-1
+            ni = nx if o == 'x' else ny
+            nj = ny if o == 'x' else nx
             for i in (0, ni-1):
                 for j in range(1, nj-1):
                     ix = i if o == 'x' else j
                     iy = j if o == 'x' else i
                     Fld = Nd(ix, iy)
-                    ax0 = abs(self.xi[0]) - self.D/2 - self.bx/2
-                    ax1 = abs(self.xi[-1]) - self.D/2 - self.bx/2
+                    ax0 = abs(xi[0]) - self.D/2 - self.bx/2
+                    ax1 = abs(xi[-1]) - self.D/2 - self.bx/2
                     ax = (ax0+ax1)/2
-                    bx = self.wx/2 - abs(self.xi[ix]) + self.D/2
-                    ay0 = abs(self.yi[0]) - self.D/2 - self.by/2
-                    ay1 = abs(self.yi[-1]) - self.D/2 - self.by/2
+                    bx = self.wx/2 - abs(xi[ix]) + self.D/2
+                    ay0 = abs(yi[0]) - self.D/2 - self.by/2
+                    ay1 = abs(yi[-1]) - self.D/2 - self.by/2
                     ay = (ay0+ay1)/2
-                    by = self.wy/2 - abs(self.yi[iy]) + self.D/2
+                    by = self.wy/2 - abs(yi[iy]) + self.D/2
                     λx = max(ax/self.h0, 0.2)
                     λy = max(ay/self.h0, 0.2)
                     αpx_ = 0.8/(λx+0.2) # (8.5.5-2)
                     αpy_ = 0.8/(λy+0.2) # (8.5.5-3)
-                    Flu = f_Flu(self.ftd,self.h0,αpx_,by,ay,αpy_,bx,ax)/1e3 # kN
+                    # Flu = f_Flu(self.ftd,self.h0,αpx_,by,ay,αpy_,bx,ax)/1e3 # kN
                     # 保存计算结果
                     self.punching_up.append({'type':'边桩', 'ix':ix, 'iy':iy, 'Fld':Fld, 'Flu':Flu})
+                    # 替代上面的代码
+                    punching_capacity_up = punching_capacity(
+                        option="up_side", γ0=self.γ0, ftd=self.ftd, ax=ax, ay=ay, bx=self.bx, by=self.by, h0=self.h0, 
+                        bp=self.b, Fld=Fld)
+                    punching_capacity_up.solve()
+                    self.punching_capacity_ups.append(punching_capacity_up)
 
     def _html(self, digits=2):
         yield '柱或墩台向下冲切'
@@ -192,22 +243,24 @@ class pile_cap(abacus):
 
     def html(self, digits=2):
         tables = {}
+        th = []
+        titles = ['计算位置', '计算方法', 't', 'bs', 'ε1', 'fced', 'Cid', 'Ciu', 'Tid', 'Tiu']
+        for title in titles:
+            try:
+                attr = self.para_attrs(title)
+                s = '{} {} {}'.format(
+                    attr.name, attr.symbol,
+                    '' if attr.unit == '' else '({})'.format(attr.unit)
+                    )
+                th.append(s)
+            except:
+                th.append(title)
         for o in ['x', 'y']:
             tb = []
-            titles = ['计算位置', '计算方法', 't', 'bs', 'ε1', 'fced', 'Cid', 'Ciu', 'Tid', 'Tiu']
-            th = []
-            for title in titles:
-                try:
-                    attr = self.para_attrs(title)
-                    s = '{} {} {}'.format(
-                        attr.name, attr.symbol,
-                        '' if attr.unit == '' else '({})'.format(attr.unit)
-                        )
-                    th.append(s)
-                except:
-                    th.append(title)
             tb.append(th)
             Rst = self.Rstx if o == 'x' else self.Rsty
+            if len(Rst) < 1:
+                continue
             for rst in Rst:
                 row = []
                 for item in rst:
@@ -222,6 +275,17 @@ class pile_cap(abacus):
             doc += '{}方向'.format(key)
             doc += html.table2html(tables[key], digits, True)            
         doc += '</div>'
+        # 
+        if len(self.fc_beams) > 0:
+            for fc in self.fc_beams:
+                doc += '<div>{}</div>'.format(fc.html())
+        # 
+        if self.punching_capacity_down:
+            doc += '<div>{}</div>'.format(self.punching_capacity_down.html())
+
+        if self.punching_capacity_ups:
+            for pcu in self.punching_capacity_ups:
+                doc += '<div>{}</div>'.format(pcu.html())
         return doc
 
 if __name__ == '__main__':

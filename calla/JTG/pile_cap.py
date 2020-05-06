@@ -15,7 +15,7 @@ from calla import abacus, InputError, html
 
 class pile_vertical_force(abacus):
     """
-    桩基承台单桩竖向力设计值计算
+    桩基承台单桩竖向力
     《公路钢筋混凝土及预应力混凝土桥涵设计规范》（JTG 3362-2018）第8.5.1节
     """
     __title__ = '桩基承台单桩竖向力'
@@ -23,8 +23,8 @@ class pile_vertical_force(abacus):
         ('Fd',('<i>F</i><sub>d</sub>','kN',0,'承台底竖向力设计值','由承台底面以上的作用组合产生的竖向力设计值')),
         ('Mxd',('<i>M</i><sub>xd</sub>','kN·m',0,'承台底弯矩设计值','由承台底面以上的作用组合绕通过桩群形心的x轴的弯矩设计值')),
         ('Myd',('<i>M</i><sub>yd</sub>','kN·m',0,'承台底弯矩设计值','由承台底面以上的作用组合绕通过桩群形心的y轴的弯矩设计值')),
-        ('xi',('<i>x</i><sub>i</sub>','mm',[-1500, 1500],'第i排桩中心至y轴的距离')),
-        ('yi',('<i>y</i><sub>i</sub>','mm',[-1500, 1500],'第i排桩中心至x轴的距离')),
+        ('xi',('<i>x</i><sub>i</sub>','m',[-1.5, 1.5],'第i根桩中心至y轴的距离')),
+        ('yi',('<i>y</i><sub>i</sub>','m',[-1.5, 1.5],'第i根桩中心至x轴的距离')),
         ))
     __deriveds__ = OrderedDict((
         ('Nid',('<i>N</i><sub>id</sub>','kN',0,'第i根桩作用于承台底面的竖向力设计值')),
@@ -34,11 +34,11 @@ class pile_vertical_force(abacus):
     def solve(self):
         if not (isinstance(self.xi, tuple) or isinstance(self.xi, list)):
             self.xi = [self.xi]
-        nx = len(self.xi)
+        nx = len(self.xi) # 桩列数（平行于y轴的桩排数）
         sumx2 = sum([x**2 for x in self.xi])
         if not (isinstance(self.yi, tuple) or isinstance(self.yi, list)):
             self.yi = [self.yi]
-        ny = len(self.yi)
+        ny = len(self.yi) # 桩行数（平行于x轴的桩排数）
         sumy2 = sum([y**2 for y in self.yi])
         n = nx*ny
 
@@ -46,8 +46,8 @@ class pile_vertical_force(abacus):
             '''计算ix,iy位置的单桩竖向力(8.5.1)'''
             xi = self.xi[ix]
             yi = self.yi[iy]
-            return self.Fd/n + (0 if sumy2 == 0 else self.Mxd*yi/sumy2*1e3)\
-                + (0 if sumx2 ==0 else self.Myd*xi/sumx2*1e3)
+            return self.Fd/n + (0 if sumy2 == 0 else self.Mxd*yi/(nx*sumy2))\
+                + (0 if sumx2 ==0 else self.Myd*xi/(ny*sumx2))
 
         self.fNid = fNid
 

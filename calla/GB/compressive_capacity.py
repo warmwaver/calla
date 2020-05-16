@@ -530,14 +530,13 @@ class eccentric_compression(abacus):
                     self.fpy_, self.σp0_, self.Ap_, self.ap_
                     )*1e-6 # kNm
         else:
-            # self.large_eccentric, self.x, self.As, self._As, self.As_, self._As_ = self.solve_As(
-            #     self.symmetrical, self.Asp_known, self.Asmin, 
-            #     self.b, self.h, self.h0, self.N*1e3, self.ei, self.e, self.α1, self.β1, self.fc, 
-            #     self.Es, self.fy, self.As, self.es, self.fy_, self.As_, self.as_, self.es_, 
-            #     self.Ep, self.fpy, self.σp0, self.Ap, self.ep, 
-            #     self.fpy_, self.σp0_, self.Ap_, self.ap_, self.ep_, self.εcu, self.ξb
-            # )
-            raise Exception('抱歉，I形截面偏心受压截面设计功能尚在开发中，敬请期待')
+            self.large_eccentric, self.x, self.As, self._As, self.As_, self._As_ = self.solve_As(
+                self.symmetrical, self.Asp_known, self.Asmin, 
+                self.b, self.h, self.h0, self.N*1e3, self.ei, self.e, self.α1, self.β1, self.fc, 
+                self.Es, self.fy, self.As, self.es, self.fy_, self.As_, self.as_, self.es_, 
+                self.Ep, self.fpy, self.σp0, self.Ap, self.ep, 
+                self.fpy_, self.σp0_, self.Ap_, self.ap_, self.ep_, self.εcu, self.ξb
+            )
 
     def _html(self, digits = 2):
         return self._html_Nu(digits) if self.option == 'review' else self._html_As(digits)
@@ -942,13 +941,14 @@ class eccentric_compression_Ishape(eccentric_compression):
             #     Ac += (self.bf-self.b)*(self.x+self.hf-self.h) # TODO：需乘以翼缘折减系数
             
         else:
-            self.large_eccentric, self.x, self.As, self._As, self.As_, self._As_ = self.solve_As(
-                self.symmetrical, self.Asp_known, self.Asmin, 
-                self.b, self.h, self.h0, self.N*1e3, self.ei, self.e, self.α1, self.β1, self.fc, 
-                self.Es, self.fy, self.As, self.es, self.fy_, self.As_, self.as_, self.es_, 
-                self.Ep, self.fpy, self.σp0, self.Ap, self.ep, 
-                self.fpy_, self.σp0_, self.Ap_, self.ap_, self.ep_, self.εcu, self.ξb
-            )
+            # self.large_eccentric, self.x, self.As, self._As, self.As_, self._As_ = self.solve_As(
+            #     self.symmetrical, self.Asp_known, self.Asmin, 
+            #     self.b, self.h, self.h0, self.N*1e3, self.ei, self.e, self.α1, self.β1, self.fc, 
+            #     self.Es, self.fy, self.As, self.es, self.fy_, self.As_, self.as_, self.es_, 
+            #     self.Ep, self.fpy, self.σp0, self.Ap, self.ep, 
+            #     self.fpy_, self.σp0_, self.Ap_, self.ap_, self.ep_, self.εcu, self.ξb
+            # )
+            raise Exception('抱歉，I形截面偏心受压截面设计功能尚在开发中，敬请期待')
 
 if __name__ == '__main__':
     import doctest

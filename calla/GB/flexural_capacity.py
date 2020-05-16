@@ -26,7 +26,7 @@ class fc_rect(abacus):
     __title__ = '矩形或倒T形截面受弯承载力'
     __inputs__ = OrderedDict((
         ('option',('选项','','design','','',{'review':'截面复核','design':'截面设计'})),
-        ('γ0',('<i>γ</i><sub>0</sub>','',1.0,'重要性系数')),
+        ('γ0',('<i>γ</i><sub>0</sub>','',1.1,'重要性系数')),
         ('β1',('<i>β</i><sub>1</sub>','',0.8,'系数','按本规范第6.2.6条的规定计算')),
         ('α1',('<i>α</i><sub>1</sub>','',1,'系数')),
         ('fc',('<i>f</i>c','MPa',16.7,'混凝土轴心抗压强度设计值')),
@@ -51,6 +51,7 @@ class fc_rect(abacus):
         ))
     __deriveds__ = OrderedDict((
         ('h0',('<i>h</i><sub>0</sub>','mm',900,'截面有效高度')),
+        ('a_',('<i>a</i><sup>\'</sup>','mm',60,'受压区纵向普通钢筋和预应力钢筋合力点至受压边缘的距离')),
         ('σs',('<i>σ</i><sub>s</sub>','MPa',0,'受拉钢筋等效应力')),
         ('x',('<i>x</i>','mm',0,'截面受压区高度')),
         ('xb',('<i>x</i><sub>b</sub>','mm',0,'界限受压区高度')),
@@ -84,20 +85,17 @@ class fc_rect(abacus):
         self.x=fc_rect.f_x(
             self.α1,self.fc,self.b,self.fy,self.As,self.fy_,self.As_,
             self.fpy,self.Ap,self.σp0_,self.fpy_,self.Ap_)
+        self._x = self.x # self._x表示原始计算得到的受压区高度
         if (self.x > self.xb):
-            # 超筋，参考叶见曙《混凝土结构设计原理》（第二版）P56，式（3-22）
-            x = self.xb # self._x表示修正以后的受压区高度，下同
-            self.Mu = self.fc*self.b*x*(self.h0-x/2)/1E6
-            self._x = x
-            return
-        self.xmin = 2*self.as_
+            # 超筋，按6.2.13节处理，取x=xb
+            self.x = self.xb
+            # self.Mu = self.fc*self.b*x*(self.h0-x/2)/1E6 #有争议
+        self.xmin = 2*self.a_
         if self.x < self.xmin:
             # 受压钢筋达不到强度设计值（《混凝土结构设计原理》P61）
             # 此时，对受压钢筋As'取矩（《混凝土结构设计原理》P62, 规范公式6.2.14）
             Mu = fpy*Ap*(h-ap-as_) + fy*As*(h-a_s-as_) + (σp0_-fpy_)*Ap_*(ap_-as_)
-            # self._x = self.xmin
         else:
-            self._x = self.x
             Mu = fc_rect.f_M(
                     self.α1,self.fc,self.b,self.x,self.h0,self.fy_,self.As_,self.as_,
                     self.σp0_,self.fpy_,self.Ap_,self.ap_)
@@ -128,6 +126,9 @@ class fc_rect(abacus):
     def solve(self):
         self.a = self.a_s if self.Ap == 0 else \
             (self.fsd*self.As*self.a_s+(self.fpd-self.σp0)*self.Ap*self.ap)/(self.fsd*self.As+(self.fpd-self.σp0)*self.Ap)
+        self.a_ = self.as_ if self.Ap <= 0 else \
+            (self.fsd_*self.As_*self.a_s+(self.fpd_-self.σp0_)*self.Ap_*self.ap_)\
+                /(self.fsd_*self.As_+(self.fpd_-self.σp0_)*self.Ap_)
         self.h0 = self.h - self.a
         self.ξb = self.f_ξb()
         self.xb=self.ξb*self.h0
@@ -147,26 +148,20 @@ class fc_rect(abacus):
         yield '材料力学特性：'
         yield self.formatx('fc','fcuk','fy', toggled = False)
         yield self.format('M')
-        ok = self.x<self.xb
+        ok = self._x<self.xb
         yield '{} {} {}'.format(
-            self.format('x'), '&lt;' if ok else '&gt;', 
-            self.format('xb', omit_name = True))
+            self.format('x', digits=digits, value=self._x), '&lt;' if ok else '&gt;', 
+            self.format('xb', digits=digits, omit_name = True))
         if not ok:
-            yield '超筋，受压区高度按界限受压区高度计算，即'+self.format('x', omit_name = True, value=self._x)
-            eq = 'α1*fcd*b*x*(h0-x/2)'
-        else:
-            eq = 'α1*fc*b*x*(h0-x/2)+fy_*As_*(h0-as_)+(fpy_-σp0_)*Ap_*(h0-ap_)'
-            ok = self.x >= self.xmin
-            yield '{} {} {}'.format(
-                self.format('x'), '≥' if ok else '&lt;', 
-                self.format('xmin', eq = '2as_'))
-            if not ok:
-                if self.As_ <= 0:
-                    yield '少筋，需增加受拉钢筋面积。'
-                else:
-                    # yield '受压钢筋达不到强度设计值，取{}。'.format(self.format('x', value=self._x))
-                    yield '受压钢筋达不到强度设计值，按6.2.14条计算。'
-                eq = 'fy*As*(h-a_s-as_)+fpy*Ap*(h-ap-as_)+(σp0_-fpy_)*Ap*(ap_-as_)'
+            yield '不满足公式(6.2.10-3)的要求。受压区高度按界限受压区高度计算，即'+self.format('x', omit_name = True)
+        eq = 'α1*fc*b*x*(h0-x/2)+fy_*As_*(h0-as_)+(fpy_-σp0_)*Ap_*(h0-ap_)'
+        ok = self.x >= self.xmin
+        yield '{} {} {}'.format(
+            self.format('x'), '≥' if ok else '&lt;', 
+            self.format('xmin', eq = '2a_'))
+        if not ok:
+            yield '不满足公式(6.2.10-4)的要求，按6.2.14条计算承载力。'
+            eq = 'fy*As*(h-a_s-as_)+fpy*Ap*(h-ap-as_)+(σp0_-fpy_)*Ap*(ap_-as_)'
         ok = self.eql <= self.Mu
         yield '{} {} {}，{}满足规范要求。'.format(
             self.format('eql', eq='γ0 Md'), '≤' if ok else '&gt;', 

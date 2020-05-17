@@ -47,8 +47,10 @@ class bearing_capacity(abacus):
         'Mu':('<i>M</i><sub>u</sub>','kN·m',0,'弯矩'),
         'Tu':('<i>T</i><sub>u</sub>','kN·m',0,'扭矩'),
         'Vu':('<i>V</i><sub>u</sub>','kN',0,'剪力'),
+        'eql':('','',0,'','构件内力与承载力比例系数'),
         }
 
+    @staticmethod
     def verify1(N,M,T,V,section_type,section_shape,kE,f,fc,As,Ac,Ah,r0,rci,λ,βm):
         λsc = λ
         # 5.1.2 轴心受压强度承载力设计值
@@ -105,19 +107,20 @@ class bearing_capacity(abacus):
         Mu = γm*Wsc*fsc # (5.1.6-1)
         
         NE_ = pi**2*Esc*Asc/1.1/λ**2 # (5.3.1-3)
-        if N/Nu>=0.255*(1-(T/Tu)**2-(V/Vu)**2):
-            f = N/Nu+βm*M/1.5/Mu/(1-0.4*N/NE_)+(T/Tu)**2+(V/Vu)**2 # (5.3.1-1)
+        case = N/Nu>=0.255*(1-(T/Tu)**2-(V/Vu)**2)
+        if case:
+            eql = N/Nu+βm*M/1.5/Mu/(1-0.4*N/NE_)+(T/Tu)**2+(V/Vu)**2 # (5.3.1-1)
         else:
-            f = -N/2.17/Nu+βm*M/Mu/(1-0.4*N/NE_)+(T/Tu)**2+(V/Vu)**2 # (5.3.1-2)
-        return (φ,λsc_,fsc,fsv,Esc,αsc,Nu,Mu,Tu,Vu,f)
+            eql = -N/2.17/Nu+βm*M/Mu/(1-0.4*N/NE_)+(T/Tu)**2+(V/Vu)**2 # (5.3.1-2)
+        return (φ,λsc_,fsc,fsv,Esc,αsc,Nu,Mu,Tu,Vu,case,eql)
     
     def solve(self):
-        self.validate('positive', 'As','Ac','fc','r0')
+        self.validate('positive', 'As','Ac','Ah', 'f','fc','r0','rci','λ')
         _kE = {'Q235':918.9,'Q345':719.6,'Q390':657.5,'Q420':626.9} # 表5.1.7
         self.kE = _kE[self.steel]
         (self.φ, self.λsc_, self.fsc, self.fsv, self.Esc, self.αsc,
-         self.Nu, self.Mu, self.Tu, self.Vu, self.result) = \
-        bearing_capacity.verify1(
+         self.Nu, self.Mu, self.Tu, self.Vu, self.case, self.eql) = \
+        self.verify1(
             self.N*1e3,self.M*1e6,self.T*1e6,self.V*1e3,self.section_type,self.section_shape,
             self.kE,self.f,self.fc,self.As,self.Ac,self.Ah,
             self.r0,self.rci,self.λ,self.βm
@@ -125,10 +128,18 @@ class bearing_capacity(abacus):
         self.Nu/=1e3; self.Mu/=1e6; self.Tu/=1e6; self.Vu/=1e3
         
     def _html(self, digits = 2):
-        yield '偏心受压承载力计算'
-        for row in super()._html():
-            yield row
-        yield '构件内力与承载力比例系数={:.3f} {} 1, {}满足规范要求。'.format(self.result, '&le;' if self.result <= 1 else '&gt;', '' if self.result < 1 else '不')
+        disableds = self.disableds()
+        for attr in self.inputs:
+            if hasattr(self, attr) and (not attr in disableds):
+                yield self.format(attr, digits = None)
+        for attr in self.deriveds():
+            if hasattr(self, attr) and (not attr in disableds) and (attr != 'eql'):
+                yield self.format(attr, digits = digits)
+        yield '{} {} 1, {}满足规范要求。'.format(
+            self.format('eql', digits, eq='N/Nu+βm*M/1.5/Mu/(1-0.4*N/NE_)+(T/Tu)**2+(V/Vu)**2' if self.case \
+                else '-N/2.17/Nu+βm*M/Mu/(1-0.4*N/NE_)+(T/Tu)**2+(V/Vu)**2'), 
+            '&le;' if self.eql <= 1 else '&gt;', 
+            '' if self.eql <= 1 else '不')
 
 def _test():
     f = bearing_capacity(

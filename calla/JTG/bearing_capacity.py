@@ -194,7 +194,7 @@ class fc_rect(abacus, material_base):
     def solve(self):
         self.validate('positive', 'γ0', 'b', 'h0', 'as_')
         self.a = self.a_s if self.Ap == 0 else \
-            (self.fsd*self.As*self.a_s+(self.fpd-self.σp0)*self.Ap*self.ap)/(self.fsd*self.As+(self.fpd-self.σp0)*self.Ap)
+            (self.fsd*self.As*self.a_s+self.fpd*self.Ap*self.ap)/(self.fsd*self.As+self.fpd*self.Ap)
         self.h0 = self.h - self.a
         # 验算(5.2.2-4) 所需参数
         self.a_ = self.as_ if self.Ap <= 0 else \
@@ -317,7 +317,7 @@ class fc_T(fc_rect, material_base):
         
     def solve(self):
         self.a = self.a_s if self.Ap == 0 else \
-            (self.fsd*self.As*self.a_s+(self.fpd-self.σp0)*self.Ap*self.ap)/(self.fsd*self.As+(self.fpd-self.σp0)*self.Ap)
+            (self.fsd*self.As*self.a_s+self.fpd*self.Ap*self.ap)/(self.fsd*self.As+self.fpd*self.Ap)
         self.h0 = self.h - self.a
         # 验算(5.2.2-4) 所需参数
         self.a_ = self.as_ if self.Ap <= 0 else \
@@ -522,9 +522,9 @@ class eccentric_compression(gb_eccentric_compression, material_base):
     # def fMu(fcd,b,x,h0,fsd_,As_,as_,fpd_,σp0_,Ap_,ap_):
     #     return fcd*b*x*(h0-x/2)+fsd_*As_*(h0-as_)+(fpd_-σp0_)*Ap_*(h0-ap_)
 
-    # (5.3.4-4)
     @staticmethod
-    def fMu_(fcd,b,x,h0,fsd_,As_,as_,fpd_,σp0_,Ap_,ap_):
+    def fMu_(fcd,b,h,x,h0_,fsd_,As_,a_s,fpd_,σp0,Ap,ap):
+        '''(5.3.4-4)'''
         return fcd*b*x*(h0_-h/2)+fsd_*As*(h0_-a_s)+(fpd_-σp0)*Ap*(h0_-ap)
     
     @staticmethod
@@ -1794,7 +1794,7 @@ class torsion(abacus, material_base):
         return Tu
 
     def solve(self):
-        self.validate('positive','A0','Asv1')
+        self.validate('positive','A0','Asv1', 'fcuk', 'ρ')
         Vd = self.Vd*1e3
         Td = self.Td*1e6
         self.Acor=self.bcor*self.hcor
@@ -2014,7 +2014,7 @@ class local_pressure(abacus, material_base):
         return 4*Ass1/dcor/s # (5.7.2-4)
 
     def solve(self):
-        self.validate('positive','Al','Acor','s')
+        self.validate('positive', 'Ab','Al','Acor','s')
         fcuk = material.concrete.fcuk(self.concrete)
         if fcuk < 50:
             ηs = 1.0

@@ -220,6 +220,7 @@ class wind(abacus):
         for i in range(0,len(table)):
             if data<=table[i]:
                 return i
+        return i
 
     @staticmethod
     def fUd(kf,kt,kh,U10):
@@ -237,7 +238,7 @@ class wind(abacus):
         return kc*(Z/10)**α0
 
     def solve(self):
-        self.validate('positive','B', 'H')
+        self.validate('positive','B', 'H', 'Z')
         self.validate('non-negative','βd')
         U10 = self.U10
         self.R = 'R1' if U10>32.6 else 'R2' if U10>24.5 else 'R3'
@@ -362,7 +363,7 @@ D 中高层建筑物密集地区、起伏较大的丘陵地''',('A','B','C','D')
         return 1/2*ρ*Ug**2*CH*D
 
     def solve(self):
-        self.validate('positive','B', 'H')
+        self.validate('positive','B', 'H', 'Z')
         self.validate('non-negative','βd')
         U10 = self.U10
         self.R = 'R1' if U10>32.6 else 'R2' if U10>24.5 else 'R3'

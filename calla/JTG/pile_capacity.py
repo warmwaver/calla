@@ -625,7 +625,7 @@ class pile_effects(abacus):
         return (α, kh, δHH, δMH, δHM, δMM, x0, φ0, _Mz, _Qz)
 
     def solve(self):
-        self.validate('non-negative', 'h1')
+        self.validate('non-negative', 'h1', 'd', 'm', 'b1', 'Ec')
         self.I = pi*self.d**4/64
         self.I0 = self.I
         # self.M0 = self.M+self.H*(self.h2+self.h1)

@@ -107,7 +107,7 @@ class shear_capacity(abacus):
     def solve(self):
         fV4 = lambda b,h,h0,l,fcuk:0.33e-4*(l/h+10.3)*sqrt(fcuk)*b*h0
         fVu = lambda α1,b,h,h0,l,fcuk,P,ρsv,fsv:0.5e-4*α1*(14-l/h)*b*h0*sqrt((2+0.6*P)*sqrt(fcuk)*ρsv*fsv)
-        self.validate('positive', 'b', 'h', 'h0')
+        self.validate('positive', 'b', 'h', 'h0', 'fcuk')
         self.ρ = self.As/self.b/self.h0
         self.P = self.ρ * 100
         if self.P > 2.5:

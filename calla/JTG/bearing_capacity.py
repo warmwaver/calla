@@ -139,8 +139,10 @@ class fc_rect(abacus, material_base):
 
     def solve_Mu(self):
         """计算正截面抗弯承载力设计值"""
-        fsd=self.fsd; As=self.As; h=self.h; a_s=self.a_s; as_=self.as_; fpd=self.fpd
-        Ap=self.Ap; ap=self.ap; σp0_=self.σp0_; fpd_=self.fpd_; Ap_=self.Ap_; ap_=self.ap_
+        fsd=self.fsd; As=self.As; h=self.h; a_s=self.a_s; as_=self.as_; a_=self.a_
+        fpd=self.fpd; Ap=self.Ap; ap=self.ap
+        σp0_=self.σp0_; fpd_=self.fpd_; Ap_=self.Ap_; ap_=self.ap_
+
         self.x=self.fx(
             self.fcd,self.b,self.fsd,self.As,self.fsd_,self.As_,
             self.fpd,self.Ap,self.σp0_,self.fpd_,self.Ap_)
@@ -193,11 +195,11 @@ class fc_rect(abacus, material_base):
         
     def solve(self):
         self.validate('positive', 'γ0', 'b', 'h0', 'as_')
-        self.a = self.a_s if self.Ap == 0 else \
+        self.a = self.a_s if self.Ap <= 0 else \
             (self.fsd*self.As*self.a_s+self.fpd*self.Ap*self.ap)/(self.fsd*self.As+self.fpd*self.Ap)
         self.h0 = self.h - self.a
         # 验算(5.2.2-4) 所需参数
-        self.a_ = self.as_ if self.Ap <= 0 else \
+        self.a_ = self.as_ if self.Ap_ <= 0 else \
             (self.fsd_*self.As_*self.a_s+(self.fpd_-self.σp0_)*self.Ap_*self.ap_)\
                 /(self.fsd_*self.As_+(self.fpd_-self.σp0_)*self.Ap_)
         # self.h0_ = self.h - self.a_
@@ -212,11 +214,12 @@ class fc_rect(abacus, material_base):
     def _html_M(self, digits = 2):
         yield self.format('γ0', digits=None)
         yield '截面尺寸：'
-        yield self.formatx('b','h0')
+        yield self.formatx('b','h','a_s','as_', 'ap','ap_','h0', sep_names = '，', omit_name = True)
         yield '配筋面积：'
-        yield self.formatx('As','As_')
+        yield self.formatx('As','As_', 'Ap', 'Ap_')
         yield '材料力学特性：'
-        yield self.formatx('fcd','fsd', toggled = False)
+        yield self.formatx('fcd','fsd', sep_names = '，', omit_name = True, toggled= False)
+        yield self.formatx('fpd','fpd_','σp0_', sep_names = '，', omit_name = True, toggled= False)
         yield self.format('Md')
         ok = self._x<self.xb
         yield '{} {} {}'.format(
@@ -250,9 +253,10 @@ class fc_rect(abacus, material_base):
     def _html_As(self, digits=2):
         yield '已知弯矩求普通钢筋面积'
         yield '截面尺寸：'
-        yield self.formatx('b','h0', sep_names = '，', omit_name = True)
+        yield self.formatx('b','h','a_s','as_', 'ap','ap_','h0', sep_names = '，', omit_name = True)
         yield '材料力学特性：'
         yield self.formatx('fcd','fsd', sep_names = '，', omit_name = True, toggled= False)
+        yield self.formatx('fpd','fpd_','σp0_', sep_names = '，', omit_name = True, toggled= False)
         yield self.format('Md')
         if self.delta>0:
             if self.x<self.xb:
@@ -316,19 +320,19 @@ class fc_T(fc_rect, material_base):
     _same_as_rect = True
         
     def solve(self):
-        self.a = self.a_s if self.Ap == 0 else \
+        self.a = self.a_s if self.Ap <= 0 else \
             (self.fsd*self.As*self.a_s+self.fpd*self.Ap*self.ap)/(self.fsd*self.As+self.fpd*self.Ap)
         self.h0 = self.h - self.a
         # 验算(5.2.2-4) 所需参数
-        self.a_ = self.as_ if self.Ap <= 0 else \
+        self.a_ = self.as_ if self.Ap_ <= 0 else \
             (self.fsd_*self.As_*self.a_s+(self.fpd_-self.σp0_)*self.Ap_*self.ap_)\
                 /(self.fsd_*self.As_+(self.fpd_-self.σp0_)*self.Ap_)
 
-        bf_=self.bf_; hf_=self.hf_; b=self.b; as_=self.as_
-        fcd=self.fcd
-        fsd=self.fsd; As=self.As; fsd_=self.fsd_; As_=self.As_
+        b=self.b; h0=self.h0; bf_=self.bf_; hf_=self.hf_; as_=self.as_
+        fcd=self.fcd; fsd=self.fsd; As=self.As; fsd_=self.fsd_; As_=self.As_
         fpd=self.fpd; fpd_=self.fpd_; Ap=self.Ap; Ap_=self.Ap_
         σp0_=self.σp0_; ap_=self.ap_
+
         if fsd*As+fpd*Ap<=fcd*bf_*hf_+fsd_*As_-(σp0_-fpd_)*Ap_:
             self._same_as_rect = True
             self.option = 'review'
@@ -558,11 +562,11 @@ class eccentric_compression(gb_eccentric_compression, material_base):
         # 5.1.4节
         self.β = 0.8 if self.fcuk <= 50 else 0.8+(self.fcuk-50)*(0.74-0.8)/(80-50)
         # strictly, a = (σs*As*a_s+σp*Ap*ap)/(σs*As+σp*Ap)
-        self.a = self.a_s if self.Ap == 0 else \
+        self.a = self.a_s if self.Ap <= 0 else \
             (self.fsd*self.As*self.a_s+(self.fpd-self.σp0)*self.Ap*self.ap)/(self.fsd*self.As+(self.fpd-self.σp0)*self.Ap)
         self.h0 = self.h - self.a
         # 式(5.3.5-3)验算时需要如下参数
-        self.a_ = self.as_ if self.Ap <= 0 else \
+        self.a_ = self.as_ if self.Ap_ <= 0 else \
             (self.fsd_*self.As_*self.a_s+(self.fpd_-self.σp0_)*self.Ap_*self.ap_)\
                 /(self.fsd_*self.As_+(self.fpd_-self.σp0_)*self.Ap_)
         self.h0_ = self.h - self.a_
@@ -616,7 +620,7 @@ class eccentric_compression(gb_eccentric_compression, material_base):
                     # 5.2.4节, 当计算中考虑受压区纵向钢筋但不符合式(5. 2. 2-4)或式(5. 2. 2-5 )条件时，
                     # 仅采用纵向体内钢筋的受弯构件正截面抗弯承载力的计算应符合下列规定(图5.2.2} ,
                     # 1当受压区配有纵向普通钢筋和预应力钢筋，且预应力钢筋受压时:
-                    self.a_ = self.as_ if self.Ap_ == 0 else \
+                    self.a_ = self.as_ if self.Ap_ <= 0 else \
                         (self.fsd_*self.As_*self.as_+(self.fpd_-self.σp0_)*self.Ap_*self.ap_)/(self.fsd_*self.As_+self.fpd_*self.Ap_)
                     self.e_ = self.ei-(self.h/2-self.a_) # 偏心压力作用点至受压钢筋和钢束合力点的距离
                     self.γ0Md = self.γ0Nd*self.e_*1e-3
@@ -1013,7 +1017,7 @@ class eccentric_compression_Ishape(eccentric_compression):
                     # 5.2.4节, 当计算中考虑受压区纵向钢筋但不符合式(5. 2. 2-4)或式(5. 2. 2-5 )条件时，
                     # 仅采用纵向体内钢筋的受弯构件正截面抗弯承载力的计算应符合下列规定(图5.2.2} ,
                     # 1当受压区配有纵向普通钢筋和预应力钢筋，且预应力钢筋受压时:
-                    self.a_ = self.as_ if self.Ap_ == 0 else \
+                    self.a_ = self.as_ if self.Ap_ <= 0 else \
                         (self.fsd_*self.As_*self.as_+(self.fpd_-self.σp0_)*self.Ap_*self.ap_)/(self.fsd_*self.As_+self.fpd_*self.Ap_)
                     self.e_ = self.ei-(self.h/2-self.a_) # 偏心压力作用点至受压钢筋和钢束合力点的距离
                     self.γ0Md = self.γ0Nd*self.e_*1e-3

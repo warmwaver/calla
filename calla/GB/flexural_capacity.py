@@ -124,9 +124,9 @@ class fc_rect(abacus):
             raise InputError(self, 'h0', '弯矩无法平衡，需增大截面尺寸')
         
     def solve(self):
-        self.a = self.a_s if self.Ap == 0 else \
+        self.a = self.a_s if self.Ap <= 0 else \
             (self.fy*self.As*self.a_s+self.fpy*self.Ap*self.ap)/(self.fy*self.As+self.fpy*self.Ap)
-        self.a_ = self.as_ if self.Ap <= 0 else \
+        self.a_ = self.as_ if self.Ap_ <= 0 else \
             (self.fy_*self.As_*self.a_s+(self.fpy_-self.σp0_)*self.Ap_*self.ap_)\
                 /(self.fy_*self.As_+(self.fpy_-self.σp0_)*self.Ap_)
         self.h0 = self.h - self.a
@@ -243,9 +243,9 @@ class fc_T(fc_rect):
     _same_as_rect = True
         
     def solve(self):
-        self.a = self.a_s if self.Ap == 0 else \
+        self.a = self.a_s if self.Ap <= 0 else \
             (self.fy*self.As*self.a_s+self.fpy*self.Ap*self.ap)/(self.fy*self.As+self.fpy*self.Ap)
-        self.a_ = self.as_ if self.Ap <= 0 else \
+        self.a_ = self.as_ if self.Ap_ <= 0 else \
             (self.fy_*self.As_*self.a_s+(self.fpy_-self.σp0_)*self.Ap_*self.ap_)\
                 /(self.fy_*self.As_+(self.fpy_-self.σp0_)*self.Ap_)
         self.h0 = self.h - self.a

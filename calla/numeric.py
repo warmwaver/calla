@@ -84,7 +84,7 @@ def query_table(table, rh, ch: int):
     """
     for i in range(len(table)):
         row = table[i]
-        if rh == row[0]:
+        if rh <= row[0]:
             return row[ch]
         if rh < row[0] and i>0:
             r1 = table[i-1][0]
@@ -93,7 +93,7 @@ def query_table(table, rh, ch: int):
             v2 = row[ch]
             v = v1 + (rh-r1)*(v2-v1)/(r2-r1)
             return v
-    return None
+    return table[i][ch]
 
 def test():
     from math import sin,pi

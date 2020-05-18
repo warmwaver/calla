@@ -311,7 +311,8 @@ class crack_width(abacus):
         return (K1,K2,μz,Asl,Acl,wf)
 
     def solve(self):
-        self.positive_check('a','b','d','M')
+        self.validate('positive','a','b','d','M')
+        self.validate('non-negative', 'n1', 'n2', 'n3')
         self.K1,self.K2,self.μz,self.Asl,self.Acl,self.ωf = self.solve_wf(
             self.M1,self.M2,self.M,self.σs,self.Es,self.d,self.a,self.b,
             self.n1,self.n2,self.n3,self.γ,self.rebar_type)

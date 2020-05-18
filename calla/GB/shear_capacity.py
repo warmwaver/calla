@@ -31,6 +31,7 @@ class shear_capacity(abacus):
         ))
     
     def solve(self):
+        self.validate('positive', 'b', 'hw', 'h0', 'fc')
         self._v1 = V_6_3_1(self.b, self.hw, self.h0, self.fc)/1000
         if self.V > self._v1:
             return
@@ -77,8 +78,6 @@ def V_6_3_1(b, hw, h0, fc, beta_c=1):
     Returns:
         最大剪力设计值
     """
-    if b<0 or hw<0 or h0<0 or beta_c<0 or fc<0:
-        raise Exception('Arguments cannot be negative.')
     ratio = hw/b
     if ratio < 4:
         factor = 0.25

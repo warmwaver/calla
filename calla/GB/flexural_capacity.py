@@ -124,11 +124,11 @@ class fc_rect(abacus):
             raise InputError(self, 'h0', '弯矩无法平衡，需增大截面尺寸')
         
     def solve(self):
-        self.a = self.a_s if self.Ap == 0 else \
-            (self.fsd*self.As*self.a_s+(self.fpd-self.σp0)*self.Ap*self.ap)/(self.fsd*self.As+(self.fpd-self.σp0)*self.Ap)
-        self.a_ = self.as_ if self.Ap <= 0 else \
-            (self.fsd_*self.As_*self.a_s+(self.fpd_-self.σp0_)*self.Ap_*self.ap_)\
-                /(self.fsd_*self.As_+(self.fpd_-self.σp0_)*self.Ap_)
+        self.a = self.a_s if self.Ap <= 0 else \
+            (self.fy*self.As*self.a_s+self.fpy*self.Ap*self.ap)/(self.fy*self.As+self.fpy*self.Ap)
+        self.a_ = self.as_ if self.Ap_ <= 0 else \
+            (self.fy_*self.As_*self.a_s+(self.fpy_-self.σp0_)*self.Ap_*self.ap_)\
+                /(self.fy_*self.As_+(self.fpy_-self.σp0_)*self.Ap_)
         self.h0 = self.h - self.a
         self.ξb = self.f_ξb()
         self.xb=self.ξb*self.h0
@@ -212,11 +212,12 @@ class fc_T(fc_rect):
         ('fcuk',('<i>f</i><sub>cu,k</sub>','MPa',35,'混凝土立方体抗压强度标准值','取混凝土标高')),
         ('Es',('<i>E</i><sub>s</sub>','MPa',2.0E5,'钢筋弹性模量')),
         ('b',('<i>b</i>','mm',500,'矩形截面的短边尺寸')),
+        ('h',('<i>h</i>','mm',1000,'矩形截面高度')),
         ('bf_',('<i>b</i><sub>f</sub><sup>\'</sup>','mm',1000,'受压区翼缘计算宽度')),
         ('hf_',('<i>h</i><sub>f</sub><sup>\'</sup>','mm',200,'受压区翼缘计算高度')),
-        ('h0',('<i>h</i><sub>0</sub>','mm',900,'截面有效高度')),
         ('fy',('<i>f</i><sub>y</sub>','MPa',360,'钢筋抗拉强度设计值')),
         ('As',('<i>A</i><sub>s</sub>','mm<sup>2</sup>',0,'受拉钢筋面积')),
+        ('a_s',('<i>a</i><sub>s</sub>','mm',60,'受拉区纵向普通钢筋合力点至受拉边缘的距离')),
         ('fy_',('<i>f</i><sub>y</sub><sup>\'</sup>','MPa',360,'受压区普通钢筋抗压强度设计值')),
         ('As_',('<i>A</i><sub>s</sub><sup>\'</sup>','mm<sup>2</sup>',0,'受压区钢筋面积', '受压区纵向普通钢筋的截面面积')),
         ('as_',('<i>a</i><sub>s</sub><sup>\'</sup>','mm',30,'受压钢筋合力点边距','受压区纵向普通钢筋合力点至截面受压边缘的距离')),
@@ -230,6 +231,7 @@ class fc_T(fc_rect):
         ('M',('<i>M</i>','kN·m',600,'弯矩设计值')),
         ))
     __deriveds__ = OrderedDict((
+        ('h0',('<i>h</i><sub>0</sub>','mm',900,'截面有效高度')),
         ('σs',('<i>σ</i><sub>s</sub>','MPa',0,'受拉钢筋等效应力')),
         ('x',('<i>x</i>','mm',0,'截面受压区高度')),
         ('xb',('<i>x</i><sub>b</sub>','mm',0,'界限受压区高度')),
@@ -241,10 +243,16 @@ class fc_T(fc_rect):
     _same_as_rect = True
         
     def solve(self):
+        self.a = self.a_s if self.Ap <= 0 else \
+            (self.fy*self.As*self.a_s+self.fpy*self.Ap*self.ap)/(self.fy*self.As+self.fpy*self.Ap)
+        self.a_ = self.as_ if self.Ap_ <= 0 else \
+            (self.fy_*self.As_*self.a_s+(self.fpy_-self.σp0_)*self.Ap_*self.ap_)\
+                /(self.fy_*self.As_+(self.fpy_-self.σp0_)*self.Ap_)
+        self.h0 = self.h - self.a
         bf_=self.bf_; hf_=self.hf_; b=self.b; h0=self.h0; as_=self.as_
         α1=self.α1; fc=self.fc
-        fy=self.fy; As=self.As; fy_=self.fy_; As_=self.As_;
-        fpy=self.fpy; fpy_=self.fpy_; Ap=self.Ap; Ap_=self.Ap_;
+        fy=self.fy; As=self.As; fy_=self.fy_; As_=self.As_
+        fpy=self.fpy; fpy_=self.fpy_; Ap=self.Ap; Ap_=self.Ap_
         σp0_=self.σp0_; ap_=self.ap_
         if fy*As+fpy*Ap<=α1*fc*bf_*hf_+fy_*As_-(σp0_-fpy_)*Ap_:
             self._same_as_rect = True

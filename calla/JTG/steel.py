@@ -42,6 +42,7 @@ class rib_size(abacus):
         return (ξl, Il)
 
     def solve(self):
+        self.validate('positive', 'fy')
         self.eql = self.hs/self.ts
         self.eqr = 12*sqrt(345/self.fy)
 
@@ -71,6 +72,7 @@ class flange_size(abacus):
         ))
 
     def solve(self):
+        self.validate('positive', 'fyk')
         self.eql = self.wfl/self.tfl
         self.eqr = 12*sqrt(345/self.fyk)
 
@@ -145,6 +147,9 @@ class compressed_rib(abacus):
         else 2*(1+sqrt(1+n*γl))/(1+n*δl)
 
     def solve(self):
+        self.validate('non-negative', 'υ', 'nl')
+        if self.υ >=1:
+            raise InputError(self, 'υ', '应<1')
         self.Il,self.It,self.D,self.γl,self.γt,self.n,self.α0,\
         self.α,self.Asl,self.δl,self.γl_,self.Asl_min,self.γt_min = \
         self.fsolve(self.E,self.υ,self.a,self.b,self.t,self.hl,self.tl,self.ht,self.tt,self.nl,self.at)
@@ -264,7 +269,7 @@ class effective_section(abacus):
             raise Exception('not implemented')
 
     def solve(self):
-        self.validate('positive', 'L')
+        self.validate('positive', 'fy', 'E', 'k', 'L')
         self.λp,self.ε0,self.ρip= self.fρ(self.bp,self.t,self.fy,self.E,self.k)
         self.beip = self.ρip*self.bi
         if self.beam_type == 'simple':
@@ -344,7 +349,7 @@ class stability(abacus):
         return (MRdy, MRdz,λLTy,λLTz,ε0y,χLTy,ε0z,χLTz,eql1,eql2)
 
     def solve(self):
-        self.validate('positive','fd','Mcry','Mcrz','Wyeff','Wzeff')
+        self.validate('positive', 'fy','fd','Mcry','Mcrz','Wyeff','Wzeff')
         self.MRdy, self.MRdz,self.λLTy,self.λLTz,self.ε0y,\
         self.χLTy,self.ε0z,self.χLTz,self.eql1,self.eql2=\
         self.fsolve(self.γ0, self.fy*1e3, self.fd*1e3,self.My,self.Mz, 

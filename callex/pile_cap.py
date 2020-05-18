@@ -103,7 +103,7 @@ class pile_cap(abacus):
                 # 计算第i排桩竖向力设计值
                 group = yi if o == 'x' else xi
                 ngp = len(group)
-                Nid = max([Nd(i,j) for j in range(ngp)])*ngp
+                Nid = max([(Nd(i,j) if o == 'x' else Nd(j,i)) for j in range(ngp)])*ngp
                 if x <= self.h:
                     # 按拉压杆模型计算承载力（8.5.4条）
                     # group = yi if o == 'x' else xi

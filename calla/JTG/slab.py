@@ -38,8 +38,9 @@ class vehicle_load(abacus):
     def fa(cls, l, h, t, d, d1, a1):
         def _fa(x):
             return a1+2*h+t+2*x
-        a = {}
-        a[0] = _fa(0)
+        a = []
+        a0 = _fa(0)
+        a.append((0, a0))
         am = a1+2*h+l/3
         amin = 2/3*l
         if am<amin:
@@ -48,9 +49,9 @@ class vehicle_load(abacus):
         if overlaped:
             am = am+d
         x = (am - (a1+2*h+t))/2
-        a[x] = am
-        a[l-x] = am
-        a[l] = a[0]
+        a.append((x, am))
+        a.append((l-x, am))
+        a.append((l, a0))
         return (a, overlaped)
 
     def solve(self):
@@ -67,8 +68,8 @@ class vehicle_load(abacus):
         yield '垂直于板跨方向的荷载分布宽度：'
         t = []
         t.append(['距板跨端部的距离(m)', '荷载分布宽度(m)'])
-        for i in self.a:
-            t.append([i, self.a[i]])
+        for item in self.a:
+            t.append(item)
         yield html.table2html(t, digits, True)
         yield self.format('a2', digits, eq='(a1+2*h)+2*lc')
 

@@ -394,15 +394,15 @@ class Column(abacus):
         # 短期作用(频遇组合)
         forces_s = wrapforces(self.forces_fr)
         cw.Ns = abs(forces_s.Fx)
-        # y方向验算
+        # z方向验算
         cw.As = Asx
         if self.section == 'round':
             cw.Ml = sqrt(forces_l.Mz**2+forces_l.My**2)
             cw.Ms = sqrt(forces_s.Mz**2+forces_s.My**2)
         else:
-            cw.Ml = abs(forces_l.Mz)
-            cw.Ms = abs(forces_s.Mz)
-        # z方向验算
+            cw.Ml = abs(forces_l.My)
+            cw.Ms = abs(forces_s.My)
+        # y方向验算
         cws = []
         cws.append(cw)
         if self.section != 'round':
@@ -412,8 +412,8 @@ class Column(abacus):
             cws[1].h0 = cws[1].h-cws[1].a_s
             cws[1].As = Asy
             cws[1].ys = cws[1].h/2-cws[1].a_s
-            cws[1].Ml = abs(forces_l.My)
-            cws[1].Ms = abs(forces_s.My)
+            cws[1].Ml = abs(forces_l.Mz)
+            cws[1].Ms = abs(forces_s.Mz)
         for f in cws:
             if f.Ns == 0:
                 f.force_type = 'BD'
@@ -555,9 +555,9 @@ class Column(abacus):
             if self.section == 'round':
                 doc += self.bcs[0].html(digits)
             else:
-                doc += '<b>Fz作用方向偏心弯曲</b>'
+                doc += '<b>My作用下</b>'
                 doc += self.bcs[0].html(digits)
-                doc += '<b>Fy作用方向偏心弯曲</b>'
+                doc += '<b>Mz作用下</b>'
                 doc += self.bcs[1].html(digits)
                 doc += '<p>（3）双向偏心受压承载力计算</p>'
                 doc += self.be.html(digits)
@@ -566,10 +566,10 @@ class Column(abacus):
                 doc += self.cws[0].html(digits)
             else:
                 if self.cws[0].force_type != 'AC':
-                    doc += '<b>Fz作用方向偏心弯曲</b>'
+                    doc += '<b>My作用下</b>'
                     doc += self.cws[0].html(digits)
                 if self.cws[1].force_type != 'AC':
-                    doc += '<b>Fy作用方向偏心弯曲</b>'
+                    doc += '<b>Mz作用下</b>'
                     doc += self.cws[1].html(digits)
             return doc
         elif self.code == 'TB':

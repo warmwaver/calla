@@ -434,8 +434,8 @@ class web_rib(abacus):
             'Q235':[[70,0,0],[160,280,310]],
             'Q345':[[60,0,0],[140,240,310]]
         }
-        nt = min(self.nt, 1)
-        nl = min(self.nl, 2)
+        nt = min(int(self.nt), 1)
+        nl = min(int(self.nl), 2)
         self.C = op[self.steel][nt][nl]
         if self.C <= 0:
             raise InputError(self, 'nt', '设置纵向加劲肋时，需同时设置横向加劲肋')

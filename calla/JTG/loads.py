@@ -141,8 +141,8 @@ class column_earth_pressure_width(abacus):
             ('b',('<i>b</i>','m',1,'土压力计算宽度')),
             ])
     def solve(self):
-        n = self.n; D=self.D
-        if self.li < D:
+        n = self.n; D=self.D; li=self.li
+        if li < D:
             B = n*D+(n-1)*li
             self.b = B/n
         else:
@@ -338,6 +338,7 @@ D 中高层建筑物密集地区、起伏较大的丘陵地''',('A','B','C','D')
         for i in range(0,len(table)):
             if data<=table[i]:
                 return i
+        return i
 
     @staticmethod
     def fUd(kf,kt,kh,U10):

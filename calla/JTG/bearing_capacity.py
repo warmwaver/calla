@@ -10,6 +10,7 @@ __all__ = [
     #'eccentric_compression_Ishape',
     'biaxial_eccentric',
     'axial_tension',
+    # 'eccentric_tension',
     'bc_round',
     'shear_capacity',
     'torsion',
@@ -113,6 +114,7 @@ class fc_rect(abacus, material_base):
         ))
     __deriveds__ = OrderedDict((
         ('h0',('<i>h</i><sub>0</sub>','mm',900,'截面有效高度')),
+        ('a',('<i>a</i>','mm',60,'受拉区纵向普通钢筋和预应力钢筋合力点至受拉边缘的距离')),
         ('a_',('<i>a</i><sup>\'</sup>','mm',60,'受压区纵向普通钢筋和预应力钢筋合力点至受压边缘的距离')),
         ('σs',('<i>σ</i><sub>s</sub>','MPa',0,'受拉钢筋等效应力')),
         ('x',('<i>x</i>','mm',0,'截面受压区高度')),
@@ -192,12 +194,15 @@ class fc_rect(abacus, material_base):
                     return self.As
         else:
             raise SolvingError('弯矩无法平衡，需增大截面尺寸。')
-        
-    def solve(self):
+
+    def init_params(self):
+        ''' 初始化基本计算参数 '''
         self.validate('positive', 'γ0', 'b', 'h0', 'as_')
         self.a = self.a_s if self.Ap <= 0 else \
             (self.fsd*self.As*self.a_s+self.fpd*self.Ap*self.ap)/(self.fsd*self.As+self.fpd*self.Ap)
         self.h0 = self.h - self.a
+        if self.h0 <= 0:
+            raise InputError(self, 'h', '截面高度不足，或受拉钢筋距边缘距离过大，导致截面有效高度为负')
         # 验算(5.2.2-4) 所需参数
         self.a_ = self.as_ if self.Ap_ <= 0 else \
             (self.fsd_*self.As_*self.a_s+(self.fpd_-self.σp0_)*self.Ap_*self.ap_)\
@@ -205,6 +210,9 @@ class fc_rect(abacus, material_base):
         # self.h0_ = self.h - self.a_
         self.ξb = f_ξb(self.fcuk, self.fsd)
         self.xb=self.ξb*self.h0
+        
+    def solve(self):
+        self.init_params()
         self.solve_Mu() if self.option == 'review' else self.solve_As()
         self.eql = self.γ0*self.Md
     
@@ -320,39 +328,123 @@ class fc_T(fc_rect, material_base):
     _same_as_rect = True
         
     def solve(self):
-        self.a = self.a_s if self.Ap <= 0 else \
-            (self.fsd*self.As*self.a_s+self.fpd*self.Ap*self.ap)/(self.fsd*self.As+self.fpd*self.Ap)
-        self.h0 = self.h - self.a
-        # 验算(5.2.2-4) 所需参数
-        self.a_ = self.as_ if self.Ap_ <= 0 else \
-            (self.fsd_*self.As_*self.a_s+(self.fpd_-self.σp0_)*self.Ap_*self.ap_)\
-                /(self.fsd_*self.As_+(self.fpd_-self.σp0_)*self.Ap_)
-
-        b=self.b; h0=self.h0; bf_=self.bf_; hf_=self.hf_; as_=self.as_
+        self.init_params()
+        b=self.b; h=self.h; h0=self.h0; bf_=self.bf_; hf_=self.hf_
+        a_s=self.a_s; as_=self.as_
         fcd=self.fcd; fsd=self.fsd; As=self.As; fsd_=self.fsd_; As_=self.As_
-        fpd=self.fpd; fpd_=self.fpd_; Ap=self.Ap; Ap_=self.Ap_
+        fpd=self.fpd; fpd_=self.fpd_; Ap=self.Ap; Ap_=self.Ap_; ap=self.ap
         σp0_=self.σp0_; ap_=self.ap_
 
-        if fsd*As+fpd*Ap<=fcd*bf_*hf_+fsd_*As_-(σp0_-fpd_)*Ap_:
-            self._same_as_rect = True
+        self.eql = self.γ0*self.Md
+
+        self._same_as_rect = fsd*As+fpd*Ap<=fcd*bf_*hf_+fsd_*As_-(σp0_-fpd_)*Ap_
+        if self._same_as_rect:
             self.option = 'review'
-            return fc_rect.solve(self)
+            # return fc_rect.solve(self)
+            self.solve_Mu()
         else:
-            self._same_as_rect = False
+            # (5.2.3-3)
             x=((fsd*As-fsd_*As_+fpd*Ap+(σp0_-fpd_)*Ap_)/(fcd)-(bf_-b)*hf_)/b
-            self.Mu=fcd*b*x*(h0-x/2)+fcd*(bf_-b)*hf_*(h0-hf_/2)+fsd_*As_*(h0-as_)-\
-               (σp0_-fpd_)*Ap_*(h0-ap_) # N*mm
-            self.Mu=self.Mu*1e-6 # kN*m
+            self._x = self.x = x
+            if x > self.xb:
+                self.x = x = self.xb
+            # 按5.2.4条计算
+            ok = True
+            if self.Ap_>0 and (self.fpd_-self.σp0_)>0:
+                # (5.2.2-4)
+                self.xmin = 2*self.a_
+                ok = self.x >= self.xmin
+                if not ok:
+                    # (5.2.4-1)
+                    Mu = fpd*Ap*(h-ap-a_)+fsd*As*(h-a_s-a_)
+            elif self.As_>0 or (self.Ap_>0 and (self.fpd_-self.σp0_)<0):
+                # (5.2.2-5)
+                self.xmin = 2*self.as_
+                ok = self.x >= self.xmin
+                if not ok:
+                    # (5.2.4-2)
+                    # 受压钢筋达不到强度设计值（《混凝土结构设计原理》P61）
+                    # 此时，对受压钢筋As'取矩（《混凝土结构设计原理》P62）
+                    Mu = fpd*Ap*(h-ap-as_)+fsd*As*(h-a_s-as_)-(fpd_-σp0_)*Ap_*(ap_-as_)
+            if ok:
+                # (5.2.3-2)
+                Mu=fcd*(b*x*(h0-x/2)+(bf_-b)*hf_*(h0-hf_/2))+fsd_*As_*(h0-as_)-\
+                (σp0_-fpd_)*Ap_*(h0-ap_) # N*mm
+            self.Mu=Mu*1e-6 # kN*m
             return self.Mu
         
     def _html(self,digits=2):
+        yield self.format('γ0', digits=None)
+        yield '截面尺寸：'
+        yield self.formatx('b','h','a_s','as_', 'ap','ap_','h0', sep_names = '，', omit_name = True)
+        yield '配筋面积：'
+        yield self.formatx('As','As_', 'Ap', 'Ap_')
+        yield '材料力学特性：'
+        yield self.formatx('fcd','fsd', sep_names = '，', omit_name = True, toggled= False)
+        yield self.formatx('fpd','fpd_','σp0_', sep_names = '，', omit_name = True, toggled= False)
+        yield self.format('Md')
+        yield self.replace_by_symbols(
+            'fsd*As+fpd*Ap {} fcd*bf_*hf_+fsd_*As_-(σp0_-fpd_)*Ap_'.format('&le;' if self._same_as_rect else '&gt;'))
         if self._same_as_rect:
-            gen = fc_rect._html(self,digits)
-            for p in gen:
-                yield p
+            yield '按宽度为{}的矩形截面计算。'.format(self.para_attrs('bf_').symbol)
+            ok = self._x<self.xb
+            yield '{} {} {}'.format(
+                self.format('x', digits=digits, value=self._x), '&lt;' if ok else '&gt;', 
+                self.format('xb', digits=digits, omit_name = True))
+            if not ok:
+                yield '不满足公式（5.2.2-3）要求。根据5.2.7条，受压区高度按界限受压区高度计算，即'+self.format('x', omit_name = True)
+            eq = 'fcd*b*x*(h0-x/2)+fsd_*As_*(h0-as_)+(fpd_-σp0_)*Ap_*(h0-ap_)'
+            if self.Ap_>0 and (self.fpd_-self.σp0_)>0:
+                ok = self.x >= self.xmin
+                yield '{} {} {}'.format(
+                    self.format('x'), '≥' if ok else '&lt;', 
+                    self.format('xmin', eq = '2as_'))
+                if not ok:
+                    yield '不满足公式(5.2.2-4)的要求，按5.2.4条计算承载力。'
+                    eq = 'fpd*Ap*(h-ap-a_)+fsd*As*(h-a_s-a_)'
+            elif self.As_>0 or (self.Ap_>0 and (self.fpd_-self.σp0_)<0):
+                ok = self.x >= self.xmin
+                yield '{} {} {}'.format(
+                    self.format('x'), '≥' if ok else '&lt;', 
+                    self.format('xmin', eq = '2as_'))
+                if not ok:
+                    yield '不满足公式(5.2.2-5)的要求，按5.2.4条计算承载力。'
+                    eq = 'fpd*Ap*(h-ap-as_)+fsd*As*(h-a_s-as_)-(fpd_-σp0_)*Ap_*(ap_-as_)'
+            ok = self.eql <= self.Mu
+            yield '{} {} {}，{}满足规范要求。'.format(
+                self.format('eql', eq='γ0 Md'), '≤' if ok else '&gt;', 
+                self.format('Mu', omit_name=True, eq=eq),
+                '' if ok else '不')
         else:
-            yield '正截面受弯承载力弯矩值：'
-            yield '<i>M</i><sub>d</sub> = {:.2f} kN·m'.format(self.Mu)
+            yield '不符合式(5.2.3-1)的条件，按式(5.2.3-3)计算受压区高度{}'.format(self.para_attrs('x').symbol)
+            ok = self._x<self.xb
+            yield '{} {} {}'.format(
+                self.format('x', digits=digits, value=self._x), '&lt;' if ok else '&gt;', 
+                self.format('xb', digits=digits, omit_name = True))
+            if not ok:
+                yield '不满足公式（5.2.2-3）要求。根据5.2.7条，受压区高度按界限受压区高度计算，即'+self.format('x', omit_name = True)
+            eq = 'fcd*(b*x*(h0-x/2)+(bf_-b)*hf_*(h0-hf_/2))+fsd_*As_*(h0-as_)-(σp0_-fpd_)*Ap_*(h0-ap_)'
+            if self.Ap_>0 and (self.fpd_-self.σp0_)>0:
+                ok = self.x >= self.xmin
+                yield '{} {} {}'.format(
+                    self.format('x'), '≥' if ok else '&lt;', 
+                    self.format('xmin', eq = '2as_'))
+                if not ok:
+                    yield '不满足公式(5.2.2-4)的要求，按5.2.4条计算承载力。'
+                    eq = 'fpd*Ap*(h-ap-a_)+fsd*As*(h-a_s-a_)'
+            elif self.As_>0 or (self.Ap_>0 and (self.fpd_-self.σp0_)<0):
+                ok = self.x >= self.xmin
+                yield '{} {} {}'.format(
+                    self.format('x'), '≥' if ok else '&lt;', 
+                    self.format('xmin', eq = '2as_'))
+                if not ok:
+                    yield '不满足公式(5.2.2-5)的要求，按5.2.4条计算承载力。'
+                    eq = 'fpd*Ap*(h-ap-as_)+fsd*As*(h-a_s-as_)-(fpd_-σp0_)*Ap_*(ap_-as_)'
+            ok = self.eql <= self.Mu
+            yield '{} {} {}，{}满足规范要求。'.format(
+                self.format('eql', eq='γ0 Md'), '≤' if ok else '&gt;', 
+                self.format('Mu', omit_name=True, eq=eq),
+                '' if ok else '不')
 
 class axial_compression(abacus):
     """
@@ -1194,11 +1286,11 @@ class axial_tension(abacus):
     """
     __title__ = '轴心受拉承载力'
     __inputs__ = OrderedDict((
-        ('γ0',('<i>γ</i><sub>0</sub>','',1.0,'重要性系数')),
+        ('γ0',('<i>γ</i><sub>0</sub>','',1.1,'重要性系数')),
         ('Nd',('<i>N</i><sub>d</sub>','kN',1000,'轴力设计值')),
         #('A',('<i>A</i>','mm<sup>2</sup>',500*500,'构件截面面积')),
-        ('fsd',('<i>f</i><sub>sd</sub>','MPa',330,'受压区普通钢筋抗压强度设计值')),
-        ('As',('<i>A</i><sub>s</sub>','mm<sup>2</sup>',60,'受压区钢筋面积', '受压区纵向普通钢筋的截面面积')),
+        ('fsd',('<i>f</i><sub>sd</sub>','MPa',330,'普通钢筋抗压强度设计值')),
+        ('As',('<i>A</i><sub>s</sub>','mm<sup>2</sup>',60,'钢筋面积', '普通钢筋的全部截面面积')),
         ))
     __deriveds__ = OrderedDict((
         ('φ',('<i>φ</i>','',0,'稳定系数')),

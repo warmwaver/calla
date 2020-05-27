@@ -171,12 +171,12 @@ class eccentric_compression(abacus):
         ('Asmin',('<i>A</i><sub>s,min</sub>','mm<sup>2</sup>',0,'最小配筋面积')),
         ('eqr',('','mm',0,''))
         ))
-    __toggles__ = {
-        'option':{'review':('Asp_known'),'design':('As')},
-        'option_m2':{True:('M'),False:('M1','M2')},
-        'symmetrical':{True:('As_', 'as_', 'Asp_known'),False:()},
-        'Asp_known':{True:(),False:('As_')},
-        }
+    __toggles__ = OrderedDict((
+        ('option', {'review':('Asp_known'),'design':('As')}),
+        ('option_m2', {True:('M'),False:('M1','M2')}),
+        ('symmetrical', {True:('As_', 'as_', 'Asp_known'),False:()}),
+        ('Asp_known', {True:(),False:('As_')}),
+        ))
     # Non-static members
     ρmin = 0.002
     # Options
@@ -506,6 +506,8 @@ class eccentric_compression(abacus):
         self.xb = self.ξb*self.h0
         self.Asmin = self.ρmin*self.b*self.h
         if self.option == 'review': 
+            if self.As == 0 and self.As_ == 0 and self.Ap ==0 and self.Ap_ == 0:
+                raise InputError(self, 'As', '应>0')
             if self.symmetrical:
                 self.As_ = self.As
             self.large_eccentric, self.x, Nu = self.solve_Nu(

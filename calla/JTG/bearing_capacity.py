@@ -471,12 +471,13 @@ class axial_compression(abacus):
         ('eql',('','kN',0,'')),
         ))
     
+    @staticmethod
     def index(array, value):
         for i in range(len(array)):
             if value <= array[i]:
                 return i
-            elif value > array[i] and value <= array[i+1]:
-                return i+1
+        return i
+
     @staticmethod
     def fNu(phi, fc, A, fy_=300, As_=0):
         """
@@ -491,22 +492,28 @@ class axial_compression(abacus):
         """
         return 0.9*phi*(fc*A+fy_*As_)
 
-    @staticmethod
-    def _phi(l0, b=0,d=0,i=0):
+    @classmethod
+    def _phi(cls, l0, b=0,d=0,i=0):
         if b<=0 and d<=0 and i<=0:
-            raise InputError(axial_compression(),'i','b,d,i输入值必须有一个大于0')
-        n = 22
+            raise InputError(cls,'i','b,d,i输入值必须有一个大于0')
         _b = (8,10,12,14,16,18,20,22,24,26,28,30,32,34,36,38,40,42,44,46,48,50)
         _d = (7,8.5,10.5,12,14,15.5,17,19,21,22.5,24,26,28,29.5,31,33,34.5,36.5,38,40,41.5,43)
         _i = (28,35,42,48,55,62,69,76,83,90,97,104,111,118,125,132,139,146,153,160,167,174)
-        _phi = (1,0.98,0.95,0.92,0.87,0.81,0.75,0.7,0.65,0.6,0.56,0.52,0.48,0.44,0.36,0.32,0.29,0.26,0.23,0.21,0.19)
+        _phi = (
+            1,0.98,0.95,0.92,0.87,0.81,0.75,0.7,0.65,0.6,0.56,
+            0.52,0.48,0.44,0.40,0.36,0.32,0.29,0.26,0.23,0.21,0.19)
+        n = 22
+        assert(len(_b) == n)
+        assert(len(_d) == n)
+        assert(len(_i) == n)
+        assert(len(_phi) == n)
         phis = [1,1,1]
         if b > 0:
-            phis[0] = _phi[axial_compression.index(_b, l0/b)]
+            phis[0] = _phi[cls.index(_b, l0/b)]
         if d > 0:
-            phis[1] = _phi[axial_compression.index(_d, l0/d)]
+            phis[1] = _phi[cls.index(_d, l0/d)]
         if i > 0:
-            phis[2] = _phi[axial_compression.index(_i, l0/i)]
+            phis[2] = _phi[cls.index(_i, l0/i)]
         return min(phis)
     """
     轴压比
@@ -1722,7 +1729,7 @@ class shear_capacity(abacus, material_base):
         return 0.75e-3*F*sin(θ*pi/180)
     
     def solve(self):
-        self.positive_check('b')
+        self.positive_check('b', 'fcuk', 'fsv', 'fpv', 'ρ', 'ρsv', 'ρpv')
         self.γ0Vd = self.γ0*self.Vd
         # 斜截面抗剪承载力，5.2.9节
         self.P = self.ρ * 100

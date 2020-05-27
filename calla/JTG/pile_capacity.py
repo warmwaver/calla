@@ -86,6 +86,8 @@ class friction_pile_capacity(abacus):
         # 负摩阻力计算，条文说明5.3.2节
         ls = 0
         if self.option:
+            if self.ln>= sum(self.li):
+                raise InputError(self, 'ln', '不能超过土层厚度之和')
             for i in range(len(self.li)):
                 if ls < self.ln:
                     if ls+self.li[i] < self.ln:
@@ -100,6 +102,8 @@ class friction_pile_capacity(abacus):
                             γi_ = γl/self.ln
                         else:
                             γi_ = self.γ2 - 10
+                    if γi_ < 0:
+                        raise InputError(self, 'γ2', '应>10')
                     zi = ls + self.li[i]/2 # 第i层土中点深度
                     σvi_ = self.p + γi_*zi
                     qni = self.β*σvi_

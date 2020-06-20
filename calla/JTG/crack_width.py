@@ -18,7 +18,7 @@ class crack_width(abacus):
     __title__ = '裂缝宽度'
     __inputs__ = OrderedDict((
         ('option',('计算选项','','review','','',{'review':'计算裂缝宽度','design':'计算配筋'})),
-        ('case',('','','rect','计算类别','',{'rect':'矩形、T形和I形截面','round':'圆形截面偏心受压','ps':'B类预应力混凝土受弯'})),
+        ('case',('','','rect','计算类别','',{'rect':'矩形、T形和I形截面','round':'圆形截面','ps':'B类预应力混凝土受弯'})),
         ('force_type',('受力类型','','BD','','',{'BD':'受弯构件','EC':'偏心受压构件','ET':'偏心受拉构件','AT':'轴心受拉构件'})),
         ('Es',('<i>E</i><sub>s</sub>','MPa',2.0E5,'钢筋弹性模量')),
         ('c',('<i>c</i>','mm',30,'最外排纵向受拉钢筋的混凝土保护层厚度','当c > 50mm 时，取50mm')),
@@ -77,7 +77,7 @@ class crack_width(abacus):
         ('option',{'review':(),'design':('As')}),
         ('case',{
             'rect':('r','rs', 'Ap','Np0','ep','Mp2'),
-            'round':('force_type', 'b','h','bf','hf','bf_','hf_','ys','ys_','as_', 'Ap','Np0','ep','Mp2'),
+            'round':('b','h','bf','hf','bf_','hf_','ys','ys_','as_', 'Ap','Np0','ep','Mp2'),
             'ps':('force_type', 'b','h','bf','hf','bf_','hf_','ys','ys_','r','rs','l0','Nl','Ns')
             }),
         # 'force_type' can be disabled by 'case'
@@ -96,9 +96,18 @@ class crack_width(abacus):
 
     @staticmethod
     def f_ρte_round(As, r, ηs, e0, a_s):
-        '''圆形截面构件'''
+        '''圆形截面受压构件'''
         ρ = As/pi/r**2 # (6.4.5-5)
         β = (0.4+2.5*ρ)*(1+0.353*(ηs*e0/r)**-2) # (6.4.5-4)
+        r1 = r-2*a_s # (6.4.5-3)
+        ρte = β*As/pi/(r**2-r1**2) # (6.4.5-2)
+        return (ρte,r1,β,ρ)
+
+    @staticmethod
+    def f_ρte_round(As, r, a_s):
+        '''圆形截面受弯构件'''
+        ρ = As/pi/r**2 # (6.4.5-5)
+        β = (0.4+2.5*ρ) # (6.4.5-4)
         r1 = r-2*a_s # (6.4.5-3)
         ρte = β*As/pi/(r**2-r1**2) # (6.4.5-2)
         return (ρte,r1,β,ρ)
@@ -124,6 +133,12 @@ class crack_width(abacus):
     def f_σss_round(l0,r,rs,As,a_s,Ns,e0,ηs):
         '''圆形截面的钢筋混凝土偏心受压构件'''
         return 0.6*(ηs*e0/r-0.1)**3/(0.45+0.26*rs/r)/(ηs*e0/r+0.2)**2*Ns/As
+
+    # 测试
+    @staticmethod
+    def f_σss_round_et(l0,r,rs,As,a_s,Ns,e0,ηs):
+        '''圆形截面的钢筋混凝土偏心受拉构件(测试)'''
+        return (0.6*(ηs*e0/r-0.1)**3/(0.45+0.26*rs/r)/(ηs*e0/r+0.2)**2+2)*Ns/As
 
     @staticmethod
     def f_σss_ps(b,bf_,hf_,h0, Ms,Mp2,Np0,Ap,As,ep):
@@ -180,25 +195,48 @@ class crack_width(abacus):
         elif self.case == 'round':
             # 圆形截面偏心受压构件钢筋应力按公式(6.4.4-9)、(6.4.4-10)计算
             self.validate('positive', 'r')
-            if self.Ns == 0: # 受弯构件
-                raise InputError(self, 'Ns','JTG规范不支持圆形截面受弯构件裂缝宽度计算')
-            if self.Ms == 0: # 受压构件
-                raise InputError(self, 'Ms', 'JTG规范不支持圆形截面轴心受压（拉）构件裂缝宽度计算')
+            # if self.force_type == 'BD' or self.Ns == 0: # 受弯构件
+            #     raise InputError(self, 'Ns','JTG规范不支持圆形截面受弯构件裂缝宽度计算')
+            # if self.Ms == 0: # 受压构件
+            #     raise InputError(self, 'Ms', 'JTG规范不支持圆形截面轴心受压（拉）构件裂缝宽度计算')
             if self.Ms > 0:
                 self.C2 = max(self.C2, 1+0.5*self.Ml/self.Ms)
-            self.eql = self.e0/self.r # 6.4.3: e0/r<0.55时可不进行裂缝宽度计算
+            # self.eql = self.e0/self.r # 6.4.3: e0/r<0.55时可不进行裂缝宽度计算
             self.rs = self.r-self.a_s
-            self.ηs = self.f_ηs(self.e0,self.l0,2*self.r,2*self.r-self.a_s)
-            self.ρte,self.r1,self.β,self.ρ=self.f_ρte_round(self.As, self.r, self.ηs, self.e0, self.a_s)
-            if self.Ns > 0:
+            # self.ηs = self.f_ηs(self.e0,self.l0,2*self.r,2*self.r-self.a_s)
+
+            self.ρ = self.As/pi/self.r**2 # (6.4.5-5)
+            if self.Ns > 0 and self.Ms >0:
+                # self.ρte,self.r1,self.β,self.ρ=self.f_ρte_round(self.As, self.r, self.ηs, self.e0, self.a_s)
+                self.ηs = self.f_ηs(self.e0,self.l0,2*self.r,2*self.r-self.a_s)
+                self.β = (0.4+2.5*self.ρ)*(1+0.353*(self.ηs*self.e0/self.r)**-2) # (6.4.5-4)
+            else:
+                self.β = 0.4+2.5*self.ρ # (6.4.5-4)
+            
+            self.r1 = self.r-2*self.a_s # (6.4.5-3)
+            self.ρte = self.β*self.As/pi/(self.r**2-self.r1**2) # (6.4.5-2)
+
+
+            if self.force_type == 'BD' or self.Ns == 0: # 受弯构件
+                # 规范没给出受弯的计算公式，根据公式(6.4.4-9)、(6.4.4-10)推导，用Ms/e0替换Ns
+                # 受弯构件：σss = 0.6/(0.45r+0.26rs)*Ms/As
+                fσss_BD = lambda r,rs,Ms,As:0.6/(0.45*r+0.26*rs)*Ms/As
+                self.σss = fσss_BD(self.r,self.rs,self.Ms*1e6,self.As)
+            elif self.force_type == 'EC' and (self.Ns>0 and self.Ms> 0): # 偏心受压
+                self.eql = self.e0/self.r # 6.4.3: e0/r<0.55时可不进行裂缝宽度计算
+                self.ηs = self.f_ηs(self.e0,self.l0,2*self.r,2*self.r-self.a_s)
                 self.σss = self.f_σss_round(
                     self.l0,self.r,self.rs,self.As,self.a_s,self.Ns*1e3,self.e0,self.ηs)
+            elif self.force_type == 'ET':
+                # 规范没给出偏心受拉构件的计算公式，根据公式(6.4.4-9)、(6.4.4-10)推导，
+                # 偏心受拉构件：σss = (f+1)Ns/As+Ns/As = (0.6*(ηs*e0/r-0.1)**3/(0.45+0.26*rs/r)/(ηs*e0/r+0.2)**2+2)*Ns/As
+                self.ηs = 1.0
+                self.σss = self.f_σss_round_et(
+                    self.l0,self.r,self.rs,self.As,self.a_s,abs(self.Ns)*1e3,self.e0, self.ηs)
+            elif self.force_type == 'AT': # 轴心受拉
+                self.σss = self.Ns*1e3/self.As
             else:
-                # 规范没给出受弯的计算公式，根据公式(6.4.4-9)、(6.4.4-10)推导，
-                # 受弯构件：σss = 0.6/(0.45r+0.26rs)*Ms/As
-                # 因此，本结果仅为试验性质
-                fσss_BD = lambda r,rs,Ms,As:0.6/(0.45*r+0.26*rs)*Ms/As
-                self.σss = fσss_BD(self.r,self.rs,self.Ms,self.As)
+                raise InputError('force_type', '不支持的类型')
         elif self.case == 'ps':
             # B类预应力混凝土受弯构件
             self.validate('positive', 'Np0')
@@ -237,11 +275,12 @@ class crack_width(abacus):
     def solve(self):
         self.validate('positive', 'a_s', 'c', 'd')
         # 确定基本参数C2
-        if (self.case == 'rect' and self.force_type != 'BD') or self.case == 'round':
+        # if self.case == 'rect':
+        if self.force_type != 'BD':
             self.positive_check('Ns')
             self.C2=1+0.5*self.Nl/self.Ns
-            self.e0 = self.Ms/self.Ns*1e3 # mm
-        elif (self.case == 'rect' and self.force_type == 'BD') or self.case == 'ps':
+            self.e0 = abs(self.Ms/self.Ns)*1e3 if self.Ns!=0 else 0 # mm
+        elif self.force_type == 'BD' or self.case == 'ps':
             self.positive_check('Ms')
             self.C2=1+0.5*self.Ml/self.Ms
         # 计算
@@ -292,14 +331,16 @@ class crack_width(abacus):
         elif self.case == 'round':
             yield '构件尺寸:'
             yield self.formatx('r','rs','ys','ys_',digits=None)
-            yield self.format('e0',digits=digits)
-            ok = self.eql <= 0.55
-            if ok:
-                yield '{} &le; 0.55, 可不进行裂缝宽度计算。'.format(self.format('eql',digits, eq='e0/r'))
-                return
-            yield self.format('ηs',digits=digits)
+            if self.force_type == 'EC' and self.Ns > 0:
+                yield self.format('e0',digits=digits)
+                ok = self.eql <= 0.55
+                if ok:
+                    yield '{} &le; 0.55, 可不进行裂缝宽度计算。'.format(self.format('eql',digits, eq='e0/r'))
+                    return
+                yield self.format('ηs',digits=digits)
             eq = '0.6·(ηs·e0/r-0.1)<sup>3</sup>/(0.45+0.26·rs/r)/(ηs·e0/r+0.2)<sup>2</sup>·Ns/As' if self.Ns > 0 \
-                else '0.6/(0.45·r+0.26·rs)·Ms/As (推导公式)' if self.force_type == 'BD' \
+                else '(0.6*(ηs*e0/r-0.1)**3/(0.45+0.26*rs/r)/(ηs*e0/r+0.2)**2+2)*Ns/As' if self.Ns <0 \
+                else '0.6/(0.45·r+0.26·rs)·Ms/As' if self.force_type == 'BD' \
                 else '未知计算公式'
         elif self.case == 'ps':
             for para in ('Ms','Mp2','Np0','ys_'):

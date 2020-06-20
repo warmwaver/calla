@@ -269,13 +269,15 @@ class effective_section(abacus):
             raise Exception('not implemented')
 
     def solve(self):
-        self.validate('positive', 'fy', 'E', 'k', 'L')
+        self.validate('positive', 'fy', 'E', 'k')
         self.λp,self.ε0,self.ρip= self.fρ(self.bp,self.t,self.fy,self.E,self.k)
         self.beip = self.ρip*self.bi
         if self.beam_type == 'simple':
+            self.validate('positive', 'L')
             option = 'A'
             self.l = self.L
         elif self.beam_type == 'continuous':
+            # self.validate('positive', 'L1', 'L2', 'L3')
             option = 'A' if (self.location == 'side_span' or self.location == 'middle_span') else 'B'
             if self.location == 'side_span':
                 self.l = 0.8*self.L1
@@ -286,6 +288,7 @@ class effective_section(abacus):
             else:
                 raise InputError(self, 'location', '未知的输入参数')
         elif self.beam_type == 'cantilever':
+            # self.validate('positive', 'L1', 'L2', 'L3')
             option = 'A'
             if self.location == 'side_span':
                 self.l = 2*self.L1

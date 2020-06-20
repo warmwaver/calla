@@ -65,9 +65,10 @@ class fc_rect(abacus):
         'option':{'review':(), 'design':('As', 'fy_','As_','as_','fpy','Ap','ap','fpy_','Ap_','ap_','σp0_')},
         }
 
-    # (6.2.10-1)
-    f_M = lambda α1,fc,b,x,h0,fy_,As_,as_,σp0_,fpy_,Ap_,ap_:\
-         α1*fc*b*x*(h0-x/2)+fy_*As_*(h0-as_)-(σp0_-fpy_)*Ap_*(h0-ap_)
+    @staticmethod
+    def f_M(α1,fc,b,x,h0,fy_,As_,as_,σp0_,fpy_,Ap_,ap_):
+        ''' (6.2.10-1)'''
+        return α1*fc*b*x*(h0-x/2)+fy_*As_*(h0-as_)-(σp0_-fpy_)*Ap_*(h0-ap_)
         
     def f_εcu(self):
         return 0.0033 if self.fcuk < 50 else 0.0033-(self.fcuk-50)*1E-5
@@ -75,9 +76,10 @@ class fc_rect(abacus):
     def f_ξb(self):
         return self.β1/(1+self.fy/(self.Es*self.f_εcu()))
 
-    # (6.2.10-2)
-    f_x = lambda α1,fc,b,fy,As,fy_,As_,fpy,Ap,σp0_,fpy_,Ap_:\
-          (fy*As-fy_*As_+fpy*Ap+(σp0_-fpy_)*Ap_)/(α1*fc*b)
+    @staticmethod
+    def f_x(α1,fc,b,fy,As,fy_,As_,fpy,Ap,σp0_,fpy_,Ap_):
+        ''' (6.2.10-2)'''
+        return (fy*As-fy_*As_+fpy*Ap+(σp0_-fpy_)*Ap_)/(α1*fc*b)
     
     def init_params(self):
         ''' 初始化基本计算参数 '''
@@ -210,7 +212,7 @@ class fc_T(fc_rect):
     __title__ = 'T形或I形截面受弯承载力'
     __inputs__ = OrderedDict((
         #('option',('选项','','0','','',{'0':'计算承载力','1':'计算钢筋面积'})),
-        ('γ0',('<i>γ</i><sub>0</sub>','',1.0,'重要性系数')),
+        ('γ0',('<i>γ</i><sub>0</sub>','',1.1,'重要性系数')),
         ('β1',('<i>β</i><sub>1</sub>','',0.8,'系数','按本规范第6.2.6条的规定计算')),
         ('α1',('<i>α</i><sub>1</sub>','',1,'系数')),
         ('fc',('<i>f</i>c','MPa',16.7,'混凝土轴心抗压强度设计值')),
@@ -264,28 +266,37 @@ class fc_T(fc_rect):
         
         self.eql = self.γ0*self.M
 
-        if fy*As+fpy*Ap<=α1*fc*bf_*hf_+fy_*As_-(σp0_-fpy_)*Ap_:
-            self._same_as_rect = True
-            self.option = '0'
-            return self.solve_Mu()
+        self._same_as_rect = fy*As+fpy*Ap<=α1*fc*bf_*hf_+fy_*As_-(σp0_-fpy_)*Ap_
+        if self._same_as_rect:
+            # 按宽度为bf'的矩形截面计算，按式(6.2.10-2)计算受压区高度
+            x=fc_rect.f_x(
+            self.α1,self.fc,self.bf_,self.fy,self.As,self.fy_,self.As_,
+            self.fpy,self.Ap,self.σp0_,self.fpy_,self.Ap_)
         else:
-            self._same_as_rect = False
             x=((fy*As-fy_*As_+fpy*Ap+(σp0_-fpy_)*Ap_)/(α1*fc)-(bf_-b)*hf_)/b
-            self._x = self.x = x # self._x表示原始计算得到的受压区高度
-            if (self.x > self.xb):
-                # 超筋，按6.2.13节处理，取x=xb
-                self.x = self.xb
-                # self.Mu = self.fc*self.b*x*(self.h0-x/2)/1E6 #有争议
-            self.xmin = 2*self.a_
-            if self.x < self.xmin:
-                # 受压钢筋达不到强度设计值（《混凝土结构设计原理》P61）
-                # 此时，对受压钢筋As'取矩（《混凝土结构设计原理》P62, 规范公式6.2.14）
-                Mu = fpy*Ap*(h-ap-as_) + fy*As*(h-a_s-as_) + (σp0_-fpy_)*Ap_*(ap_-as_)
+
+        self._x = self.x = x # self._x表示原始计算得到的受压区高度
+        if (self.x > self.xb):
+            # 超筋，按6.2.13节处理，取x=xb
+            self.x = self.xb
+            # self.Mu = self.fc*self.b*x*(self.h0-x/2)/1E6 #有争议
+
+        self.xmin = 2*self.a_
+        if self.x < self.xmin:
+            # 受压钢筋达不到强度设计值（《混凝土结构设计原理》P61）
+            # 此时，对受压钢筋As'取矩（《混凝土结构设计原理》P62, 规范公式6.2.14）
+            Mu = fpy*Ap*(h-ap-as_) + fy*As*(h-a_s-as_) + (σp0_-fpy_)*Ap_*(ap_-as_)
+        else:
+            if self._same_as_rect:
+                Mu = self.f_M(
+                    self.α1,self.fc,self.bf_,self.x,self.h0,self.fy_,self.As_,self.as_,
+                    self.σp0_,self.fpy_,self.Ap_,self.ap_)
             else:
+                # (6.2.11-2)
                 Mu = α1*fc*b*x*(h0-x/2)+α1*fc*(bf_-b)*hf_*(h0-hf_/2)+fy_*As_*(h0-as_)-\
                     (σp0_-fpy_)*Ap_*(h0-ap_) # N*mm
-            self.Mu=Mu/1E6
-            return self.Mu
+        self.Mu=Mu/1E6
+        return self.Mu
         
     def _html(self,digits=2):
         yield '计算系数:'
@@ -298,47 +309,32 @@ class fc_T(fc_rect):
         yield self.formatx('fc','fcuk','fy', toggled = False)
         yield self.format('M')
         if self._same_as_rect:
-            yield '按宽度为{}的矩形截面计算。'.format(self.para_attrs('bf_').symbol)
-            ok = self._x<self.xb
-            yield '{} {} {}'.format(
-                self.format('x', digits=digits, value=self._x), '&lt;' if ok else '&gt;', 
-                self.format('xb', digits=digits, omit_name = True))
-            if not ok:
-                yield '不满足公式(6.2.10-3)的要求。受压区高度按界限受压区高度计算，即'+self.format('x', omit_name = True)
-            eq = 'α1*fc*b*x*(h0-x/2)+fy_*As_*(h0-as_)+(fpy_-σp0_)*Ap_*(h0-ap_)'
-            ok = self.x >= self.xmin
-            yield '{} {} {}'.format(
-                self.format('x'), '≥' if ok else '&lt;', 
-                self.format('xmin', eq = '2a_'))
-            if not ok:
-                yield '不满足公式(6.2.10-4)的要求，按6.2.14条计算承载力。'
-                eq = 'fy*As*(h-a_s-as_)+fpy*Ap*(h-ap-as_)+(σp0_-fpy_)*Ap*(ap_-as_)'
-            ok = self.eql <= self.Mu
-            yield '{} {} {}，{}满足规范要求。'.format(
-                self.format('eql', eq='γ0 Md'), '≤' if ok else '&gt;', 
-                self.format('Mu', omit_name=True, eq=eq),
-                '' if ok else '不')
+            yield '按宽度为{}的矩形截面计算，按式(6.2.10-2)计算受压区高度。'.format(self.para_attrs('bf_').symbol)
+            yield self.replace_by_symbols('α1*fc*bf_*x = fy*As-fy_*As_+fpy*Ap+(σp0_-fpy_)*Ap_')
         else:
-            yield '不符合式(6.2.11-1)的条件，按式(6.2.11-3)计算受压区高度{}'.format(self.para_attrs('x').symbol)
-            ok = self._x<self.xb
-            yield '{} {} {}'.format(
-                self.format('x', digits=digits, value=self._x), '&lt;' if ok else '&gt;', 
-                self.format('xb', digits=digits, omit_name = True))
-            if not ok:
-                yield '不满足公式(6.2.10-3)的要求。受压区高度按界限受压区高度计算，即'+self.format('x', omit_name = True)
-            eq = 'α1*fc*b*x*(h0-x/2)+α1*fc*(bf_-b)*hf_*(h0-hf_/2)+fy_*As_*(h0-as_)-(σp0_-fpy_)*Ap_*(h0-ap_)'
-            ok = self.x >= self.xmin
-            yield '{} {} {}'.format(
-                self.format('x'), '≥' if ok else '&lt;', 
-                self.format('xmin', eq = '2a_'))
-            if not ok:
-                yield '不满足公式(6.2.10-4)的要求，按6.2.14条计算承载力。'
-                eq = 'fy*As*(h-a_s-as_)+fpy*Ap*(h-ap-as_)+(σp0_-fpy_)*Ap*(ap_-as_)'
-            ok = self.eql <= self.Mu
-            yield '{} {} {}，{}满足规范要求。'.format(
-                self.format('eql', eq='γ0 Md'), '≤' if ok else '&gt;', 
-                self.format('Mu', omit_name=True, eq=eq),
-                '' if ok else '不')
+            yield '不符合式(6.2.11-1)的条件，按式(6.2.11-3)计算受压区高度。'
+            yield self.replace_by_symbols('α1*fc*[b*x+(bf_-b)*hf_] = fy*As-fy_*As_+fpy*Ap+(σp0_-fpy_)*Ap_')
+
+        ok = self._x<self.xb
+        yield '{} {} {}'.format(
+            self.format('x', digits=digits, value=self._x), '&lt;' if ok else '&gt;', 
+            self.format('xb', digits=digits, omit_name = True))
+        if not ok:
+            yield '不满足公式(6.2.10-3)的要求。受压区高度按界限受压区高度计算，即'+self.format('x', omit_name = True)
+        eq = 'α1*fc*b*x*(h0-x/2)+fy_*As_*(h0-as_)+(fpy_-σp0_)*Ap_*(h0-ap_)' if self._same_as_rect \
+            else 'α1*fc*b*x*(h0-x/2)+α1*fc*(bf_-b)*hf_*(h0-hf_/2)+fy_*As_*(h0-as_)-(σp0_-fpy_)*Ap_*(h0-ap_)'
+        ok = self.x >= self.xmin
+        yield '{} {} {}'.format(
+            self.format('x'), '≥' if ok else '&lt;', 
+            self.format('xmin', eq = '2a_'))
+        if not ok:
+            yield '不满足公式(6.2.10-4)的要求，按6.2.14条计算承载力。'
+            eq = 'fy*As*(h-a_s-as_)+fpy*Ap*(h-ap-as_)+(σp0_-fpy_)*Ap*(ap_-as_)'
+        ok = self.eql <= self.Mu
+        yield '{} {} {}，{}满足规范要求。'.format(
+            self.format('eql', eq='γ0 Md'), '≤' if ok else '&gt;', 
+            self.format('Mu', omit_name=True, eq=eq),
+            '' if ok else '不')
 
 class fc_ring:
     """

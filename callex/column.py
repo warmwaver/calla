@@ -357,7 +357,7 @@ class Column(abacus):
             bcy.h = self.h
             bcy.h0 = self.h - self.as_
             bcy.As = Asy
-            bc.As_ = Asy_
+            bcy.As_ = Asy_
             bcy.Ap = Apy
             bcy.solve()
             bcs.append(bcy)

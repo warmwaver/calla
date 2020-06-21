@@ -671,12 +671,16 @@ class diaphragm(abacus):
         elif self.option == '3':
             self.validate('positive','b','h','Iu','Il','Ih')
             self.K = self.fK3(self.β, self.E,self.b,self.h,self.Iu,self.Il,self.Ih)
+        else:
+            raise InputError(self, 'option', '不支持的选项值')
 
     def _html(self, digits=2):
         disableds = self.disableds()
         for attr in self.__inputs__:
             if hasattr(self, attr) and (not attr in disableds):
                 yield self.format(attr, digits = None)
+        yield self.format('Ifl',digits,eq='tl*(Bl+2*b2)<sup>3</sup>/12')
+        yield self.format('Ifu',digits,eq='tu*(Bu+2*b1)<sup>3</sup>/12')
         yield self.format('e',digits,eq='Ifl/Bl+(Bu+2 Bl)/12 Fh')
         yield self.format('f',digits,eq='Ifu/Bu+(2 Bu+Bl)/12 Fh')
         yield self.format('α1',digits,eq='e/(e+f) (Bu+Bl)/4 H')

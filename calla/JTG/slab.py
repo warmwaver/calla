@@ -10,7 +10,7 @@ from math import pi, sqrt, sin, cos, tan
 
 class vehicle_load(abacus):
     '''车辆荷载分布宽度计算
-    《公路钢筋混凝土及预应力混凝土桥涵设计规范》（JTG 3362-2018）第4.2.3节
+    《公路钢筋混凝土及预应力混凝土桥涵设计规范》（JTG 3362-2018）第4.2.3、4.2.5节
     '''
     __title__ = '车辆荷载分布宽度'
     __inputs__ = OrderedDict([

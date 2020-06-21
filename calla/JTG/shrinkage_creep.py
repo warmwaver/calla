@@ -58,6 +58,8 @@ class shrinkage(abacus):
         return (εcs,βsΔt)
 
     def solve(self):
+        if self.t < self.ts:
+            raise InputError(self, 't', '不满足t>=ts')
         self.fcm = 0.8*self.fcuk+8
         if self.option == '0':
             self.εcs0,self.βRH = self.fεcs0(self.fcm, self.RH, self.βsc)

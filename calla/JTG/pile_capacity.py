@@ -88,6 +88,8 @@ class friction_pile_capacity(abacus):
         if self.option:
             if self.ln>= sum(self.li):
                 raise InputError(self, 'ln', '不能超过土层厚度之和')
+            if self.ln > self.L:
+                raise InputError(self, 'ln', '中性点深度不能大于桩长')
             for i in range(len(self.li)):
                 if ls < self.ln:
                     if ls+self.li[i] < self.ln:
@@ -291,6 +293,10 @@ class end_bearing_pile_capacity(abacus):
         Nn = 0 # 负摩阻力(kN)
         # 负摩阻力计算，条文说明5.3.2节
         if self.option:
+            if self.ln>= sum(self.li):
+                raise InputError(self, 'ln', '不能超过土层厚度之和')
+            if self.ln > self.L:
+                raise InputError(self, 'ln', '中性点深度不能大于桩长')
             for i in range(len(self.li)):
                 if ls < self.ln:
                     if ls+self.li[i] < self.ln:
@@ -622,6 +628,7 @@ class pile_effects(abacus):
     __deriveds__ = OrderedDict((
         #('h1_P01',('<i>h</i><sub>1</sub>','m',1.0,'地面或局部冲刷线以下桩的计算埋入深度','可取3(d+1)但不大于h')),
         ('α',('<i>α</i>','m<sup>-1</sup>',0,'桩的变形系数')),
+        ('αh',('<i>α</i><i>h</i>','',0,'')),
         ('kh',('<i>k</i><sub>h</sub>','',1.0,'土抗力对变形的影响系数')),
         ('δHH',('<i>δ</i><sub>HH</sub>','',0,'地面处单位水平力产生的水平位移')),
         ('δHM',('<i>δ</i><sub>HM</sub>','',0,'地面处单位力矩产生的水平位移')),
@@ -708,11 +715,11 @@ class pile_effects(abacus):
     @classmethod
     def _solve(cls, b1, h, Ec, I, I0, m, C0, M0, H0, bottom_fixed=False):
         # 规范中h1在P.0.1、P.0.2、P.0.3中的意义各不相同，全局h1取P.0.3中的意义，其余加后缀_P0N以示区别
-        E = 0.8*Ec
-        α = cls.f_α(m, b1, E, I)
-        kh = C0/(α*E)*I0/I
+        E = 0.8*Ec # (P.0.2-2)
+        α = cls.f_α(m, b1, E, I) # (P.0.2-1)
+        kh = C0/(α*E)*I0/I # P89 说明3
         # 系数查表P.0.8
-        αh = round(α*h, 1)
+        αh = α*h # round(α*h, 1)
         if αh > 4:
             αh = 4
         factors = cls.factors(αh)
@@ -749,6 +756,7 @@ class pile_effects(abacus):
 
     def solve(self):
         self.validate('non-negative', 'h1', 'd', 'm', 'b1', 'Ec')
+        self.validate('positive', 'h')
         self.I = pi*self.d**4/64
         self.I0 = self.I
         # self.M0 = self.M+self.H*(self.h2+self.h1)
@@ -756,6 +764,7 @@ class pile_effects(abacus):
         self.α, self.kh, self.δHH, self.δMH, self.δHM, self.δMM, self.x0, self.φ0, self._Mz, self._Qz = self._solve(
             self.b1, self.h, self.Ec*1e3, self.I, self.I0, 
             self.m, self.C0, self.M0, self.H0, self.bottom_fixed)
+        self.αh = self.α * self.h
         # self.Mz = self._Mz(self.z)
         # self.Qz = self._Qz(self.z)
         t = [row[0] for row in tableP08]
@@ -788,6 +797,8 @@ class pile_effects(abacus):
         for param in self.inputs:
             yield self.format(param)
         yield self.format('α', eq='(m*b1/E/I)<sup>0.2</sup>')
+        if self.αh <= 2.5:
+            yield '{} &le; 2.5， 不满足适用条件，计算结果仅供参考。'.format(self.format('αh', omit_name=True))
         yield self.format('kh', eq='C0/(α*E)*I0/I')
         for param in ('δHH','δHM','δMH','δMM'):
             yield self.format(param)
@@ -890,6 +901,8 @@ class pile_group_effects_P06(abacus):
             if S <= 0 or S < Si:
                 S = Si
         L1 = S - d
+        if L1<=0:
+            raise InputError(self, 'd', '桩径不能大于桩距')
 
         # 规范中h1在P.0.1、P.0.2、P.0.3中的意义各不相同，全局h1取P.0.3中的意义，其余加后缀_P0N以示区别
         h1_P01 = min(3*(d+1), h)
@@ -901,7 +914,7 @@ class pile_group_effects_P06(abacus):
         α = self.f_α(m, b1, E, I)
         kh = C0/(α*E)*I0/I
         # 系数查表P.0.8
-        αh = round(α*h, 1)
+        αh = α*h # round(α*h, 1)
         if αh > 4:
             αh = 4
         δHH0, δMH0, δHM0, δMM0 = pile_effects.fδ0(α, αh, E, I, kh, bottom_fixed)

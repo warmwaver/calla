@@ -136,7 +136,8 @@ class beam_strength(abacus):
         return (σc,σs,σs_,x)
 
     def solve(self):
-        self.positive_check('As')
+        self.validate('positive', 'b', 'h0', 'n')
+        self.validate('non-negative', 'As', 'As_', 'a_')
         if self.As_ == 0:
             self.σc,self.σs,self.x = self.cal_σ1(self.b,self.h0,self.As,self.n,self.M)
         else:

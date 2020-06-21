@@ -489,8 +489,6 @@ class axial_compression(abacus):
 
     @classmethod
     def _phi(cls, l0, b=0,d=0,i=0):
-        if b<=0 and d<=0 and i<=0:
-            raise InputError(cls,'i','b,d,i输入值必须有一个大于0')
         _b = (8,10,12,14,16,18,20,22,24,26,28,30,32,34,36,38,40,42,44,46,48,50)
         _d = (7,8.5,10.5,12,14,15.5,17,19,21,22.5,24,26,28,29.5,31,33,34.5,36.5,38,40,41.5,43)
         _i = (28,35,42,48,55,62,69,76,83,90,97,104,111,118,125,132,139,146,153,160,167,174)
@@ -520,6 +518,8 @@ class axial_compression(abacus):
     compression_ratio = lambda N, A, fc:N/(A*fc)
     
     def solve(self):
+        if self.b<=0 and self.r<=0 and self.i<=0:
+            raise InputError(self,'i','b, r, i输入值必须有一个大于0')
         self.φ = self._phi(self.l0, self.b,2*self.r,self.i)
         self.Nud = self.fNu(self.φ, self.fcd, self.A, self.fsd_, self.As_)*1e-3
         #self.轴压比 = axial_compression.compression_ratio(self.Nd, self.A, self.fcd)*1e3
@@ -1386,6 +1386,7 @@ class eccentric_tension(abacus, material_base):
         return fcd*b*x*(h0-x/2)+fsd_*As_*(h0-as_)+(fpd_-σp0_)*Ap_*(h0-ap_)
     
     def solve(self):
+        self.validate('positive', 'b', 'h')
         b=self.b; h = self.h; Nd=self.Nd; Md=self.Md
         fcd=self.fcd
         fsd=self.fsd; As=self.As; a_s=self.a_s
@@ -1420,16 +1421,16 @@ class eccentric_tension(abacus, material_base):
             if self.ps != '无' and self.Ap_>0 and self.σp_>0:
                 # 当受压区配有纵向普通钢筋和预应力钢筋，且预应力钢筋受压，即(fpd'-σp0')为正时:
                 # 按式(5.2.2-4)验算
-                ok = self.x >= 2*self.a_
+                ok = self.x >= 2*a_
                 if not ok:
                     # 5.2.4节, 当计算中考虑受压区纵向钢筋但不符合式(5.2.2-4)或式(5.2.2-5 )条件时，
                     # 仅采用纵向体内钢筋的受弯构件正截面抗弯承载力的计算应符合下列规定(图5.2.2) ,
                     # 1当受压区配有纵向普通钢筋和预应力钢筋，且预应力钢筋受压时，按(5.2.4-1)验算:
-                    self.a_ = self.as_ if self.Ap_ <= 0 else \
+                    a_ = self.as_ if self.Ap_ <= 0 else \
                         (self.fsd_*self.As_*self.as_+(self.fpd_-self.σp0_)*self.Ap_*self.ap_)/(self.fsd_*self.As_+self.fpd_*self.Ap_)
                     self.e_ = e0-(h/2-a_) # 偏心压力作用点至受压钢筋和钢束合力点的距离
                     self.γ0Md = self.γ0Nd*self.e_*1e-3
-                    self.Mu = fMu1(self.h, self.a_, self.fsd, self.As, self.a_s, self.fpd, self.Ap, self.ap)*1e-6 # kNm
+                    self.Mu = fMu1(self.h, a_, self.fsd, self.As, self.a_s, self.fpd, self.Ap, self.ap)*1e-6 # kNm
             elif (self.ps == '无' or self.Ap_<=0) or (self.ps != '无' and self.Ap_>0 and self.σp_<0):
                 #  当受压区仅配纵向普通钢筋，或配有普通钢筋和预应力钢筋且预应力钢筋受拉，即(fpd'-σp0')为负时，按(5.2.4-2)验算:
                 ok = self.x >= 2*self.as_
@@ -1993,7 +1994,7 @@ class torsion(abacus, material_base):
         return Tu
 
     def solve(self):
-        self.validate('positive','A0','Asv1', 'fcuk', 'ρ')
+        self.validate('positive','A0','Asv1', 'fcuk', 'ρ','bcor','hcor')
         Vd = self.Vd*1e3
         Td = self.Td*1e6
         self.Acor=self.bcor*self.hcor

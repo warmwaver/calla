@@ -154,8 +154,9 @@ class Column(abacus):
         ('forces_ac', ('', 'kN,m', _forces_sample_, '偶然组合内力',_forces_notes_)),
         ('forces_fr', ('', 'kN,m', _forces_sample_, '频遇组合内力',_forces_notes_)),
         ('forces_qp', ('', 'kN,m', _forces_sample_, '准永久组合内力',_forces_notes_)),
-        # ('N',('<i>N</i>','kN',0,'轴力','轴力设计值，拉力为正，压力为负。TB规范下输入(主力，主力+附加力，主力+地震力)组合值')),
-        # ('M',('<i>M</i>','kN·m',0,'弯矩','弯矩设计值。TB规范下输入(主力，主力+附加力，主力+地震力)组合值')),
+        ('N',('<i>N</i>','kN',0,'轴力','轴力设计值，拉力为正，压力为负。TB规范下输入(主力，主力+附加力，主力+地震力)组合值')),
+        ('M',('<i>M</i>','kN·m',0,'弯矩','弯矩设计值。TB规范下输入(主力，主力+附加力，主力+地震力)组合值')),
+        ('V',('<i>V</i>','kN',0,'剪力设计值')),
         ('γ0',('<i>γ</i><sub>0</sub>','',1.0,'重要性系数')),
         ('α1',('<i>α</i><sub>1</sub>','',1,'系数')),
         ('concrete',('混凝土','','C40','','',list(material.concrete_types))),
@@ -210,8 +211,8 @@ class Column(abacus):
         ])
     __toggles__ = {
         'code':{
-            'GB':('n','M1','M2','Nl','Ml','Ns','Ms'),
-            'JTG':('α1','Nq','Mq','bear_repeated_load','n','M1','M2','cs'),
+            'GB':('n','M1','M2','Nl','Ml','Ns','Ms','N','M','V'),
+            'JTG':('α1','Nq','Mq','bear_repeated_load','n','M1','M2','cs','N','M','V'),
             'TB':('γ0','α1','Nq','Mq','bear_repeated_load','Nl','Ml','Ns','Ms','cs')
             },
         'section':{
@@ -235,11 +236,13 @@ class Column(abacus):
         bc.fcuk = calla.JTG.concrete.fcuk(self.concrete)
         bc.fc = calla.JTG.concrete.fcd(self.concrete)
         bc.fy=bc.fyp=calla.JTG.rebar.fsd(self.rebar)
+        bc.l0 = self.k*self.l
         bc.solve()
         # 裂缝宽度
         cw = calla.GB.crack_width.crack_width(**paras)
         cw.force_type='1'
         cw.h0 = self.h-self.a_s
+        cw.l0 = self.k*self.l
         cw.As = self.As
         cw.d = self.deq
         cw.ys = self.h/2-self.a_s
@@ -250,7 +253,7 @@ class Column(abacus):
         self.bc = bc
         self.cw = cw
 
-    def solve_JTG(self):
+    def solve_GB_JTG(self):
         paras = self.inputs
         # 荷载基本组合或偶然组合
         lc = calla.JTG.loads.load_combination
@@ -260,13 +263,16 @@ class Column(abacus):
 
         if self.section == 'rectangle':
             self.A = self.b*self.h #mm2
-            bc = calla.JTG.bearing_capacity.eccentric_compression(**paras)
+            bc = calla.JTG.bearing_capacity.eccentric_compression(**paras) if self.code == 'JTG' else \
+                calla.GB.compressive_capacity.eccentric_compression(**paras)
         elif self.section == 'Tshape':
             self.A = self.b*(self.h - self.hf)+self.bf*self.hf
-            bc = calla.JTG.bearing_capacity.fc_T(**paras)
+            bc = calla.JTG.bearing_capacity.eccentric_compression_Ishape(**paras) if self.code == 'JTG' else \
+                calla.GB.compressive_capacity.eccentric_compression_Ishape(**paras)
         elif self.section == 'round':
             self.A = pi/4*self.d**2
-            bc = calla.JTG.bearing_capacity.bc_round(**paras)
+            bc = calla.JTG.bearing_capacity.bc_round(**paras) if self.code == 'JTG' else \
+                calla.GB.flexural_capacity.fc_round(**paras)
             bc.r = self.d/2
             bc.rs = self.d/2 - self.a_s
         else:
@@ -321,7 +327,8 @@ class Column(abacus):
             raise InputError(self,'Ap','无法识别的输入')
 
         # 轴心受压承载力
-        ac = calla.JTG.bearing_capacity.axial_compression(**paras)
+        ac = calla.JTG.bearing_capacity.axial_compression(**paras) if self.code == 'JTG' else \
+            calla.GB.compressive_capacity.axial_compression(**paras)
         ac.Nd = forces_uls.Fx
         ac.A = self.A
         ac.As_ = Asx+Asy
@@ -332,14 +339,20 @@ class Column(abacus):
         # bc.fcd = calla.JTG.concrete.fcd(self.concrete)
         # bc.fsd=bc.fsd_=calla.JTG.rebar.fsd(self.rebar)
         bc.option = 'review'
-        bc.Nd = forces_uls.Fx
+        Nd = forces_uls.Fx
         #choseX = forces_uls[0] > forces_uls[1]
         bcs = []
         # z方向偏心弯曲验算，对于圆截面则是合力方向计算
         if self.section == 'round':
-            bc.Md = sqrt(forces_uls.Mz**2+forces_uls.My**2)
+            Md = sqrt(forces_uls.Mz**2+forces_uls.My**2)
         else:
-            bc.Md = forces_uls.My
+            Md = forces_uls.My
+        if self.code == 'GB':
+            bc.N = sqrt(Nd)
+            bc.M = sqrt(Md)
+        else:
+            bc.Nd = sqrt(Nd)
+            bc.Md = sqrt(Md)
         bc.b = self.h
         bc.h = self.b
         bc.h0 = self.b - self.as_
@@ -352,7 +365,11 @@ class Column(abacus):
         # y方向偏心弯曲验算
         if self.section != 'round':
             bcy = copy.copy(bc)
-            bcy.Md = forces_uls.Mz
+            Md = sqrt(forces_uls.Mz)
+            if self.code == 'GB':
+                bc.M = Md
+            else:
+                bc.Md = Md
             bcy.b = self.b
             bcy.h = self.h
             bcy.h0 = self.h - self.as_
@@ -363,8 +380,8 @@ class Column(abacus):
             bcs.append(bcy)
 
         #双向偏心受压承载力
-        if self.section != 'round':
-            be = calla.JTG.bearing_capacity.biaxial_eccentric(**paras)
+        if self.section != 'round' and self.code == 'JTG':
+            be = calla.JTG.bearing_capacity.biaxial_eccentric(**paras) # TODO: support GB
             be.Nd = forces_uls.Fx
             be.Nu0 = ac.Nud
             be.Nux = bcs[0].Nu
@@ -372,7 +389,8 @@ class Column(abacus):
             be.solve()
 
         # 裂缝宽度
-        cw = calla.JTG.crack_width.crack_width(**paras)
+        cw = calla.JTG.crack_width.crack_width(**paras) if self.code == 'JTG' else \
+            calla.GB.crack_width.crack_width(**paras)
         if self.section == 'round':
             cw.case = 'round'
             cw.r = self.d/2
@@ -384,7 +402,7 @@ class Column(abacus):
             cw.h0 = cw.h-self.a_s
             cw.ys = cw.h/2-self.a_s
             cw.C3 = 0.9
-        cw.l0 = 2.1*self.l
+        cw.l0 = self.k*self.l
         cw.d = self.deq
         cw.C1 = 1.4 if self.rebar.startswith('HPB') else 1.0
         # 内力计算
@@ -433,6 +451,7 @@ class Column(abacus):
         self.cws = cws
 
     def solve_TB(self):
+        self.validate('positive', 'N')
         loadcase=['主力','主力+附加力','主力+地震力']
         paras = self.inputs
         Ec = calla.JTG.concrete.Ec(paras['concrete']) # temporarily using JTG
@@ -451,10 +470,12 @@ class Column(abacus):
         a_ = paras['as_']
         d = paras['deq']
         As = paras['As']
+        l0 = paras['k']*paras['l']
         σcs = [];σss = [];σs_s = [];τs = [];wfs = []
         for case,M,N,K,V in zip(loadcase,Ms,Ns,Ks,Vs):
             # 强度计算
-            rs = calla.TB.RC_strength.column_strength.solve_stress(paras['b'],paras['h'],paras['l0'],a,a_,Ec,\
+            rs = calla.TB.RC_strength.column_strength.solve_stress(
+                paras['b'],paras['h'],l0,a,a_,Ec,\
                                  As,paras['As_'],paras['n'],M,N,V,K)
             σcs.append(rs[0])
             σss.append(rs[1])
@@ -529,9 +550,15 @@ class Column(abacus):
 
         
     def solve(self):
-        fname = 'solve_{}'.format(self.code)
-        solver = getattr(self, fname, 'solve_JTG')
-        solver()
+        self.validate('positive', 'b', 'h', 'l', 'deq')
+        self.validate('non-negative', 'As', 'As_', 'a_s', 'as_', 'c', 'k', 'wlim')
+        # fname = 'solve_{}'.format(self.code)
+        # solver = getattr(self, fname, 'solve_JTG')
+        # solver()
+        if self.code == 'TB':
+            self.solve_TB()
+        else:
+            self.solve_GB_JTG() 
 
     def _html(self,digits=2):
         if self.code == 'GB':

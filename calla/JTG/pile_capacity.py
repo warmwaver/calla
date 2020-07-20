@@ -971,6 +971,7 @@ class pile_group_effects_P06(abacus):
 
     def solve(self):
         self.validate('non-negative', 'l0')
+        self.validate('positive', 'C0')
         self.I = pi*self.d**4/64
         self.I0 = self.I
         self.npiles = sum(self.Ki) # 总桩数

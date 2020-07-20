@@ -59,20 +59,55 @@ class abacus:
         'alias' is usually in html style that can be displayed better in browser.
         'choices' is optional, valid for multi-select parameters.
         """
+        self._inputs_ = {}
         if hasattr(self, '__inputs__'):
-            for k in self.__inputs__:
-                if not hasattr(self, k):
+            if isinstance(self.__inputs__, list):
+                for item in self.__inputs__:
+                    if isinstance(item, tuple) and len(item) > 0:
+                        k = item[0]
+                        v = item[3] if len(item) > 3 else 0
+                        setattr(self, k, v)
+                        # create parameter object with dynamic type
+                        self._inputs_[k] = self.create_param_object(item)
+            else:
+                for k in self.__inputs__:
                     infos = self.__inputs__[k]
                     if isinstance(infos, tuple):
-                        v = infos[2] if len(infos)>2 else 0
-                        setattr(self,k,v)
+                        self._inputs_[k] = self.para_attrs(k)
+                        if not hasattr(self, k):
+                            v = infos[2] if len(infos) > 2 else 0
+                            setattr(self, k, v)
         # initialize parameters by inputs
         self.inputs = inputs
+
+    def _init_deriveds_(self):
+        if not hasattr(self, '_deriveds_'):
+            self._deriveds_ = {}
+            if hasattr(self, '__deriveds__'):
+                if isinstance(self.__deriveds__, list):
+                    for item in self.__deriveds__:
+                        if isinstance(item, tuple) and len(item) > 1:
+                            self._deriveds_[item[0]] = self.create_param_object(item)
+                else:
+                    for key in self.__deriveds__:
+                        self._deriveds_[key] = self.para_attrs(key)
+
+    @property
+    def order_of_inputs(self):
+        order = []
+        if hasattr(self, '__inputs__'):
+            if isinstance(self.__inputs__, list):
+                for item in self.__inputs__:
+                    if isinstance(item, tuple) and len(item) > 0:
+                        order.append(item[0])
+            else:
+                order = list(self.__inputs__.keys())
+        return order
 
     @property
     def inputs(self):
         """ Get a dictionary of input parameters. """
-        return { attr:(getattr(self, attr) if hasattr(self, attr) else 0) for attr in self.__inputs__} if hasattr(self, '__inputs__') else None
+        return { attr:(getattr(self, attr) if hasattr(self, attr) else 0) for attr in self._inputs_} if hasattr(self, '__inputs__') else None
 
     @inputs.setter
     def inputs(self, values):
@@ -188,6 +223,38 @@ class abacus:
             omit_name: format with parameter name or not
             eq: equation (or expression) of parameter
         """
+        self._init_deriveds_()
+        if hasattr(self, '_inputs_'):
+            info = None
+            if parameter in self._inputs_:
+                info = self._inputs_[parameter]
+            elif parameter in self._deriveds_:
+                info = self._deriveds_[parameter]
+            value = value if value != None else getattr(self,parameter)
+            if info == None:
+                value = '{1:.{0}f}'.format(digits, value) if digits != None and digits >= 0 else value
+                return '{} = {}'.format(parameter, value)
+            # use choices' value to substitude parameter value
+            if info.choices:
+                if type(info.choices) is dict and value in info.choices:
+                    value = info.choices[value]
+            s = ''
+            if not omit_name:
+                s = '{}{}'.format(info.name,sep) if info.name != '' else ''
+            if digits != None and digits >= 0:
+                try:
+                    vabs = abs(value)
+                    value = '{1:.{0}{2}}'.format(digits, value, 'e' if (vabs>1e4 or (vabs>0 and vabs<10**-digits)) else 'f')
+                except: # v is not decimal or numbers
+                    pass
+            if info.symbol:
+                s += '{} = '.format(info.symbol)
+            if not eq:
+                s += '{} {}'.format(value, info.unit)
+            else:
+                s += '{} = {} {}'.format(
+                        self.replace_by_symbols(eq), value, info.unit)
+            return s
         info = None
         if parameter in self.__inputs__:
             info = self.__inputs__[parameter]
@@ -244,6 +311,24 @@ class abacus:
             s += self.format(parameter,digits=digits,sep=sep,omit_name=omit_name)
             s += sep_names
         return s[:len(s)-len(sep_names)]
+
+    @staticmethod
+    def create_param_object(attrs: tuple):
+        """create parameter object with dynamic type"""
+        if isinstance(attrs, tuple):
+            n = len(attrs)
+            para_obj = type(
+                'param', (object,),
+                dict(
+                    symbol=attrs[1] if n > 1 else '',
+                    unit=attrs[2] if n > 2 else '',
+                    default_value=attrs[3] if n > 3 else None,
+                    name=attrs[4] if n > 4 else '',
+                    description=attrs[5] if n > 5 else '',
+                    choices=attrs[6] if n > 6 else None
+                ))
+            return para_obj()
+        return None
 
     @classmethod
     def para_attrs(self, parameter):
@@ -327,13 +412,24 @@ class abacus:
         Replace parameters in expression by their symbols.
         e.g. 'alpha*beta-gamma' -> 'α*β-γ'
         """
-        if hasattr(self, '__inputs__'):
-            params = self.__inputs__.copy()
-            if hasattr(self, '__deriveds__'):
-                params.update(self.__deriveds__)
-            s = replace_by_aliases(expression, params)
-            return s
-        return expression
+        if not hasattr(self, '_params_'):
+            self._params_ = {}
+            if hasattr(self, '_inputs_'):
+                for key in self._inputs_:
+                    self._params_[key] = self._inputs_[key].symbol
+            self._init_deriveds_()
+            if hasattr(self, '_deriveds_'):
+                for key in self._deriveds_:
+                    self._params_[key] = self._deriveds_[key].symbol      
+        s = replace_by_aliases(expression, self._params_)
+        return s
+        # if hasattr(self, '__inputs__'):
+        #     params = self.__inputs__.copy()
+        #     if hasattr(self, '__deriveds__'):
+        #         params.update(self.__deriveds__)
+        #     s = replace_by_aliases(expression, params)
+        #     return s
+        # return expression
     
     def _html(self, digits = 2):
         """

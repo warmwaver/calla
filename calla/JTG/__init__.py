@@ -4,6 +4,7 @@ from . import bearing_capacity
 from . import crack_width
 from . import loads
 from . import slab
+from . import concrete_girder
 from . import pier_cap
 from . import pile_cap
 from . import pile_capacity

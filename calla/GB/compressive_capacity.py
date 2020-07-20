@@ -478,6 +478,7 @@ class eccentric_compression(abacus):
         return (large_eccentric, x, As, _As, As_, _As_)
     
     def solve(self):
+        self.validate('positive', 'N')
         self.h0 = self.h - self.a_s
         if self.h0 < 0:
             raise InputError(self, 'h', '截面高度有误')
@@ -881,9 +882,10 @@ class eccentric_compression_Ishape(eccentric_compression):
         self.validate('positive', 'b', 'h')
         self.h0 = self.h - self.a_s
         if self.h0 < 0:
-            raise InputError(self, 'h', '截面高度有误')
+            raise InputError(self, 'h', '截面高度过小导致有效高度为负')
         self.ea = max(20,self.h/30) # 6.2.5
         if self.option_m2:
+            self.validate('positive', 'N')
             self.A = self.b*self.h
             self.ζc = 0.5*self.fc*self.A/(self.N*1e3)
             if self.ζc>1:

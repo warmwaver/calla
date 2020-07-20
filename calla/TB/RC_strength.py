@@ -30,7 +30,7 @@ class beam_strength(abacus):
         ('As',('<i>A</i><sub>s</sub>','mm<sup>2</sup>',0,'纵向受拉钢筋面积')),
         ('As_',('<i>A</i><sub>s</sub><sup>\'</sup>','mm<sup>2</sup>',0,'纵向受压钢筋面积')),
         ('a_',('<i>a</i><sup>\'</sup>','mm',60,'受压钢筋距边缘距离','受压区纵向普通钢筋合力点至受拉边缘的距离')),
-        ('n',('<i>n</i>','',1,'钢筋与混凝土模量比值','钢筋的弹性模量与混凝土的变形模量之比')),
+        ('n',('<i>n</i>','',10,'钢筋与混凝土模量比值','钢筋的弹性模量与混凝土的变形模量之比')),
         ('M',('<i>M</i>','kN·m',0,'弯矩','弯矩设计值。TB规范下输入(主力，主力+附加力，主力+地震力)组合值')),
         ('V',('<i>V</i>','kN',0,'剪力设计值'))
         ])
@@ -51,18 +51,18 @@ class beam_strength(abacus):
             h0: 高度(mm)
             As: 受拉钢筋面积(mm)
             n: 钢筋的弹性模量和混凝土的变形模量之比
-            M: 设计弯矩(kNm)
+            M: 设计弯矩(N*mm)
         Returns:
             混凝土压应力、钢筋拉应力及关键参数(σc,σs,x,W0,Ws)
         """
-        μ = As/b/h0
+        μ = As/b/h0 # 受拉钢筋配筋率
         α = sqrt((n*μ)**2+2*n*μ)-n*μ
         x = α*h0
         I0 = b*x**3/3+n*As*(h0-x)**2
         W0 = I0/x #mm4
-        σc = M/W0*1E6 #MPa, (6.2.4-1)
+        σc = M/W0 # (6.2.4-1)
         Ws = I0/(h0-x) #mm4
-        σs = n*M/Ws*1E6 #MPa, (6.2.4-2)
+        σs = n*M/Ws # (6.2.4-2)
         return (σc,σs,x)
 
     @staticmethod
@@ -97,14 +97,14 @@ class beam_strength(abacus):
             h0: 高度(mm)
             As: 受拉钢筋面积(mm)
             n: 钢筋的弹性模量和混凝土的变形模量之比
-            V: 设计弯矩(kN)
+            V: 设计弯矩(N*mm)
         Returns:
             混凝土剪应力
         """
         x = eval_x(b,h0,As,n)
         y = 2/3*x
         z = h0-x+y
-        return V/b/z*1E3 #MPa
+        return V/b/z #MPa
 
     @staticmethod
     def shear_stress2(τ,b,hf_,S1,S):
@@ -119,7 +119,7 @@ class beam_strength(abacus):
             h0: 高度(mm)
             As: 受拉钢筋面积(mm)
             n: 钢筋的弹性模量和混凝土的变形模量之比
-            M: 设计弯矩(kNm)
+            M: 设计弯矩(N*mm)
         Returns:
             混凝土压应力、钢筋拉应力及关键参数(σc,σs,x,W0,Ws)
         """
@@ -136,13 +136,14 @@ class beam_strength(abacus):
         return (σc,σs,σs_,x)
 
     def solve(self):
-        self.validate('positive', 'b', 'h0', 'n')
-        self.validate('non-negative', 'As', 'As_', 'a_')
-        if self.As_ == 0:
-            self.σc,self.σs,self.x = self.cal_σ1(self.b,self.h0,self.As,self.n,self.M)
+        self.validate('positive', 'b', 'h0', 'As', 'n')
+        self.validate('non-negative', 'As_', 'a_')
+        if self.As_ <= 0:
+            self.σc,self.σs,self.x = self.cal_σ1(self.b,self.h0,self.As,self.n,self.M*1E6)
         else:
-            self.σc,self.σs,self.σs_,self.x = self.cal_σ2(self.b,self.h0,self.a_,self.As,self.As_,self.n,self.M)
-        self.τ = self.shear_stress(self.b,self.h0,self.As,self.n,self.V)
+            self.σc,self.σs,self.σs_,self.x = self.cal_σ2(
+                self.b,self.h0,self.a_,self.As,self.As_,self.n,self.M*1E6)
+        self.τ = self.shear_stress(self.b,self.h0,self.As,self.n,self.V*1E3)
         return
 
 class column_strength(abacus):

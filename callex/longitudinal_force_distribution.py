@@ -138,9 +138,6 @@ class longitudinal_force_distribution(abacus):
         return xsp, move_status, Fs
 
     def solve(self):
-        for ki in self.kb:
-            if ki==0:
-                raise InputError(self, 'kb', '支座刚度应大于0')
         sum = 0
         xs = []
         xs.append(sum)
@@ -151,12 +148,19 @@ class longitudinal_force_distribution(abacus):
         I_is_list = isinstance(self.I, list) or isinstance(self.I, tuple)
         l_is_list = isinstance(self.I, list) or isinstance(self.I, tuple)
         kb_is_list = isinstance(self.kb, list) or isinstance(self.kb, tuple)
+        if kb_is_list:
+            for ki in self.kb:
+                if ki==0:
+                    raise InputError(self, 'kb', '支座刚度应大于0')
         for i in range(len(xs)):
             # 支座刚度
             kb = self.kb[i] if kb_is_list else self.kb
             # 桥墩刚度
             if self.option == 'A':
-                kp = self.kp[i]
+                nkp = len(self.kp)
+                kp = self.kp[i] if i < nkp else self.kp[nkp-1]
+                if kp <= 0:
+                    raise InputError(self, 'kp', '应 &gt; 0')
             elif self.option == 'B':
                 I = self.I[i] if I_is_list else self.I
                 l = self.l[i] if l_is_list else self.I

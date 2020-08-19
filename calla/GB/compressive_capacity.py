@@ -480,7 +480,7 @@ class eccentric_compression(abacus):
     def solve(self):
         self.validate('positive', 'N')
         self.h0 = self.h - self.a_s
-        if self.h0 < 0:
+        if self.h0 <= 0:
             raise InputError(self, 'h', '截面高度有误')
         self.ea = max(20,self.h/30) # 6.2.5
         if self.option_m2:

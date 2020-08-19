@@ -310,7 +310,7 @@ class fc_T(fc_rect, material_base):
         ('b',('<i>b</i>','mm',500,'T形截面腹板宽度')),
         ('bf_',('<i>b</i><sub>f</sub><sup>\'</sup>','mm',1000,'受压区翼缘计算宽度')),
         ('hf_',('<i>h</i><sub>f</sub><sup>\'</sup>','mm',200,'受压区翼缘计算高度')),
-        ('h',('<i>h</i>','mm',1000,'矩形截面高度')),
+        ('h',('<i>h</i>','mm',1000,'截面高度')),
         # ('h0',('<i>h</i><sub>0</sub>','mm',900,'截面有效高度')),
         material_base.rebar_item,
         ('fsd',('<i>f</i><sub>sd</sub>','MPa',360,'钢筋抗拉强度设计值')),
@@ -348,6 +348,7 @@ class fc_T(fc_rect, material_base):
         self._same_as_rect = fsd*As+fpd*Ap<=fcd*bf_*hf_+fsd_*As_-(σp0_-fpd_)*Ap_
         if self._same_as_rect:
             # 按宽度为bf'的矩形截面计算，按式(5.2.2-2)计算受压区高度
+            self.validate('positive', 'bf_')
             x=self.fx(
                 self.fcd,self.bf_,self.fsd,self.As,self.fsd_,self.As_,
                 self.fpd,self.Ap,self.σp0_,self.fpd_,self.Ap_)
@@ -1912,13 +1913,15 @@ class torsion(abacus, material_base):
         ('εcu',('<i>ε</i><sub>cu</sub>','mm',0.0033,'混凝土极限压应变')),
         ('sv',('<i>s</i><sub>v</sub>','mm',100,'箍筋间距','沿构件长度方向的箍筋间距')),
         ('ρ',('<i>ρ</i>','',0,'纵向钢筋配筋率')),
+        ('option',('','',True,'考虑预应力','',{True:'是', False:'否'})),
         ('ep0',('<i>e</i><sub>p0</sub>','mm',100,'受力筋对换算截面重心轴的偏心距',\
-            '预应力钢筋和普通钢筋的合力对换算截面重心轴的偏心距')),
+            '预应力钢筋和普通钢筋的合力对换算截面重心轴的偏心距，预应力构件按式(6.1.7-2)计算')),
         ('Np0',('<i>N</i><sub>p0</sub>','kN',100,'预应力和普通钢筋的合力',\
             '混凝土法向预应力等于零时预应力钢筋和普通钢筋的合力')),
         ('A0',('<i>A</i><sub>0</sub>','mm<sup>2</sup>',0,'构件的换算截面面积')),
         ))
     __deriveds__ = OrderedDict((
+        ('fcv',('<i>f</i><sub>cv</sub>','MPa',0,'名义剪应力设计值')),
         ('Wt',('<i>W</i><sub>t</sub>','mm<sup>3</sup>',0,'截面受扭塑性抵抗矩')),
         ('Wtw',('<i>W</i><sub>tw</sub>','mm<sup>3</sup>',0,'腹板或矩形箱体受扭塑性抵抗矩')),
         ('Acor',('<i>A</i><sub>cor</sub>','mm<sup>2</sup>',0,'由箍筋内表面包围的截面核芯面积')),
@@ -1945,7 +1948,8 @@ class torsion(abacus, material_base):
     __toggles__ = {
         'concrete': material_base.material_toggles['concrete'],
         'rebar': material_base.material_toggles['rebar'],
-        'section_type':{'rect':('t1','t2','bf_','hf_','bf','hf'),'box':('bf_','hf_','bf','hf')}
+        'section_type':{'rect':('t1','t2','bf_','hf_','bf','hf'),'box':('bf_','hf_','bf','hf')},
+        'option':{False:('ep0','Np0','A0')}
         }
 
     @staticmethod
@@ -1960,11 +1964,9 @@ class torsion(abacus, material_base):
         return fsd*Ast*sv/fsv/Asv1/Ucor
 
     @staticmethod
-    def fTu(h, βa, ftd, Wt, ζ, fsv, Asv1, Acor, sv, ep0, Np0, A0):
-        '''矩形、箱形截面纯扭构件抗扭承载力，(5.5.1)右式'''
+    def fTu(h, βa, ftd, Wt, ζ, fsv, Asv1, Acor, sv):
+        '''矩形、箱形截面纯扭构件抗扭承载力，(5.5.1-1)右式'''
         Tu = 0.35*βa*ftd*Wt+1.2*sqrt(ζ)*fsv*Asv1*Acor/sv
-        if ep0 <= h/6 and ζ >= 1.7:
-            Tu += 0.05*Np0/A0*Wt
         return Tu
     
     @staticmethod
@@ -1994,7 +1996,9 @@ class torsion(abacus, material_base):
         return Tu
 
     def solve(self):
-        self.validate('positive','A0','Asv1', 'fcuk', 'ρ','bcor','hcor')
+        self.validate('positive','Asv1', 'fcuk', 'ρ','bcor','hcor')
+        if self.option:
+            self.validate('positive', 'A0')
         Vd = self.Vd*1e3
         Td = self.Td*1e6
         self.Acor=self.bcor*self.hcor
@@ -2036,7 +2040,10 @@ class torsion(abacus, material_base):
         self.ζ = ζ
         self.Tu = self.fTu(
             h, self.βa,self.ftd,self.Wt, self.ζ, self.fsv, self.Asv1,
-            self.Acor, self.sv, self.ep0, self.Np0, self.A0)/1e6
+            self.Acor, self.sv)/1e6
+        if self.option and ep0 <= h/6 and ζ >= 1.7:
+            # 5.5.1 说明
+            Tu += 0.05*Np0/A0*Wt
         # 5.5.3 截面验算
         b = self.b if self.section_type == 'rect' else self.bw
         self.τd = self.fτd(b,self.h0,self.Wt,self.γ0,Vd,Td)
@@ -2070,9 +2077,9 @@ class torsion(abacus, material_base):
             self.γ0Tfd_ = self.γ0*self.Tfd_
             self.γ0Tfd = self.γ0*self.Tfd
             self.Tfu_ = self.fTu(0, self.βa,self.ftd,self.Wtf_, self.ζ, self.fsv, self.Asv1,
-            self.Acor, self.sv, 0, 0, 1)/1e6
+            self.Acor, self.sv)/1e6
             self.Tfu = self.fTu(0, self.βa,self.ftd,self.Wtf, self.ζ, self.fsv, self.Asv1,
-            self.Acor, self.sv, 0, 0, 1)/1e6
+            self.Acor, self.sv)/1e6
 
     def _html(self, digits=2):
         box = self.section_type == 'box' or self.section_type == 'fbox'
@@ -2105,7 +2112,7 @@ class torsion(abacus, material_base):
                 yield self.format('bw', digits=None)
             eq = 'γ0*Vd/{}/h0+γ0*Td/Wt'.format('b' if self.section_type == 'rect' else 'bw')
             ok = self.τd <= self.fcv
-            yield '{} {} {}，截面验算{}满足规范要求。'.format(
+            yield '{} {} {}，截面验算{}满足规范(5.5.3-1)式要求。'.format(
                 self.format('τd', digits, eq=eq, omit_name=True), '&le;' if ok else '&gt;', 
                 self.format('fcv', digits, omit_name=True),
                 '' if ok else '不')

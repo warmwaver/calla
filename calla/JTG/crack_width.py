@@ -182,8 +182,14 @@ class crack_width(abacus):
         if self.case == 'rect':
             self.validate('positive', 'b', 'h')
             self.h0 = self.h - self.a_s
+            if self.h0 <= 0:
+                raise InputError(self, 'h', '应 &gt; 0') if self.h<=0 else InputError(self, 'a_s', '应小于截面高度')
             # 矩形、T 形和I 形截面的钢筋混凝土构件
             if self.force_type == 'AT':
+                if self.bf < self.b and self.bf != 0:
+                    raise InputError(self, 'bf', '应&gt;<i>b</i>')
+                if self.bf_ < self.b and self.bf_ != 0:
+                    raise InputError(self, 'bf', '应&gt;<i>b</i>')
                 self.Ate=self.b*self.h+(self.bf-self.b)*self.hf+(self.bf_-self.b)*self.hf_
             else:
                 self.positive_check('Ms')

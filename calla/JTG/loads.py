@@ -369,6 +369,7 @@ D 中高层建筑物密集地区、起伏较大的丘陵地''',('A','B','C','D')
         U10 = self.U10
         self.R = 'R1' if U10>32.6 else 'R2' if U10>24.5 else 'R3'
         self.kf = self._kf[self.R]
+        self.地表类别 = str(self.地表类别).upper()
         self.kc = self._kc[self.地表类别]
         self.α0 = self._α0[self.地表类别]
         kh = self.fkh(self.kc,self.Z,self.α0)

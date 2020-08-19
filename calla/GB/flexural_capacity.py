@@ -383,7 +383,7 @@ class fc_round(abacus):
     """
     __title__ = '圆形截面承载力'
     __inputs__ = OrderedDict((
-        ('option',('','','design','选项','',{'review':'根据配筋复核承载力','design':'根据内力设计值计算配筋'})),
+        ('option',('','','design','选项','',{'review':'截面复核','design':'截面设计'})),
         ('α1',('<i>α</i><sub>1</sub>','',1.0,'系数')),
         ('fc',('<i>f</i><sub>c</sub>','N/mm<sup>2</sup>',14.3,'混凝土轴心抗压强度设计值')),
         ('fy',('<i>f</i><sub>y</sub>','N/mm<sup>2</sup>',360,'普通钢筋抗拉强度设计值')),

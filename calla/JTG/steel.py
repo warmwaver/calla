@@ -420,16 +420,16 @@ class web_rib(abacus):
         return 3*hw*tw**3 # (5.3.3-4)
 
     @staticmethod
-    def fIl(a, hw, tw):
+    def fξl(a, hw):
         # (5.3.3-6)
         # 规范2015年10月版该公式有误，式中"≤"号应为"≥"
-        ξl = (a/hw)**2*(2.5-0.45*(a/hw))
-        if ξl < 1.5:
-            ξl = 1.5
+        return (a/hw)**2*(2.5-0.45*(a/hw))
+
+    @staticmethod
+    def fIl(ξl, hw, tw):
         # (5.3.3-5)
         # 规范2015年10月版该公式有误，式中"="号应为"≥"
-        Il = ξl*hw*tw**3
-        return (ξl, Il)
+        return ξl*hw*tw**3
 
     def solve(self):
         self.validate('positive', 'a','hw')
@@ -437,6 +437,10 @@ class web_rib(abacus):
             'Q235':[[70,0,0],[160,280,310]],
             'Q345':[[60,0,0],[140,240,310]]
         }
+        if not self.steel in op:
+            # raise InputError(self, 'steel', '不支持的类型')
+            # 规范有遗漏，未给出其它钢材品种的取值说明，计算时标号大于Q345的按Q345取值
+            self.steel = 'Q345'
         nt = min(int(self.nt), 1)
         nl = min(int(self.nl), 2)
         self.C = op[self.steel][nt][nl]
@@ -457,10 +461,13 @@ class web_rib(abacus):
 
         self.It_min = self.fIt(self.hw, self.tw)
 
-        self.ξl, self.Il_min = self.fIl(self.a, self.hw, self.tw)
+        self.ξl = self._ξl = self.fξl(self.a, self.hw)
+        if self.ξl < 1.5:
+            self.ξl = 1.5
+        self.Il_min = self.fIl(self.ξl, self.hw, self.tw)
 
     def _html(self, digits=2):
-        yield '腹板厚度验算'
+        yield '{}腹板厚度验算'.format('' if str(self.nt) == "0" else '(1) ')
         for para in ('hw','tw','τ','fvd','η'):
             yield self.format(para, digits)
         ok = self.tw >= self.tw_min
@@ -470,7 +477,10 @@ class web_rib(abacus):
             self.format('tw_min', digits=digits, eq = eq, omit_name=True),
             '' if ok else '不')
 
-        yield '腹板横向加劲肋间距验算'
+        if str(self.nt) == "0":
+            return
+
+        yield '(2) 腹板横向加劲肋间距验算'
         for para in ('σ','τ','a'):
             yield self.format(para, digits)
         ok = self.eql <= 1
@@ -480,15 +490,17 @@ class web_rib(abacus):
             1,
             '' if ok else '不')
 
-        yield '腹板横向加劲肋惯性矩验算'
+        yield '(3) 腹板横向加劲肋惯性矩验算'
         ok = self.It >= self.It_min
         yield '{} {} {}，{}满足规范要求。'.format(
             self.format('It', digits), '≥' if ok else '&lt;', 
             self.format('It_min', digits,eq='3·hw·tw<sup>3</sup>', omit_name=True),
             '' if ok else '不')
 
-        yield '腹板纵向加劲肋惯性矩验算'
-        yield self.format('ξl')
+        yield '(4) 腹板纵向加劲肋惯性矩验算'
+        yield '{}{}'.format(
+            self.format('ξl', digits, value=self._ξl, eq='(a/hw)**2*(2.5-0.45*(a/hw))'),
+            ' &lt; 1.5, 取 {0} = 1.5。'.format(self._deriveds_['ξl'].symbol) if self._ξl < 1.5 else '')
         ok = self.Il >= self.Il_min
         yield '{} {} {}，{}满足规范要求。'.format(
             self.format('Il', digits), '≥' if ok else '&lt;', 

@@ -7,6 +7,7 @@ __all__ = [
     ]
 
 from calla.html import html2text
+from collections import OrderedDict
     
 def replace_by_aliases(expression, aliases):
     """
@@ -77,6 +78,20 @@ class abacus:
                         if not hasattr(self, k):
                             v = infos[2] if len(infos) > 2 else 0
                             setattr(self, k, v)
+
+        # initialize toggles
+        if hasattr(self, '__toggles__'):
+            if isinstance(self.__toggles__, list):
+                self._toggles_ = OrderedDict()
+                count = int(len(self.__toggles__)/2)
+                for i in range(count):
+                    k = self.__toggles__[2*i]
+                    v = self.__toggles__[2*i+1]
+                    if isinstance(k, str) and isinstance(v, dict):
+                        self._toggles_[k] = v
+            else:
+                self._toggles_ = self.__toggles__
+
         # initialize parameters by inputs
         self.inputs = inputs
 
@@ -112,21 +127,21 @@ class abacus:
     @inputs.setter
     def inputs(self, values):
         """ Set value for inputs """
-        def _setvalue(cls, values, key):
-            v = values[key]
+        def _setvalue(cls, key, value):
             t = type(getattr(cls,key))
-            if t is bool and not isinstance(v, bool):
-                v = True if str(v) == 'True' else False 
-            setattr(cls, key, v)
+            if t is bool and not isinstance(value, bool):
+                value = True if str(value) == 'True' else False 
+            setattr(cls, key, value)
 
         for key in values:
             if hasattr(self, key):
-                _setvalue(self, values, key)
+                _setvalue(self, key, values[key])
+
         # toggles may reset the value of some disabled inputs
-        if (hasattr(self, '__toggles__')):
-            for key in self.__toggles__:
+        if hasattr(self, '__toggles__'):
+            for key in self._toggles_:
                 if key in values:
-                    _setvalue(self, values, key)
+                    _setvalue(self, key, values[key])
 
     def deriveds(self):
         """ Get a dictionary of derived parameters. """
@@ -196,14 +211,14 @@ class abacus:
         ['As']
         """
         r = []
-        if not hasattr(self,'__toggles__'):
+        if not hasattr(self,'_toggles_'):
             return r
-        for key in self.__toggles__:
+        for key in self._toggles_:
             # A latter toggle can be diabled by a previous toggle,
             # together with its' toggle function.
             if key in r: 
                 continue
-            choices = self.__toggles__[key]
+            choices = self._toggles_[key]
             if hasattr(self, key):
                 v = getattr(self, key)
                 if v not in choices:

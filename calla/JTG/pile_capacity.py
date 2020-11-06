@@ -971,10 +971,12 @@ class pile_group_effects_P06(abacus):
 
     def solve(self):
         self.validate('non-negative', 'l0')
-        self.validate('positive', 'C0')
+        self.validate('positive', 'C0', 'Ec', 'd')
         self.I = pi*self.d**4/64
         self.I0 = self.I
         self.npiles = sum(self.Ki) # 总桩数
+        if self.npiles <= 0:
+            raise InputError(self, 'Ki', '桩数应>0')
         self.n = len(self.xi) if hasattr(self.xi, '__len__') else 1 # 平行于水平力作用方向的一排桩的桩数
         if self.ξ <= 0:
             self.ξ = 1 if self.bottom_fixed else 0.5

@@ -348,11 +348,11 @@ class Column(abacus):
         else:
             Md = forces_uls.My
         if self.code == 'GB':
-            bc.N = sqrt(Nd)
-            bc.M = sqrt(Md)
+            bc.N = abs(Nd)
+            bc.M = abs(Md)
         else:
-            bc.Nd = sqrt(Nd)
-            bc.Md = sqrt(Md)
+            bc.Nd = abs(Nd)
+            bc.Md = abs(Md)
         bc.b = self.h
         bc.h = self.b
         bc.h0 = self.b - self.as_
@@ -365,7 +365,7 @@ class Column(abacus):
         # y方向偏心弯曲验算
         if self.section != 'round':
             bcy = copy.copy(bc)
-            Md = sqrt(forces_uls.Mz)
+            Md = abs(forces_uls.Mz)
             if self.code == 'GB':
                 bc.M = Md
             else:

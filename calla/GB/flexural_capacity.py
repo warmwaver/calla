@@ -16,12 +16,9 @@ import warnings
 from calla import abacus, numeric, InputError, InputWarning
 
 class fc_rect(abacus):
-    """矩形截面或翼缘位于受拉边的倒T形截面混凝土构件正截面受弯承载力计算
-    《混凝土结构设计规范》（GB 50010-2010）第6.2.10节
-    
-    >>> flc=fc_rect(M=180,b=250,h0=460,fc=14.3,fy=360)
-    >>> flc.solve_As()
-    1261.0061148778957
+    """
+    矩形截面或翼缘位于受拉边的倒T形截面混凝土构件正截面受弯承载力计算
+    《混凝土结构设计规范》（GB 50010-2010）第6.2.10节    
     """
     __title__ = '矩形或倒T形截面受弯承载力'
     __inputs__ = OrderedDict((
@@ -120,6 +117,7 @@ class fc_rect(abacus):
     
     def solve_As(self):
         '''计算普通钢筋面积，已知弯矩，按单筋截面计算，暂未考虑受压钢筋和预应力筋'''
+        self.validate('positive', 'α1', 'fc', 'b')
         self.delta = self.h0**2-2*self.γ0*self.M*1E6/self.α1/self.fc/self.b
         if self.delta>0:
             self.x=self.h0-sqrt(self.delta)
@@ -336,40 +334,144 @@ class fc_T(fc_rect):
             self.format('Mu', omit_name=True, eq=eq),
             '' if ok else '不')
 
-class fc_ring:
+class fc_ring(abacus):
     """
-    环形截面承载力计算(TODO)
+    环形截面承载力计算
     《混凝土结构设计规范》（GB 50010-2010）附录E.0.3节
     """
-    γ0=1.1
-    β1=0.8
-    α1=1.0
-    alpha=0
-    alphat=0
-    fc=19.1 #N/mm^2
-    fcuk=26.8 #N/mm^2
-    Es=2.0E5 #N/mm^2
-    fy=300 #N/mm^2
-    A=0 #mm^2
-    As=0 #mm^2
-    r1=0
-    r2=0
-    rs=0
-    M=0 #N*m
-    def Md(α1,alpha,alphat,fc,fy,A,As,r1,r2,rs):
-        return α1*fc*A*(r1+r2)*sin(pi*alpha)/2/pi\
-               +fy*As*rs*(sin(pi*alpha)+sin(pi*alphat))/pi
-    def Asd(M,α1,alpha,alphat,fc,fy,A,r1,r2,rs):
-        Ms = M-α1*fc*A*(r1+r2)*sin(pi*alpha)/2/pi
-        return Ms/(fy*rs*(sin(pi*alpha)+sin(pi*alphat))/pi)
-    def solve(self, option):
-        if option == 'M':
-            return fc_ring.Md(self.α1,self.alpha,self.alphat,
-                      self.fc,self.fy,self.A,self.As,self.r1,self.r2,self.rs)
-        elif option == 'As':
-            return fc_ring.Asd(self.M, self.α1,self.alpha,self.alphat,
-                      self.fc,self.fy,self.A,self.r1,self.r2,self.rs)
-        raise Exception('option error')
+    __title__ = '环形截面承载力'
+    __inputs__ = [
+        ('option','','','design','选项','',{'review':'截面复核','design':'截面设计'}),
+        ('α1','<i>α</i><sub>1</sub>','',1.0,'系数'),
+        ('fc','<i>f</i><sub>c</sub>','N/mm<sup>2</sup>',14.3,'混凝土轴心抗压强度设计值'),
+        ('fy','<i>f</i><sub>y</sub>','N/mm<sup>2</sup>',360,'普通钢筋抗拉强度设计值'),
+        ('r1','<i>r</i><sub>1</sub>','mm',600,'环形截面的内半径'),
+        ('r2','<i>r</i><sub>2</sub>','mm',800,'环形截面的外半径'),
+        ('rs','<i>r</i><sub>s</sub>','mm',700,'纵向普通钢筋重心所在圆周的半径'),
+        ('N','<i>N</i>','kN',0.0,'轴力设计值'),
+        ('M','<i>M</i>','kN·m',0.0,'弯矩设计值'),
+        ('As','<i>A</i><sub>s</sub>','mm<sup>2</sup>',0,'全截面钢筋面积')
+    ]
+    __deriveds__ = [
+        ('A','<i>A</i>','mm<sup>2</sup>',pi/4*800**2,'圆形截面面积'),
+        ('α','<i>α</i>','',0.0,'受压区域圆心角与2π的比值'),
+        ('e0','<i>e</i><sub>0</sub>','mm',0.0,'轴向压力对截面重心的偏心距'),
+        ('ea','<i>e</i><sub>a</sub>','mm',0.0,'附加偏心距'),
+        ('Mu','<i>M</i><sub>u</sub>','kN·m',0.0,'抗弯承载力'),
+    ]
+    __toggles__ = [
+        'option', {'review':(), 'design':('As',)},
+    ]
+    
+    @staticmethod
+    def f_αt(α):
+        return 1-1.5*α if α<2/3 else 0
+
+    @classmethod
+    def f_As(cls, α,α1,fc,fy,A,N):
+        """式(E.0.3)-1取等求As"""
+        return (N-α*α1*fc*A)/(α-cls.f_αt(α))/fy
+    
+    @classmethod
+    def f_N(α,α1,fc,fy,A,As):
+        """式(E.0.3-1)右部分"""
+        return α*α1*fc*A*(1-sin(2*pi*α)/2/pi/α)+(α-cls.f_αt(α))*fy*As
+    
+    @classmethod
+    def f_M(cls, α,α1,fc,fy,r1,r2,rs,A,As):
+        """式(E.0.3-2)右部分"""
+        return α1*fc*A*(r1+r2)*sin(pi*α)/2/pi + fy*As*rs*(sin(pi*α)+sin(pi*cls.f_αt(α)))/pi
+    
+    @staticmethod
+    def f_Ne(r, N, M):
+        e0=M/N
+        ea=r/30
+        if ea<20:
+            ea=20
+        ei=e0+ea
+        M=N*ei
+        return M
+   
+    @classmethod     
+    def solve_As(cls, α1,fc,fy,r1,r2,rs,A,N,M):
+        """
+        求解α和As,已知N和M
+        """
+        def _fMeq(α,α1,fc,fy,r1,r2,rs,A,N,M):
+            # 由方程（E.0.3-1)得到As的表达式，代入（E.0.3-2)，得到关于α的方程
+            if α<0.625:
+                αt = 1.25-2*α
+            else:
+                αt = 0
+            fyAs=(N-α*α1*fc*A)/(α-αt)
+            return α1*fc*A*(r1+r2)*sin(pi*α)/2/pi + fyAs*rs*((sin(pi*α)+sin(pi*αt))/pi) - M
+            
+        # 以1.25/3为界查找有值区间
+        x0 = 0
+        x1 = 1.25/3*0.999
+        f0 = _fMeq(x0,α1,fc,fy,r1,r2,rs,A,N,M)
+        f1 = _fMeq(x1,α1,fc,fy,r1,r2,rs,A,N,M)
+        if f0*f1>0:
+            x0 = 1.25/3*1.001
+            x1 = 1
+            f0 = _fMeq(x0,α1,fc,fy,r1,r2,rs,A,N,M)
+            f1 = _fMeq(x1,α1,fc,fy,r1,r2,rs,A,N,M)
+            if f0*f1>0:
+                raise numeric.NumericError('No real solution.')
+        α = numeric.binary_search_solve(
+                _fMeq, x0, x1, α1=α1,fc=fc,fy=fy,r1=r1,r2=r2,rs=rs,A=A,N=N,M=M)
+        As = cls.f_As(α,α1,fc,fy,A,N)
+        return (α,As)
+    
+    @classmethod
+    def solve_M(cls, α1,fc,fy,r1,r2,rs,A,As,N):
+        """
+        求解α和M,已知N和As
+        """
+        α = (N + fy*As)/(α1*fc*A + 2.5*fy*As)
+        if α > 2.0/3:
+            α = N/(α1*fc*A + fy*As)
+        
+        Mu = cls.f_M(α,α1,fc,fy,r1,r2,rs,A,As)
+        return (α, Mu)
+            
+    def solve(self):
+        self._M = self.M if self.N==0 else self.f_Ne(self.r2, self.N*1e3, self.M*1e6)*1e-6
+        self.A = pi*(self.r2**2-self.r1**2)
+        #self.has_solution = True
+        if self.option == 'review':
+            self.α,self.Mu = self.solve_M(
+                self.α1,self.fc,self.fy,self.r1,self.r2,self.rs,self.A,self.As,self.N*1e3)
+            self.Mu *= 1e-6
+        else:
+            if self.option != 'design':
+                warnings.warn('Unknown input for "option", use "design" instead.', InputWarning)
+            self.α,self.As = self.solve_As(
+                self.α1,self.fc,self.fy,self.r1,self.r2,self.rs,self.A,self.N*1e3,self._M*1e6)
+    
+    def _html(self,digits=2):
+        for attr in self.inputs:
+            if self.option == 'review' or attr != 'As':
+                yield self.format(attr)
+        for attr in ('A', 'α'):
+            yield self.format(attr)
+        if hasattr(self, 'e0'):
+            yield self.format('e0')
+            yield self.format('ea')
+        yield '根据平衡方程：'
+        yield self.replace_by_symbols('N=α*α1*fc*A+(α-αt)*fy*As   (E.0.3-1)')
+        yield self.replace_by_symbols('N*ei=α1*fc*A*(r1+r2)*sin(π*α)/2/π + fy*As*rs*((sin(π*α)+sin(π*αt))/π)   (E.0.3-2)')
+        yield '求解得：'
+        yield self.format('α')
+        if self.option == 'review':
+            ok = self.Mu > self._M
+            yield '{} {} {}，{}满足规范要求。'.format(
+                self.format('Mu',digits), 
+                '&gt;' if ok else '&lt;', 
+                self.format('M', digits, value=self._M),
+                '' if ok else '不')
+        else:
+            yield self.format('As', digits)
 
 class fc_round(abacus):
     """
@@ -382,24 +484,24 @@ class fc_round(abacus):
     (0.36192235669386447, 2792645006.937993)
     """
     __title__ = '圆形截面承载力'
-    __inputs__ = OrderedDict((
-        ('option',('','','design','选项','',{'review':'截面复核','design':'截面设计'})),
-        ('α1',('<i>α</i><sub>1</sub>','',1.0,'系数')),
-        ('fc',('<i>f</i><sub>c</sub>','N/mm<sup>2</sup>',14.3,'混凝土轴心抗压强度设计值')),
-        ('fy',('<i>f</i><sub>y</sub>','N/mm<sup>2</sup>',360,'普通钢筋抗拉强度设计值')),
-        ('r',('<i>r</i>','mm',800,'圆形截面的半径')),
-        ('rs',('<i>r</i><sub>s</sub>','mm',700,'纵向普通钢筋重心所在圆周的半径')),
-        ('N',('<i>N</i>','kN',1000.0,'轴力设计值')),
-        ('M',('<i>M</i>','kN·m',100.0,'弯矩设计值')),
-        ('As',('<i>A</i><sub>s</sub>','mm<sup>2</sup>',0,'全截面钢筋面积'))
-        ))
-    __deriveds__ = OrderedDict((
-        ('A',('<i>A</i>','mm<sup>2</sup>',pi/4*800**2,'圆形截面面积')),
-        ('α',('<i>α</i>','',0.0,'受压区域圆心角与2π的比值')),
-        ('e0',('<i>e</i><sub>0</sub>','mm',0.0,'轴向压力对截面重心的偏心距')),
-        ('ea',('<i>e</i><sub>a</sub>','mm',0.0,'附加偏心距')),
-        ('Mu',('<i>M</i><sub>u</sub>','kN·m',0.0,'抗弯承载力')),
-        ))
+    __inputs__ = [
+        ('option','','','design','选项','',{'review':'截面复核','design':'截面设计'}),
+        ('α1','<i>α</i><sub>1</sub>','',1.0,'系数'),
+        ('fc','<i>f</i><sub>c</sub>','N/mm<sup>2</sup>',14.3,'混凝土轴心抗压强度设计值'),
+        ('fy','<i>f</i><sub>y</sub>','N/mm<sup>2</sup>',360,'普通钢筋抗拉强度设计值'),
+        ('r','<i>r</i>','mm',800,'圆形截面的半径'),
+        ('rs','<i>r</i><sub>s</sub>','mm',700,'纵向普通钢筋重心所在圆周的半径'),
+        ('N','<i>N</i>','kN',1000.0,'轴力设计值'),
+        ('M','<i>M</i>','kN·m',100.0,'弯矩设计值'),
+        ('As','<i>A</i><sub>s</sub>','mm<sup>2</sup>',0,'全截面钢筋面积')
+    ]
+    __deriveds__ = [
+        ('A','<i>A</i>','mm<sup>2</sup>',pi/4*800**2,'圆形截面面积'),
+        ('α','<i>α</i>','',0.0,'受压区域圆心角与2π的比值'),
+        ('e0','<i>e</i><sub>0</sub>','mm',0.0,'轴向压力对截面重心的偏心距'),
+        ('ea','<i>e</i><sub>a</sub>','mm',0.0,'附加偏心距'),
+        ('Mu','<i>M</i><sub>u</sub>','kN·m',0.0,'抗弯承载力'),
+    ]
     __toggles__ = {
         'option':{'review':(), 'design':('As',)},
         }
@@ -427,7 +529,8 @@ class fc_round(abacus):
         """
         求解alpha和As,已知N和M
         """
-        def f(α,α1,fc,fy,r,rs,A,N,M):
+        def _fMeq(α,α1,fc,fy,r,rs,A,N,M):
+            # 由方程（E.0.4-1)得到As的表达式，代入（E.0.4-2)，得到关于α的方程
             if α<0.625:
                 αt = 1.25-2*α
             else:
@@ -435,24 +538,22 @@ class fc_round(abacus):
             C1=2/3*sin(pi*α)**3/pi
             C2=(sin(pi*α)+sin(pi*αt))/pi
             fyAs=(N-α1*fc*A*(α-sin(2*pi*α)/2/pi))/(α-αt)
-            f=α1*fc*A*r*C1+fyAs*rs*C2-M
-            return f
-        if not N == 0 and not M == 0:
-            M=fc_round.f_Ne(r, N, M)
+            return α1*fc*A*r*C1+fyAs*rs*C2-M
+        
         # 以1.25/3为界查找有值区间
         x0 = 0
         x1 = 1.25/3*0.999
-        f0 = f(x0,α1,fc,fy,r,rs,A,N,M)
-        f1 = f(x1,α1,fc,fy,r,rs,A,N,M)
+        f0 = _fMeq(x0,α1,fc,fy,r,rs,A,N,M)
+        f1 = _fMeq(x1,α1,fc,fy,r,rs,A,N,M)
         if f0*f1>0:
             x0 = 1.25/3*1.001
             x1 = 1
-            f0 = f(x0,α1,fc,fy,r,rs,A,N,M)
-            f1 = f(x1,α1,fc,fy,r,rs,A,N,M)
+            f0 = _fMeq(x0,α1,fc,fy,r,rs,A,N,M)
+            f1 = _fMeq(x1,α1,fc,fy,r,rs,A,N,M)
             if f0*f1>0:
                 raise numeric.NumericError('No real solution.')
         α = numeric.binary_search_solve(
-                f, x0, x1, α1=α1,fc=fc,fy=fy,r=r,rs=rs,A=A,N=N,M=M)
+                _fMeq, x0, x1, α1=α1,fc=fc,fy=fy,r=r,rs=rs,A=A,N=N,M=M)
         As = fc_round.f_As(α,α1,fc,fy,A,N)
         return (α,As)
     
@@ -462,6 +563,7 @@ class fc_round(abacus):
         求解alpha和M,已知N和As
         """
         def f(α,α1,fc,fy,r,rs,A,As,N):
+            # 式(E.0.4-1)两边取等号求解α，由于方程非线性，构造牛顿迭代法表达式
             if α<0.625:
                 return (N+α1*fc*A*sin(2*pi*α)/2/pi+1.25*fy*As)/(α1*fc*A+3*fy*As)
             return (N+α1*fc*A*sin(2*pi*α)/2/pi)/(α1*fc*A+fy*As)
@@ -484,7 +586,6 @@ class fc_round(abacus):
     def solve(self):
         self._M = self.M if self.N==0 else self.f_Ne(self.r, self.N*1e3, self.M*1e6)*1e-6
         self.A = pi*self.r**2
-        #self.has_solution = True
         if self.option == 'review':
             try:
                 self.α,self.Mu = self.solve_M(
@@ -492,14 +593,13 @@ class fc_round(abacus):
                 self.Mu *= 1e-6
             except:
                 # No solution means bearing capacity require can't be met.
-                #self.has_solution = False
                 self.α = 0
                 self.Mu = 0
         else:
             if self.option != 'design':
                 warnings.warn('Unknown input for "option", use "design" instead.', InputWarning)
             self.α,self.As = self.solve_As(
-                self.α1,self.fc,self.fy,self.r,self.rs,self.A,self.N*1e3,self.M*1e6)
+                self.α1,self.fc,self.fy,self.r,self.rs,self.A,self.N*1e3,self._M*1e6)
     
     def _html(self,digits=2):
         for attr in self.inputs:
@@ -511,7 +611,6 @@ class fc_round(abacus):
             yield self.format('e0')
             yield self.format('ea')
         if self.option == 'review':
-            #yield '圆形截面抗弯承载力计算'
             ok = self.Mu > self._M
             yield '{} {} {}，{}满足规范要求。'.format(
                 self.format('Mu',digits), 

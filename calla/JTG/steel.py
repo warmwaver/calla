@@ -277,24 +277,28 @@ class effective_section(abacus):
             option = 'A'
             self.l = self.L
         elif self.beam_type == 'continuous':
-            # self.validate('positive', 'L1', 'L2', 'L3')
             option = 'A' if (self.location == 'side_span' or self.location == 'middle_span') else 'B'
             if self.location == 'side_span':
+                self.validate('positive', 'L1')
                 self.l = 0.8*self.L1
             elif self.location == 'middle_span':
+                self.validate('positive', 'L2')
                 self.l = 0.6*self.L2
             elif self.location == 'middle_support':
+                self.validate('positive', 'L1', 'L2')
                 self.l = 0.2*(self.L1+self.L2)
             else:
                 raise InputError(self, 'location', '未知的输入参数')
         elif self.beam_type == 'cantilever':
-            # self.validate('positive', 'L1', 'L2', 'L3')
             option = 'A'
             if self.location == 'side_span':
+                self.validate('positive', 'L1')
                 self.l = 2*self.L1
             elif self.location == 'middle_span':
+                self.validate('positive', 'L2')
                 self.l = 0.6*self.L2
             elif self.location == 'middle_support':
+                self.validate('positive', 'L1')
                 self.l = 2*self.L1
             else:
                 raise InputError(self, 'location', '未知的输入参数')
@@ -662,7 +666,7 @@ class diaphragm(abacus):
 
     @staticmethod
     def fNb(Lb,A,Td, shape='X'):
-        Nb = Lb/A/Td/(4 if shape == 'X' else 2)
+        Nb = Lb*Td/A/(4 if shape == 'X' else 2) # (条文说明8-12、8-13)
         return Nb
 
     def solve(self):

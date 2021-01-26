@@ -71,8 +71,9 @@ class pile_cap(abacus):
 
     def solve(self):
         self.positive_check('As')
-        xi = [x*1000 for x in self.xi]
-        yi = [y*1000 for y in self.yi]
+
+        xi = [x*1000 for x in self.xi] if hasattr(self.xi, '__len__') else [self.xi*1000]
+        yi = [y*1000 for y in self.yi] if hasattr(self.yi, '__len__') else [self.yi*1000]
 
         pvf = cap.pile_vertical_force(**self.inputs)
         pvf.solve()

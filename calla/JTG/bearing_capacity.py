@@ -1918,7 +1918,8 @@ class torsion(abacus, material_base):
             '预应力钢筋和普通钢筋的合力对换算截面重心轴的偏心距，预应力构件按式(6.1.7-2)计算')),
         ('Np0',('<i>N</i><sub>p0</sub>','kN',100,'预应力和普通钢筋的合力',\
             '混凝土法向预应力等于零时预应力钢筋和普通钢筋的合力')),
-        ('A0',('<i>A</i><sub>0</sub>','mm<sup>2</sup>',0,'构件的换算截面面积')),
+        ('A0',('<i>A</i><sub>0</sub>','mm<sup>2</sup>',0,'构件的换算截面面积',\
+            '预应力及普通钢筋换算成混凝土后的总截面面积')),
         ))
     __deriveds__ = OrderedDict((
         ('fcv',('<i>f</i><sub>cv</sub>','MPa',0,'名义剪应力设计值')),
@@ -1999,6 +2000,7 @@ class torsion(abacus, material_base):
         self.validate('positive','Asv1', 'fcuk', 'ρ','bcor','hcor')
         if self.option:
             self.validate('positive', 'A0')
+        Np0 = self.Np0; A0=self.A0
         Vd = self.Vd*1e3
         Td = self.Td*1e6
         self.Acor=self.bcor*self.hcor
@@ -2023,7 +2025,7 @@ class torsion(abacus, material_base):
                 self.Wtf = self.hf**2/2*(self.bf-self.b)
             else:
                 self.Wtf = 0
-            self.Wt = self.Wtw+self.Wtf_+self.Wtf
+            self.Wt = Wt = self.Wtw+self.Wtf_+self.Wtf
         # 5.5.1 抗扭承载力
         self.βa = 1.0
         if (self.t2 >= 0.1*self.b and self.t2 <= 0.25*self.b) or \
@@ -2041,7 +2043,7 @@ class torsion(abacus, material_base):
         self.Tu = self.fTu(
             h, self.βa,self.ftd,self.Wt, self.ζ, self.fsv, self.Asv1,
             self.Acor, self.sv)/1e6
-        if self.option and ep0 <= h/6 and ζ >= 1.7:
+        if self.option and self.ep0 <= h/6 and ζ >= 1.7:
             # 5.5.1 说明
             Tu += 0.05*Np0/A0*Wt
         # 5.5.3 截面验算
@@ -2061,8 +2063,8 @@ class torsion(abacus, material_base):
         self.ρsv = 0 if self.sv == 0 else self.Asv/self.sv/b
         self.Vut = self.fVut(
             self.α1,self.α2,self.α3, self.βt, b,self.h0,self.fcuk, self.P, self.ρsv, self.fsv)
-        Np0 = self.Np0; A0=self.A0
-        if self.ep0 <= self.h/6 and self.ζ >= 1.7:
+        
+        if self.option == False or (self.ep0 <= self.h/6 and self.ζ >= 1.7):
             Np0 = 0; A0=1
         self.Tut = self.fTut(
             self.βt, self.βa,self.ftd, Wt, self.ζ, self.fsv, self.Asv1,
@@ -2185,7 +2187,7 @@ class local_pressure(abacus, material_base):
         ('n1',('<i>n</i><sub>1</sub>','',0,'方格网沿<i>l</i><sub>1</sub>方向的钢筋根数')),
         ('As1',('<i>A</i><sub>s1</sub>','mm<sup>2</sup>',0,'方格网沿<i>l</i><sub>1</sub>方向单根钢筋的截面面积')),
         ('l2',('<i>l</i><sub>2</sub>','mm',0,'方格网尺寸')),
-        ('n2',('<i>n</i><sub>1</sub>','',0,'方格网沿<i>l</i><sub>2</sub>方向的钢筋根数')),
+        ('n2',('<i>n</i><sub>2</sub>','',0,'方格网沿<i>l</i><sub>2</sub>方向的钢筋根数')),
         ('As2',('<i>A</i><sub>s2</sub>','mm<sup>2</sup>',0,'方格网沿<i>l</i><sub>2</sub>方向单根钢筋的截面面积')),
         ('Ass1',('<i>A</i><sub>ss1</sub>','mm<sup>2</sup>',0,'单根螺旋形间接钢筋的截面面积')),
         ('dcor',('<i>d</i><sub>cor</sub>','mm',0,'混凝土核芯面积的直径','螺旋形间接钢筋内表面范围内混凝土核芯面积的直径')),
@@ -2194,8 +2196,9 @@ class local_pressure(abacus, material_base):
     __deriveds__ = OrderedDict((
         ('ηs',('<i>η</i><sub>s</sub>','',1.0,'混凝土局部承压修正系数')),
         ('β',('<i>β</i>','',0,'混凝土局部承压强度提高系数')),
-        ('βcor',('<i>β</i><sub>cor</sub>','kN',0,'','配置间接钢筋时局部抗压承载力提高系数')),
-        ('k',('<i>V</i><sub>sb</sub>','kN',0,'','间接钢筋影响系数')),
+        ('βcor',('<i>β</i><sub>cor</sub>','',0,'配置间接钢筋时局部抗压承载力提高系数')),
+        ('k',('<i>k</i>','',0,'间接钢筋影响系数')),
+        ('ρv',('<i>ρ</i><sub>v</sub>','',0,'间接钢筋体积配箍率','核心面积Acor范围内单位混凝土体积所含间接钢筋的体积')),
         ))
     __toggles__ = {
         'concrete': material_base.material_toggles['concrete'],
@@ -2240,12 +2243,13 @@ class local_pressure(abacus, material_base):
         if self.rebar_shape == '方格网':
             self.ρv = self.f_ρv1(self.n1,self.As1,self.l1,self.n2,self.As2,self.l2,self.Acor,self.s)
         else:
+            self.validate('positive', 'dcor')
             self.ρv = self.f_ρv2(self.Ass1,self.dcor,self.s)
         self.Flud2 = self.f_Flud2(self.ηs,self.β,self.fcd,self.k,self.ρv,self.βcor,self.fsd,self.Aln)/1000
 
     def _html(self, digits=2):
         disableds = self.disableds()
-        for attr in self.inputs:
+        for attr in self._inputs_:
             if hasattr(self, attr) and (not attr in disableds):
                 yield self.format(attr, digits = None)
         Fl = self.γ0*self.Fld
@@ -2254,6 +2258,10 @@ class local_pressure(abacus, material_base):
         yield self.format('β',digits)
         yield self.format('fcd')
         yield self.format('fsd')
+        yield self.format('k',digits)
+        eq = '(n1*As1*l1+n2*As2*l2)/Acor/s' if self.rebar_shape == '方格网' else '4*Ass1/dcor/s'
+        yield self.format('ρv',digits, eq=eq)        
+        yield self.format('βcor')
         yield '{} {} {} = {} kN， {}满足规范第5.7.1条要求。'.format(
             self.replace_by_symbols('γ0·Fld'), '≤' if ok else '&gt;',
             self.replace_by_symbols('1.3·ηs·β·fcd·Aln'), 

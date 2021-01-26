@@ -60,7 +60,7 @@ class abacus:
         'alias' is usually in html style that can be displayed better in browser.
         'choices' is optional, valid for multi-select parameters.
         """
-        self._inputs_ = {}
+        self._inputs_ = OrderedDict()
         if hasattr(self, '__inputs__'):
             if isinstance(self.__inputs__, list):
                 for item in self.__inputs__:
@@ -145,7 +145,7 @@ class abacus:
 
     def deriveds(self):
         """ Get a dictionary of derived parameters. """
-        return { attr:(getattr(self, attr) if hasattr(self, attr) else 0) for attr in self.__deriveds__} if hasattr(self, '__deriveds__') else None
+        return { attr:(getattr(self, attr) if hasattr(self, attr) else 0) for attr in self._deriveds_} if hasattr(self, '__deriveds__') else None
 
     def parameters(self):
         """ Get a dictionary of all parameters. """
@@ -326,6 +326,11 @@ class abacus:
             s += self.format(parameter,digits=digits,sep=sep,omit_name=omit_name)
             s += sep_names
         return s[:len(s)-len(sep_names)]
+
+    def format_conclusion(self, ok: bool, eq_left, comparison_symbol, eq_right, message):
+        return '<span class="conclusion_{}">{} {} {}, {}</span>'.format(
+            'ok' if ok else 'ng', eq_left, comparison_symbol, eq_right, message
+            )
 
     @staticmethod
     def create_param_object(attrs: tuple):

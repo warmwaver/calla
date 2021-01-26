@@ -189,11 +189,13 @@ class friction_pile_capacity(abacus):
             eq += ' - Nn'
         yield self.format('Ra',eq=eq,digits=precision)
         yield self.format('R0', digits=precision)
-        yield self.format('R', digits=precision)
-        ra = self.para_attrs('Ra')
-        R = self.para_attrs('R')
         ok = self.Ra > self.R
-        yield '{} {} {}， {}满足规范要求'.format(R.symbol, '&lt;' if ok else '&gt;', ra.symbol, '' if ok else '不')
+        yield self.format_conclusion(ok, 
+        self.format('R', digits=precision),
+        '&lt;' if ok else '&gt;',
+        self.format('Ra', digits=precision, omit_name=True),
+        '{}满足规范要求。'.format('' if ok else '不')
+        )
         if ok:
             yield '承载力富余量{:.1f}%。'.format((self.K-1)*100)
         return
@@ -401,39 +403,28 @@ class end_bearing_pile_capacity(abacus):
 class tensile_pile_capacity(abacus):
     """
     摩擦桩轴向受拉承载力计算
-    《公路桥涵地基与基础设计规范》（JTG D63-2007） 第5.3.8节
+    《公路桥涵地基与基础设计规范》（JTG 3363-2019） 第6.3.9节
     """
     __title__ = '摩擦桩轴向受拉承载力'
     __inputs__ = OrderedDict((
         ('L',('<i>L</i>','m',10,'桩长')),
-        ('h',('<i>h</i>','m',1,'桩端埋置深度','大于40m时按40m计算')),
         ('u',('<i>u</i>','m',0,'桩身周长')),
-        ('Ap',('<i>A</i><sub>p</sub>','m<sup>2</sup>',0,'桩端截面面积')),
+        ('Ap',('<i>A</i><sub>p</sub>','m<sup>2</sup>',0,'桩截面面积')),
         ('layers',('土层名称','',('填土','粘土','强风化砂岩'),'','输入各地层名称，示例：(填土,淤泥,粘土,强风化砂岩)')),
-        ('li',('<i>l</i><sub>i</sub>','m',(3,5,6),'土层厚度','输入各地层厚度，之间用逗号隔开，示例：(3,5,6)')),
-        ('qik',('<i>q</i><sub>ik</sub>','kPa',(50,60,90),'侧摩阻力标准值','输入各地层侧摩阻力标准值，之间用逗号隔开，示例：(50,60,90)')),
-        ('fa0',('[<i>f</i><sub>a0</sub>]','kPa',(220,250,300),'承载力基本容许值','输入各地层承载力基本容许值，之间用逗号隔开，示例：(220,250,300)')),
-        ('γ2',('<i>γ</i><sub>2</sub>','kN/m<sup>3</sup>',18,'土层重度','可直接输入桩端以上各土层的加权平均重度，也可输入各层土的重度，之间用逗号隔开')),
-        ('m0',('<i>m</i><sub>0</sub>','',0.7,'清底系数','清底系数(0.7~1.0)')),
-        ('λ',('<i>λ</i>','',0.65,'修正系数','按表5.3.3-2选用')),
-        ('k2',('<i>k</i><sub>2</sub>','',1.0,'修正系数','容许承载力随深度的修正系数，根据持力层土类按表3.3.4选用')),
-        ('R0',('<i>R</i><sub>0</sub>','kN',0,'桩顶反力标准值')),
+        ('αi',('<i>α</i><sub>i</sub>','',1.0,'桩侧摩阻力影响系数', '''振动沉桩对各土层桩侧摩阻力的影响系数，按表6.3.5-3 采用；
+        对锤击、静压沉桩和钻孔桩， αi=1。''')),
+        ('li',('<i>l</i><sub>i</sub>','m',[3,5,10],'土层厚度','输入各地层厚度，之间用逗号隔开，示例：(3,5,6)')),
+        ('qik',('<i>q</i><sub>ik</sub>','kPa',[50,60,90],'侧摩阻力标准值','输入各地层侧摩阻力标准值，之间用逗号隔开，示例：(50,60,90)')),
+        ('R0',('<i>R</i><sub>0</sub>','kN',0,'桩顶拉力标准值','输入正值')),
+        ('γc',('<i>γ</i><sub>c</sub>','kN/m<sup>3</sup>',25,'混凝土重度')),
         ))
     __deriveds__ = OrderedDict((
-        ('qr',('<i>q</i><sub>r</sub>','kPa',0,'桩端土承载力容许值')),
-        ('Ra',('[<i>R</i><sub>a</sub>]','kN',0,'桩基竖向承载力')),
-        ('R',('<i>R</i>','kN',0,'桩底竖向力')),
-        ('Nn',('<i>N</i><sub>n</sub>','kN',0,'单桩负摩阻力')),
+        ('Rt',('[<i>R</i><sub>t</sub>]','kN',0,'桩基竖向承载力')),
+        ('R',('<i>R</i>','kN',0,'扣除桩自重的桩基轴向力')),
         ))
-    __toggles__ = {
-        'option':{True:(),False:('ln','p','β')},
-        }
     
-    # 混凝土重度
-    γc = 25
-    
-    def solve_Ra(self):
-        self.validate('positive', 'L', 'u', 'Ap', 'm0', 'λ', 'k2', 'γ2')
+    def solve_Rt(self):
+        self.validate('positive', 'L', 'u', 'Ap') # , 'm0', 'λ', 'k2', 'γ2'
 
         def _to_list(param):
             if hasattr(param, '__len__') and not isinstance(param, str):
@@ -443,46 +434,41 @@ class tensile_pile_capacity(abacus):
 
         self.layers = _to_list(self.layers)
         self.li = _to_list(self.li)
-        self.fa0 = _to_list(self.fa0)
         self.qik = _to_list(self.qik)
 
         # 判断列表参数的元素个数是否一致
         n = len(self.layers)
-        for item in ('li', 'qik', 'fa0'):
+        for item in ('li', 'qik'):
             attr = getattr(self, item)
             if len(attr) != n:
                 raise InputError(self, item, '元素个数与土层名称个数不一致')
 
         if self.L > sum(self.li):
             raise InputError(self, 'L', '桩长不能大于土层厚度之和')
-        typeγ = type(self.γ2)
-        bl = typeγ is list or typeγ is tuple
-        ra = 0 # 竖向承载力(kN)
-        γl = 0 # 土层重度*土层厚度之和
+        rt = 0 # 竖向承载力(kN)
         
         ls = 0
+        _αi_is_array = isinstance(self.αi, list) or isinstance(self.αi, tuple)
+        if _αi_is_array:
+            if len(self.αi) < n:
+                raise InputError(self, 'αi', '元素个数与土层名称个数不一致')
         for i in range(len(self.li)):
+            αi = self.αi[i] if _αi_is_array else self.αi
             if ls+self.li[i] < self.L:
-                if bl:
-                    γl += self.li[i]*self.γ2[i]
-                ra += 0.3*self.u*self.qik[i]*self.li[i]
+                rt += αi*self.qik[i]*self.li[i]
             elif ls < self.L:
-                if bl:
-                    γl += (self.ln-ls)*self.γ2[i]
-                self.γ2 = γl / self.L if bl else self.γ2
-                self.validate('positive', 'γ2')
-                ra += 0.3*self.u*self.qik[i]*(self.L-ls)
+                rt += αi*self.qik[i]*(self.L-ls)
                 break
             else:
                 break
             ls += self.li[i]
-        self.Ra = ra
-        self.R = self.R0 - (self.γc-self.γ2)*self.L*self.Ap
-        self.K = self.Ra/self.R
-        return ra
+        self.Rt = 0.3*self.u*rt
+        self.R = self.R0 - self.γc*self.L*self.Ap
+        self.K = self.Rt/self.R
+        return rt
     
     def solve(self):
-        return self.solve_Ra()
+        return self.solve_Rt()
     
     def _html(self, precision = 2):
         yield '摩擦桩单桩竖向受拉承载力计算'
@@ -492,28 +478,21 @@ class tensile_pile_capacity(abacus):
         yield '地质资料:'
         t = []
         qik = self.para_attrs('qik')
-        fa0 = self.para_attrs('fa0')
-        t.append(['地层编号','地层名称(m)','地层厚度(m)','{}({})'.format(qik.symbol,qik.unit),'{}({})'.format(fa0.symbol,fa0.unit)])
+        t.append(['地层编号','地层名称(m)','地层厚度(m)','{}({})'.format(qik.symbol,qik.unit)])
         for i in range(len(self.li)):
-            t.append([i, self.layers[i], self.li[i], self.qik[i], self.fa0[i]])
+            t.append([i, self.layers[i], self.li[i], self.qik[i]])
         yield html.table2html(t)
-        yield '系数:'
-        yield self.format('m0', digits=None)
-        yield self.format('λ', digits=None)
-        yield self.format('k2', digits=None)
-        yield self.format('γ2', digits=None)
-        yield self.format('h', precision)
-        eq = '0.3·u·∑qik·li'
-        yield self.format('Ra',eq=eq,digits=precision)
+        eq = '0.3·u·∑αi·qik·li'
+        yield self.format('Rt',eq=eq,digits=precision)
         yield self.format('R0', digits=precision)
-        ok = self.Ra > self.R
+        ok = self.Rt > self.R
         yield '{} {} {}， {}满足规范要求。'.format(
             self.format('R', digits=precision), 
             '&lt;' if ok else '&gt;', 
-            self.format('Ra',digits=precision, omit_name=True), 
+            self.format('Rt',digits=precision, omit_name=True), 
             '' if ok else '不')
-        if ok:
-            yield '承载力富余量{:.1f}%。'.format((self.K-1)*100)
+        # if ok:
+        #     yield '（安全系数{:.2f}）'.format(self.K)
         return
 
 # 附录P.0.8，表格数据经过测试，勿修改

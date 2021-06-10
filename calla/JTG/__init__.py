@@ -12,3 +12,4 @@ from . import anchorage
 from . import diaphragm
 from . import steel
 from . import foundation
+from . import wind

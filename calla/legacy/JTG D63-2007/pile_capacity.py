@@ -1,6 +1,6 @@
 """
 桩基承载力计算
-依据：JTG 3363-2019 公路桥涵地基与基础设计规范
+依据：JTG D63-2007 公路桥涵地基与基础设计规范
 """
 
 __all__ = [
@@ -9,7 +9,7 @@ __all__ = [
     'tensile_pile_capacity',
     'pile_width',
     'pile_effects',
-    'pile_group_effects_pier'
+    'pile_group_effects_P06'
     ]
 
 from collections import OrderedDict
@@ -19,7 +19,7 @@ from math import pi, tan
 class friction_pile_capacity(abacus):
     """
     钻孔灌注桩（摩擦桩）轴向受压承载力计算
-    《公路桥涵地基与基础设计规范》（JTG 3363-2019） 第6.3.3节
+    《公路桥涵地基与基础设计规范》（JTG D63-2007） 第5.3.3节
     """
     __title__ = '摩擦桩轴向受压承载力'
     __inputs__ = OrderedDict((
@@ -204,7 +204,7 @@ class friction_pile_capacity(abacus):
 class end_bearing_pile_capacity(abacus):
     """
     端承桩轴向受压承载力计算
-    《公路桥涵地基与基础设计规范》（JTG 3363-2019） 第6.3.7节
+    《公路桥涵地基与基础设计规范》（JTG D63-2007） 第5.3.4节
     """
     __title__ = '端承桩轴向受压承载力'
     __inputs__ = OrderedDict((
@@ -404,7 +404,7 @@ class end_bearing_pile_capacity(abacus):
 class tensile_pile_capacity(abacus):
     """
     摩擦桩轴向受拉承载力计算
-    《公路桥涵地基与基础设计规范》（JTG 3363-2019） 第6.3.9节
+    《公路桥涵地基与基础设计规范》（JTG D63-2007） 第5.3.8节
     """
     __title__ = '摩擦桩轴向受拉承载力'
     __inputs__ = OrderedDict((
@@ -412,7 +412,7 @@ class tensile_pile_capacity(abacus):
         ('u',('<i>u</i>','m',0,'桩身周长')),
         ('Ap',('<i>A</i><sub>p</sub>','m<sup>2</sup>',0,'桩截面面积')),
         ('layers',('土层名称','',('填土','粘土','强风化砂岩'),'','输入各地层名称，示例：(填土,淤泥,粘土,强风化砂岩)')),
-        ('αi',('<i>α</i><sub>i</sub>','',1.0,'桩侧摩阻力影响系数', '''振动沉桩对各土层桩侧摩阻力的影响系数，按表6.3.5-3 采用；
+        ('αi',('<i>α</i><sub>i</sub>','',1.0,'桩侧摩阻力影响系数', '''振动沉桩对各土层桩侧摩阻力的影响系数，按表5.3.5-3 采用；
         对锤击、静压沉桩和钻孔桩， αi=1。''')),
         ('li',('<i>l</i><sub>i</sub>','m',[3,5,10],'土层厚度','输入各地层厚度，之间用逗号隔开，示例：(3,5,6)')),
         ('qik',('<i>q</i><sub>ik</sub>','kPa',[50,60,90],'侧摩阻力标准值','输入各地层侧摩阻力标准值，之间用逗号隔开，示例：(50,60,90)')),
@@ -496,8 +496,8 @@ class tensile_pile_capacity(abacus):
         #     yield '（安全系数{:.2f}）'.format(self.K)
         return
 
-# 附录L.0.8表格数据
-tableL08 = (
+# 附录P.0.8，表格数据经过测试，勿修改
+tableP08 = (
     (0, 1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1),
     (0.1, 1,0.1,0.005,0.00017, 0,1,0.1,0.005, -0.00017,-0.00001,1,0.1, -0.005,-0.00033,-0.00001,1),
     (0.2, 1,0.2,0.02,0.00133, -0.00007,1,0.2,0.02, -0.00133,-0.00013,0.99999,0.2, -0.02,-0.00267,-0.0002,0.99999),
@@ -531,7 +531,7 @@ tableL08 = (
 class pile_width(abacus):
     """
     桩的计算宽度
-    《公路桥涵地基与基础设计规范》（JTG 3363-2019） 附录L.0.1
+    《公路桥涵地基与基础设计规范》（JTG D63-2007） 附录P.0.1
     """
     __title__ = '桩的计算宽度'
     __inputs__ = OrderedDict((
@@ -583,7 +583,7 @@ class pile_effects(abacus):
     """
     按m法计算弹性桩水平位移及作用效应
     αh>2.5时，单排桩柱式桥墩承受桩柱顶荷载时的作用效应及位移
-    《公路桥涵地基与基础设计规范》（JTG 3363-2019） 附录L.0.3
+    《公路桥涵地基与基础设计规范》（JTG D63-2007） 附录P.0.3
     """
     __title__ = '单排桩柱式桥墩水平位移及作用效应'
     __inputs__ = OrderedDict((
@@ -648,7 +648,7 @@ class pile_effects(abacus):
         for number in (1,2,3,4):
             for letter in ('A', 'B', 'C', 'D'):
                 key = letter+str(number)
-                result[key] = cls.query(tableL08, h, n)
+                result[key] = cls.query(tableP08, h, n)
                 n += 1
         return result
 
@@ -747,7 +747,7 @@ class pile_effects(abacus):
         self.αh = self.α * self.h
         # self.Mz = self._Mz(self.z)
         # self.Qz = self._Qz(self.z)
-        t = [row[0] for row in tableL08]
+        t = [row[0] for row in tableP08]
         Mmax = Qmax = 0
         z_Mmax = z_Qmax = 0
         self.Forces = []
@@ -796,11 +796,11 @@ class pile_effects(abacus):
         t.insert(0, ['桩深(m)','弯矩M','剪力Q'])
         yield html.table2html(t, digits)
     
-class pile_group_effects_pier(abacus):
+class pile_group_effects_P06(abacus):
     """
     按m法计算多排桩（群桩）作用力
     αh>2.5时，多排竖直桩柱式桥墩承受桩顶荷载时的作用效应及位移。
-    《公路桥涵地基与基础设计规范》（JTG 3363-2019） 附录L.0.6
+    《公路桥涵地基与基础设计规范》（JTG D63-2007） 附录P.0.6
     """
     __title__ = '多排桩作用效应'
     __inputs__ = OrderedDict((
@@ -868,7 +868,7 @@ class pile_group_effects_pier(abacus):
     def f_Qz(α, E, I, x0, φ0, M0, H0, A4, B4, C4, D4):
         return α**3*E*I*(x0*A4+φ0/α*B4+M0*C4/(α**2*E*I)+H0*D4/(α**3*E*I))
 
-    def _solve(self):
+    def solveP06(self):
         d=self.d; h=self.h; hc=self.hc; l0=self.l0; kf=self.kf
         Ec=self.Ec*1e3; I =self.I; I0=self.I0; m=self.m; C0=self.C0
         bottom_fixed=self.bottom_fixed; ξ=self.ξ
@@ -947,7 +947,7 @@ class pile_group_effects_pier(abacus):
         if l0 <= 0:
             self.γcβ = γcβ; self.γβc = γβc
         self.c = c; self.a = a; self.β = β
-        self.L1 = L1; self.S = S; self.b2 = b2; self.b1 = b1
+        self.L1 = L1; self.S = S; self.b2 = b2
 
     def solve(self):
         self.validate('non-negative', 'l0')
@@ -960,7 +960,7 @@ class pile_group_effects_pier(abacus):
         self.n = len(self.xi) if hasattr(self.xi, '__len__') else 1 # 平行于水平力作用方向的一排桩的桩数
         if self.ξ <= 0:
             self.ξ = 1 if self.bottom_fixed else 0.5
-        self._solve()
+        self.solveP06()
 
 def _test1():
     from math import pi
@@ -1003,7 +1003,7 @@ def _test3():
     f.solve()
     Mz = 313.19
     assert abs((f._Mz(0.28) - Mz)/Mz) < 0.01
-    t = [row[0] for row in tableL08]
+    t = [row[0] for row in tableP08]
     print('h', 'z', 'Mz', 'Qz')
     for h in t:
         f.z = h/f.α

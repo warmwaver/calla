@@ -254,7 +254,7 @@ class stress_increment(abacus):
             elif self.temperature_type == '2':
                 self.P0 = self.fP0t2(self.Ac,self.Ec,self.αc,self.αs,self.ts,self.tc)
             else:
-                raise Exception('梯形温差计算尚未实现')
+                raise InputError(self, 'temperature_type', '梯形温差计算尚未实现')
         else:
             raise InputError(self, 'load_type', '不支持的荷载类型')
         self.M0 = self.P0*self.y0c

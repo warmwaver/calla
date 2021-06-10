@@ -698,8 +698,8 @@ class eccentric_compression(gb_eccentric_compression, material_base):
                 self.Es, self.fsd, self.As, self.es, self.fsd_, self.As_, self.as_, self.es_, 
                 self.Ep, self.fpd, self.σp0, self.Ap, self.ep, self.fpd_, self.σp0_, self.Ap_, self.ap_, self.ep_,
                 self.εcu, self.ξb) 
-            self.σs = self.f_σsi(self.β, self.Es, self.εcu, self.h0, self.x)
-            self.σp = self.f_σpi(self.β, self.Ep, self.εcu, self.h0, self.x, self.σp0)
+            self.σs = self.f_σsi(self.β, self.Es, self.εcu, self.h0, self.x) if self.x > 0 else 0
+            self.σp = self.f_σpi(self.β, self.Ep, self.εcu, self.h0, self.x, self.σp0) if self.x > 0 else 0
             self.Nu = Nu/1000 #kN
             self.Mu = self.fMu(
                 1.0, self.fcd,self.b,self.x,self.h0,self.fsd_,self.As_,self.as_,
@@ -1367,8 +1367,8 @@ class eccentric_tension(abacus, material_base):
         ('Mu_',('','kN·m',0,'截面受弯承载力')),
         ('Nud',('','kN',0,'抗拉承载力')),
         ('γ0Nd',('','kN',0,'')),
-        ('γ0Nde',('','kN',0,'')),
-        ('γ0Nde_',('','kN',0,'')),
+        ('γ0Nde',('','kN·m',0,'')),
+        ('γ0Nde_',('','kN·m',0,'')),
         ('γ0Md',('','kN·m',0,'')),
         ('eqr',('','mm',0,''))
         ))
@@ -1387,7 +1387,7 @@ class eccentric_tension(abacus, material_base):
         return fcd*b*x*(h0-x/2)+fsd_*As_*(h0-as_)+(fpd_-σp0_)*Ap_*(h0-ap_)
     
     def solve(self):
-        self.validate('positive', 'b', 'h')
+        self.validate('positive', 'b', 'h', 'Nd')
         b=self.b; h = self.h; Nd=self.Nd; Md=self.Md
         fcd=self.fcd
         fsd=self.fsd; As=self.As; a_s=self.a_s
@@ -1405,13 +1405,15 @@ class eccentric_tension(abacus, material_base):
         if not self.large_eccentric: # 小偏心受拉
             self.γ0Nde = self.γ0*Nd*(-e)*1e-3
             self.γ0Nde_ = self.γ0*Nd*e_*1e-3
-            self.Mu = fsd*As_*(h0-as_)+fpd*Ap_*(h0-ap_)
-            self.Mu_ = fsd*As*(h0_-as_)+fpd*Ap_*(h0-ap_)
+            Mu = fsd*As_*(h0-as_)+fpd*Ap_*(h0-ap_)
+            Mu_ = fsd*As*(h0_-as_)+fpd*Ap_*(h0-ap_)
+            self.Mu = Mu*1e-6 # kNm
+            self.Mu_ = Mu_*1e-6 # kNm
         else: # 大偏心受拉
             self.γ0Nd = self.γ0*Nd
             x = (fsd*As+fpd*Ap-fsd_*As_-(fpd_-σp0_)*Ap_-self.γ0Nd)/(fcd*b)
-            self.Nu = self.f_Nu(fcd,b,x,fsd,As,fsd_,As_,fpd, Ap,fpd_,σp0_,Ap_)
-            self.Mu = self.f_Mu(fcd, b, x, h0, fsd_, As_, as_,fpd_,σp0_,Ap_,Ap,ap_)
+            self.Nu = self.f_Nu(fcd,b,x,fsd,As,fsd_,As_,fpd, Ap,fpd_,σp0_,Ap_)*1e-3 # kN
+            self.Mu = self.f_Mu(fcd, b, x, h0, fsd_, As_, as_,fpd_,σp0_,Ap_,Ap,ap_)*1e-6 # kNm
             self.γ0Nde = self.γ0*Nd*e*1e-3
             self.ξ = x/h0
             self.ξb = f_ξb(fcd, fsd) #TODO: 增加预应力计算
@@ -1442,7 +1444,7 @@ class eccentric_tension(abacus, material_base):
                     self.Mu = fMu2(
                         self.h, self.fsd, self.As, self.a_s, self.as_, self.fpd, self.Ap, self.ap,
                         self.fpd_, self.σp0_, self.Ap_, self.ap_
-                        )*1e-6 # kNm
+                        )*1e-6
         self.a=a; self.a_=a_; self.h0=h0; self.h0_=h0_
         self.e0=e0; self.e=e
 

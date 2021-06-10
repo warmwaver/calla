@@ -4,6 +4,7 @@ GB 50936-2014 钢管混凝土结构技术规范 第5.3.1节
 
 __all__ = [
     'bearing_capacity',
+    'solid_circular_CSFT_compressive_capacity',
     ]    
 
 from collections import OrderedDict
@@ -23,7 +24,7 @@ class bearing_capacity(abacus):
         ('M','<i>M</i>','kN·m',0,'弯矩'),
         ('T','<i>T</i>','kN·m',0,'扭矩'),
         ('V','<i>V</i>','kN',0,'剪力'),
-        ('steel','钢材型号','','Q345','',''),
+        ('steel','钢材型号','','Q355','','',['Q235','Q345','Q355','Q390','Q420']),
         ('f','<i>f</i>','MPa',270,'钢材抗压强度设计值'),
         ('fc','<i>f</i><sub>c</sub>','MPa',18.4,'混凝土的抗压强度设计值'),
         ('As','<i>A</i><sub>s</sub>','mm<sup>2</sup>',0,'钢管面积'),
@@ -122,7 +123,7 @@ class bearing_capacity(abacus):
         self.validate('positive', 'As','Ac', 'f','fc','r0','λ')
         if self.section_type == 'hollow':
             self.validate('positive', 'Ah', 'rci')
-        _kE = {'Q235':918.9,'Q345':719.6,'Q390':657.5,'Q420':626.9} # 表5.1.7
+        _kE = {'Q235':918.9,'Q345':719.6,'Q355':719.6,'Q390':657.5,'Q420':626.9} # 表5.1.7
         self.kE = _kE[self.steel]
         (self.φ, self.λsc_, self.fsc, self.fsv, self.Esc, self.αsc,
          self.Nu, self.Mu, self.Tu, self.Vu, self.NE_, self.case, self.eql) = \
@@ -179,8 +180,8 @@ class solid_circular_CSFT_compressive_capacity(abacus):
     __title__ = '实心圆形钢管混凝土构件承载力'
     __inputs__ = [
         ('N','<i>N</i>','kN',0,'轴力'),
-        ('M1','<i>M</i><sub>1</sub>','kN·m',0,'柱端弯矩设计值的较小者'),
-        ('M2','<i>M</i><sub>2</sub>','kN·m',0,'柱端弯矩设计值的较大者'),
+        ('M1','<i>M</i><sub>1</sub>','kN·m',0,'柱两端弯矩设计值的较小者'),
+        ('M2','<i>M</i><sub>2</sub>','kN·m',0,'柱两端弯矩设计值的较大者'),
         # ('steel','','','Q345','钢材型号','',['Q355','Q390','Q420']),
         ('α','<i>α</i>','',2.0,'混凝土强度等级有关的系数','C50及以下取2.0，C55~C80取1.8'),
         ('f','<i>f</i>','MPa',270,'钢材抗压强度设计值'),

@@ -82,10 +82,14 @@ class pile_cap(abacus):
         nx = pvf.nx
         ny = pvf.ny
 
+        self.Nids = []
         for ix in range(nx):
+            row = []
             for iy in range(ny):
                 _Nd = Nd(ix, iy)
+                row.append(_Nd)
                 print(_Nd)
+            self.Nids.append(row)
               
         self.fc_beams = []
         self.Rstx = [] # 设计方法：单梁0， 拉压杆1；Cu
@@ -234,6 +238,8 @@ class pile_cap(abacus):
                     self.punching_capacity_ups.append(punching_capacity_up)
 
     def _html(self, digits=2):
+        yield '桩基反力'
+        yield self.format('Nids')
         yield '柱或墩台向下冲切'
         for key in self.punching_down:
             yield '{} = {}'.format(key, self.punching_down[key])
@@ -269,6 +275,7 @@ class pile_cap(abacus):
                 tb.append(row)
             tables[o] = tb
         doc = '<div>'
+        doc += '<p>（1）承台承载力</p>'
         doc += '<p>{}</p>'.format(self.format('Fd'))
         doc += '<p>{}</p>'.format(self.format('Mxd'))
         doc += '<p>{}</p>'.format(self.format('Myd'))
@@ -280,10 +287,12 @@ class pile_cap(abacus):
         if len(self.fc_beams) > 0:
             for fc in self.fc_beams:
                 doc += '<div>{}</div>'.format(fc.html())
-        # 
+        # 柱或墩台向下冲切
+        doc += '<p>（2）柱或墩台向下冲切</p>'
         if self.punching_capacity_down:
             doc += '<div>{}</div>'.format(self.punching_capacity_down.html())
-
+        # 角桩或边桩向上冲切
+        doc += '<p>（3）角桩或边桩向上冲切</p>'
         if self.punching_capacity_ups:
             for pcu in self.punching_capacity_ups:
                 doc += '<div>{}</div>'.format(pcu.html())

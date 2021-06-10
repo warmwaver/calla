@@ -163,13 +163,14 @@ class punching_capacity(abacus):
         ('h0',('<i>h</i><sub>0</sub>','mm',1400,'承台有效高度')),
         ('Fld',('<i>F</i><sub>ld</sub>','kN',0,'承台底竖向力设计值','由承台底面以上的作用组合产生的竖向力设计值')),
         ))
-    __deriveds__ = OrderedDict((
-        ('αpx',('<i>α</i><sub>px</sub>','mm',0,'与冲跨比λx对应的冲切承载力系数')),
-        ('αpy',('<i>α</i><sub>py</sub>','mm',0,'与冲跨比λy对应的冲切承载力系数')),
-        ('αpx_',('<i>α</i><sub>px</sub><sup>\'</sup>','mm',0,'与冲跨比λx对应的冲切承载力系数')),
-        ('αpy_',('<i>α</i><sub>py</sub><sup>\'</sup>','mm',0,'与冲跨比λy对应的冲切承载力系数')),
-        ('Flu',('<i>F</i><sub>lu</sub>','kN',0,'冲切承载力')),
-        ))
+    __deriveds__ = [
+        ('αpx','<i>α</i><sub>px</sub>','mm',0,'与冲跨比λx对应的冲切承载力系数'),
+        ('αpy','<i>α</i><sub>py</sub>','mm',0,'与冲跨比λy对应的冲切承载力系数'),
+        ('αpx_','<i>α</i><sub>px</sub><sup>\'</sup>','mm',0,'与冲跨比λx对应的冲切承载力系数'),
+        ('αpy_','<i>α</i><sub>py</sub><sup>\'</sup>','mm',0,'与冲跨比λy对应的冲切承载力系数'),
+        ('Flu','<i>F</i><sub>lu</sub>','kN',0,'冲切承载力'),
+        ('γ0Fld','','kN',0,'')
+        ]
     __toggles__ = {
         'option':{'down':('bp'),'up_corner':('bp'),'up_side':('by','ay')},
         }
@@ -218,12 +219,19 @@ class punching_capacity(abacus):
         else '0.6·ftd·h0·(αpx_·(bp+h0)+0.667·(2·bx+ax))'
         yield self.format('Flu', eq=eq)
         fld = self.para_attrs('Fld')
-        γ0Fld = self.γ0*self.Fld
-        ok = γ0Fld <= self.Flu
-        yield '{1} = {2:.{0}f} {3} {4} {5}，{6}满足规范要求。'.format(
-            digits, self.replace_by_symbols('γ0·Fld'), γ0Fld, fld.unit,
-            '≤' if ok else '&gt;', self.para_attrs('Flu').symbol,
-            '' if ok else '不')
+        self.γ0Fld = self.γ0*self.Fld
+        ok = self.γ0Fld <= self.Flu
+        # yield '{1} = {2:.{0}f} {3} {4} {5}，{6}满足规范要求。'.format(
+        #     digits, self.replace_by_symbols('γ0·Fld'), γ0Fld, fld.unit,
+        #     '≤' if ok else '&gt;', self.para_attrs('Flu').symbol,
+        #     '' if ok else '不')
+        yield self.format_conclusion(
+            ok,
+            self.format('γ0Fld',digits,eq='γ0·Fld'),
+            '≤' if ok else '&gt;',
+            self.format('Flu',digits,omit_name = True),
+            '{}满足规范要求。'.format('' if ok else '不')
+        )
 
 if __name__ == '__main__':
     # f = pile_cap(

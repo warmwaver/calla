@@ -97,6 +97,7 @@ class axial_compression(abacus):
         self.validate('non-negative', 'b', 'd', 'i')
         if self.b<=0 and self.d<=0 and self.i<=0:
             raise InputError(self, 'i', '请输入b,d,i任意一项的值')
+        self.validate('positive', 'A', 'fc')
         self.φ = axial_compression._phi(self.l0, self.b,self.d,self.i)
         self.Nu = axial_compression.fNu(self.φ, self.fc, self.A, self.fy_, self.As_)*1e-3
         self.轴压比 = axial_compression.compression_ratio(self.N, self.A, self.fc)*1e3
@@ -379,8 +380,16 @@ class eccentric_compression(abacus):
             b=b, e=e, h0=h0, Es=Es, Ep=Ep, fy_=fy_, As_=As_, as_=as_, es_=es_, 
             fpy_=fpy_, σp0_=σp0_, Ap_=Ap_, ap_=ap_, ep_=ep_, As=As, es=es, 
             σp0=σp0, Ap=Ap, ep=ep)
-            σs = cls.f_σsi(β1, Es, εcu, h0, x)
-            σp = cls.f_σpi(β1, Ep, εcu, h0, x, σp0)
+            # 若x=0，说明D = -e*(Es*As+Ep*Ap)*εcu*β1*h0 = 0
+            # 可能一: As和Ap均为0 
+            # 可能二：e = 0
+            # 宜在初始阶段排除以上情况
+            if x > 0:
+                σs = cls.f_σsi(β1, Es, εcu, h0, x)
+                σp = cls.f_σpi(β1, Ep, εcu, h0, x, σp0)
+            else:
+                σs = 0
+                σp = 0
             Nu = cls.fNu(α1, fc,b,x,fy_,As_,σs,As, σp0_,fpy_,Ap_,σp,Ap)
         return (large_eccentric, x, Nu)
             
@@ -489,6 +498,7 @@ class eccentric_compression(abacus):
             if self.ζc>1:
                 self.ζc=1
             self.ηns = eccentric_compression.f_ηns(self.M2*1e6,self.N*1e3,self.ea,self.h,self.h0,self.lc,self.ζc)
+            self.validate('non-zero', 'M2')
             self.Cm = 0.7+0.3*self.M1/self.M2
             _Cmηns = self.Cm*self.ηns
             self.M = _Cmηns*self.M2 if _Cmηns>1 else self.M2
@@ -516,8 +526,8 @@ class eccentric_compression(abacus):
                 self.Es, self.fy, self.As, self.es, self.fy_, self.As_, self.as_, self.es_, 
                 self.Ep, self.fpy, self.σp0, self.Ap, self.ep, self.fpy_, self.σp0_, self.Ap_, self.ap_, self.ep_,
                 self.εcu, self.ξb) 
-            self.σs = self.f_σsi(self.β1, self.Es, self.εcu, self.h0, self.x)
-            self.σp = self.f_σpi(self.β1, self.Ep, self.εcu, self.h0, self.x, self.σp0)
+            self.σs = self.f_σsi(self.β1, self.Es, self.εcu, self.h0, self.x) if self.x > 0 else 0
+            self.σp = self.f_σpi(self.β1, self.Ep, self.εcu, self.h0, self.x, self.σp0) if self.x > 0 else 0
             self.Nu = Nu/1000 #kN
             self.Mu = self.fMu(self.α1,self.fc,self.b,self.x,self.h0,self.fy_,self.As_,self.as_,
             self.σp0_,self.fpy_,self.Ap_,self.ap_)*1e-6 # kNm

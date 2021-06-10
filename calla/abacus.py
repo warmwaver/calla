@@ -457,12 +457,12 @@ class abacus:
         html format reports.
         """
         disableds = self.disableds()
-        if hasattr(self, '__inputs__'):
-            for attr in self.__inputs__:
+        if hasattr(self, '_inputs_'):
+            for attr in self._inputs_:
                 if hasattr(self, attr) and (not attr in disableds):
                     yield self.format(attr, digits = None)
-        if hasattr(self, '__deriveds__'):
-            for attr in self.__deriveds__:
+        if hasattr(self, '_deriveds_'):
+            for attr in self._deriveds_:
                 if hasattr(self, attr) and (not attr in disableds):
                     yield self.format(attr, digits = digits)
         

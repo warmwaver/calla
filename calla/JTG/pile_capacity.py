@@ -954,10 +954,20 @@ class pile_group_effects_pier(abacus):
         self.validate('positive', 'C0', 'Ec', 'd')
         self.I = pi*self.d**4/64
         self.I0 = self.I
+
+        self.n = len(self.xi) if hasattr(self.xi, '__len__') else 1 # 平行于水平力作用方向的一排桩的桩数
+
+        if isinstance(self.Ki, (int, float)):
+            if self.n > 0:
+                self.Ki = [self.Ki for i in range(self.n)]
+        elif isinstance(self.Ki, (tuple, list)):
+            if len(self.Ki) != self.n:
+                raise InputError(self, 'Ki', '数目与xi不对应')
+
         self.npiles = sum(self.Ki) # 总桩数
         if self.npiles <= 0:
             raise InputError(self, 'Ki', '桩数应>0')
-        self.n = len(self.xi) if hasattr(self.xi, '__len__') else 1 # 平行于水平力作用方向的一排桩的桩数
+
         if self.ξ <= 0:
             self.ξ = 1 if self.bottom_fixed else 0.5
         self._solve()
@@ -1012,7 +1022,7 @@ def _test3():
         print(h, f.z, Mz, Qz)
     
 def _test4():
-    f = pile_group_effects_P06(
+    f = pile_group_effects_pier(
     L1=5, d=1.5, h=20, l0=0, h2=10, hc=0, b2=1, kf=0.9, Ec=30000, m=5000, C0=300000, P=4200+20000, H=6480, M=6480*4.06, 
     bottom_fixed="False", z=1, xi=[-2.5,2.5], Ki=[3,3], ξ=1, ψ=1)
     f.solve()

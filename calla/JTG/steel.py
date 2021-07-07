@@ -577,6 +577,7 @@ class stability_bending_compression(abacus):
         ('α','<i>α</i>','',0.35,'参数','根据附录A表A.0.1-1取值'),
     ]
     __deriveds__ = [
+        ('NRd','<i>N</i><sub>Rd</sub>','kN',0,''),
         ('MRdy','<i>M</i><sub>Rd,y</sub>','kN·m',0,''),
         ('MRdz','<i>M</i><sub>Rd,z</sub>','kN·m',0,''),
         ('λLTy','<i>λ</i><sub>LT,y</sub>','',0,'弯扭相对长细比'),
@@ -619,10 +620,11 @@ class stability_bending_compression(abacus):
         self.MRdy,self.Ncry,self.βmz,self.Mz,self.ey,self.χLTz,self.MRdz,self.Ncrz)
 
     def _html(self, digits=2):
-        for para in ('γ0','fy','fd','My','Mz','Wyeff','Wzeff','βmy','βmz'):
+        for para in ('γ0','fy','fd', 'Nd','My','Mz','Aeff','Wyeff','Wzeff','βmy','βmz'):
             yield self.format(para, digits=None)
         for para in ('Ncry','Ncrz','Mcry','Mcrz','χLTy','χLTz'):
             yield self.format(para, digits)
+        yield self.format('NRd', digits, eq='Aeff*fd')
         yield self.format('MRdy', digits, eq='Wyeff*fd')
         yield self.format('MRdz', digits, eq='Wzeff*fd')
         ok = self.eql1 <= 1

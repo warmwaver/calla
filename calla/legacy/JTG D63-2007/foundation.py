@@ -1,5 +1,5 @@
 """
-JTG 3363-2019 公路桥涵地基与基础设计规范
+JTG D63-2007 公路桥涵地基与基础设计规范
 """
 
 __all__ = [
@@ -9,49 +9,40 @@ __all__ = [
     'sliding'
     ]
 
-from calla import abacus, InputError
+from calla import abacus
 from collections import OrderedDict
 from math import pi, sqrt, sin, cos, tan
 
 class groundbase(abacus):
     """
     地基承载力
-    《公路桥涵地基与基础设计规范》（JTG 3363-2019）第5.2.2~5节
+    《公路桥涵地基与基础设计规范》（JTG D63-2007）第4.2.2~4节
     """
     __title__ = '地基承载力'
-    __inputs__ = [
-        ('b','<i>b</i>', 'm', 0, '截面x方向宽度'),
-        ('d','<i>d</i>', 'm', 0, '截面y方向高度'),
-        ('N','<i>N</i>', 'kN', 0, '基底竖向力'),
-        ('Mx','<i>M</i><sub>x</sub>', 'kN·m', 0, '基底弯矩','短期效应组合，同时考虑偶然组合'),
-        ('My','<i>M</i><sub>y</sub>', 'kN·m', 0, '基底弯矩','短期效应组合，同时考虑偶然组合'),
-        ('fa','[<i>f</i><sub>a</sub>]', 'kPa', 0, '修正后的地基承载力容许值'),
-        ('γR','<i>γ</i><sub>R</sub>','',1.0,'抗力系数','根据第3.0.7条确定'),
-        ('λ','<i>λ</i>', '', 1.5, '双向偏压应力重分布系数','按附录G.0.1查取'),
-        ('地基条件','','','a','地基条件','',[('a','非岩石地基'),('b','较破碎~极破碎岩石地基'),('c','完整~较完整岩石地基')]),
-        ('作用情况','','','a','作用情况','',[('a','仅承受永久作用标准值组合'),('b','承受作用标准值组合或偶然作用标准值组合')]),
-        ('墩台类型','','','a','墩台类型','',[('a','桥墩'),('b','桥台')])
-    ]
-    __deriveds__ = [
-        ('A','<i>A</i>', 'm<sup>2</sup>', 0, '基础底面面积'),
-        ('Wx','<i>W</i><sub>x</sub>', 'm<sup>3</sup>', 0, '基底偏心方向面积抵抗矩','短期效应组合，同时考虑偶然组合'),
-        ('Wy','<i>W</i><sub>y</sub>', 'm<sup>3</sup>', 0, '基底偏心方向面积抵抗矩','短期效应组合，同时考虑偶然组合'),
-        ('ex','<i>e</i><sub>x</sub>', 'm', 0, '基底偏心矩'),
-        ('ey','<i>e</i><sub>y</sub>', 'm', 0, '基底偏心矩'),
-        ('e0','<i>e</i><sub>0</sub>', 'm', 0, '基底偏心矩'),
-        ('ρ','<i>ρ</i>', 'm', 0, '基底核心半径'),
-        ('p','<i>p</i>','kPa',0,'基底平均压应力'),
-        ('pmax','<i>p</i><sub>max</sub>','kPa',0,'基底最大压应力'),
-        ('pmin','<i>p</i><sub>min</sub>','kPa',0,'基底最小压应力'),
-        ('eqr','','kPa',0,''),
-        ('eql','','',0,''),
-        ('e0_max','','m',0,''),
-        # ('ξ',('', '', 1.0, '偏心距允许值系数','按表5.2.5确定(0.1~1.5)')),
-    ]
-    __toggles__ = [
-        '地基条件', {'b':('作用情况','墩台类型'),'c':('作用情况','墩台类型')},
-        '作用情况', {'b':('墩台类型',)}
-    ]
+    __inputs__ = OrderedDict([
+        ('b',('<i>b</i>', 'm', 0, '截面x方向宽度')),
+        ('d',('<i>d</i>', 'm', 0, '截面y方向高度')),
+        ('N',('<i>N</i>', 'kN', 0, '基底竖向力')),
+        ('Mx',('<i>M</i><sub>x</sub>', 'kN·m', 0, '基底弯矩','短期效应组合，同时考虑偶然组合')),
+        ('My',('<i>M</i><sub>y</sub>', 'kN·m', 0, '基底弯矩','短期效应组合，同时考虑偶然组合')),
+        ('fa',('[<i>f</i><sub>a</sub>]', 'kPa', 0, '修正后的地基承载力容许值')),
+        ('γR',('<i>γ</i><sub>R</sub>','',1.0,'抗力系数','根据第3.3.6条确定')),
+        ('λ',('<i>λ</i>', '', 1.5, '双向偏压应力重分布系数','按附录K.0.1查取')),
+    ])
+    __deriveds__ = OrderedDict((
+        ('A',('<i>A</i>', 'm<sup>2</sup>', 0, '基础底面面积')),
+        ('Wx',('<i>W</i><sub>x</sub>', 'm<sup>3</sup>', 0, '基底偏心方向面积抵抗矩','短期效应组合，同时考虑偶然组合')),
+        ('Wy',('<i>W</i><sub>y</sub>', 'm<sup>3</sup>', 0, '基底偏心方向面积抵抗矩','短期效应组合，同时考虑偶然组合')),
+        ('ex',('<i>e</i><sub>x</sub>', 'm', 0, '基底偏心矩')),
+        ('ey',('<i>e</i><sub>y</sub>', 'm', 0, '基底偏心矩')),
+        ('e0',('<i>e</i><sub>0</sub>', 'm', 0, '基底偏心矩')),
+        ('ρ',('<i>ρ</i>', 'm', 0, '基底核心半径')),
+        ('p',('<i>p</i>','kPa',0,'基底平均压应力')),
+        ('pmax',('<i>p</i><sub>max</sub>','kPa',0,'基底最大压应力')),
+        ('pmin',('<i>p</i><sub>min</sub>','kPa',0,'基底最小压应力')),
+        ('eqr',('','kPa',0,'')),
+        ('eql',('','',0,'')),
+        ))
 
     def solve(self):
         self.validate('positive', 'N', 'b', 'd')
@@ -70,108 +61,55 @@ class groundbase(abacus):
             # 只承受轴心荷载
             return
         self.ρ = e0/(1-pmin*A/N)
-
-        # 偏心距验算
-        self.ξ = 1
-        if self.地基条件 == 'a':
-            if self.作用情况 == 'a':
-                self.ξ = 0.1 if self.墩台类型 == 'a' else 0.75
-        elif self.地基条件 == 'b':
-            self.ξ = 1.2
-        elif self.地基条件 == 'c':
-            self.ξ = 1.5
-        else:
-            raise InputError(self, '地基条件')
-        self.e0_max = self.ξ*self.ρ
-        self.ecc_ok = self.e0 <= self.e0_max
-
-        # 基底承载力验算
         self.status = 0
         if e0 > self.ρ: # 应力重分布
             if ex != 0 and ey != 0: # 双向偏压
-                self.pmax = self.λ*N/A
+                pmax = self.λ*N/A
                 self.status = 2
             elif ey == 0: # 单向偏压
-                if self.ecc_ok:
-                    self.pmax = 2*N/3/(b/2-ex)/d
+                pmax = 2*N/3/(b/2-ex)/d
                 self.status = 1
             elif ex == 0: # 单向偏压
-                if self.ecc_ok:
-                    self.pmax = 2*N/3/(d/2-ey)/b
+                pmax = 2*N/3/(d/2-ey)/b
                 self.status = 1
         else: # 不发生重分布
-            self.pmax = N/A+Mx/Wx+My/Wy
+            pmax = N/A+Mx/Wx+My/Wy
+        self.pmax = pmax
     
     def _html(self, digits=2):
         for para in ('b','d','A','Wx','Wy','N','Mx','My','γR','fa'):
             yield self.format(para, digits)
-
-
-        # 承载力验算
         ok = self.p <= self.fa
-        yield self.format_conclusion(
-            ok,
+        yield '{} {} {}， {}满足规范4.2.2条要求。'.format(
             self.format('p', digits, eq='N/A'), '≤' if ok else '&gt;',
             self.format('fa', digits=None, omit_name=True),
-            '{}满足规范5.2.2条要求。'.format('' if ok else '不')
-            )
+            '' if ok else '不')
         if self.e0 == 0:
             return
-        if self.status == 1 and not self.ecc_ok:
-            yield self.format('pmin', digits, eq='N/A-Mx/Wx-My/Wy')
-            yield self.format('ρ', digits, eq='e0/(1-pmin*A/N)')
-            ok = self.e0 <= self.e0_max
-            yield self.format_conclusion(
-                ok,
-                self.format('e0', digits, eq='M/N'),
-                '&le;' if ok else '&gt;',
-                self.format('e0_max', digits, eq='{}ρ'.format('' if self.ξ == 1.0 else self.ξ), omit_name=True),
-                '{}满足规范5.2.5条要求。'.format('' if ok else '不')
-                )
-            yield '偏心距超限，不满足最大压应力计算条件。'
-            return
-        
         if self.status != 0:
             for para in ('ex','ey'):
                 yield self.format(para, digits)
             yield self.format('e0', digits, eq='sqrt(ex<sup>2</sup>+ey<sup>2</sup>)')
             yield self.format('pmin', digits, eq='N/A-Mx/Wx-My/Wy')
             yield self.format('ρ', digits, eq='e0/(1-pmin*A/N)')
-            yield '{} > {}，按应力重分布计算'.format(self._deriveds_['e0'].symbol, self._deriveds_['ρ'].symbol)
-        if self.status == 2: # 双向偏压
+            yield '{} > {}，按应力重分布计算'.format(self.para_attrs('e0').symbol, self.para_attrs('ρ').symbol)
+        if self.status == 2:
             yield self.format('eql', digits, value=self.ex/self.b, eq='ex/b')
             yield self.format('eql', digits, value=self.ey/self.d, eq='ey/d')
             yield self.format('λ', digits)
         ok = self.pmax <= self.eqr
         eq = 'N/A+Mx/Wx+My/Wy' if self.status == 0 else '2*N/3/(b/2-e0)/a' \
             if self.status == 1 else 'λ*N/A'
-        yield self.format_conclusion(
-            ok,
+        yield '{} {} {}，{}满足规范4.2.{}条要求。'.format(
             self.format('pmax', digits, eq=eq), '&le;' if ok else '&gt;', 
             self.format('eqr', digits, eq='γR*fa', omit_name=True),
-            '{}满足规范5.2.{}条要求。'.format('' if ok else '不', self.status+2)
-            )
-
-        # 偏心距验算
-        if self.e0 == 0:
-            yield '{}, 无需验算偏心距'.format(self.format('e0', digits, eq='M/N'))
-            return
-        yield self.format('pmin', digits, eq='N/A-Mx/Wx-My/Wy')
-        yield self.format('ρ', digits, eq='e0/(1-pmin*A/N)')
-        ok = self.e0 <= self.e0_max
-        yield self.format_conclusion(
-            ok,
-            self.format('e0', digits, eq='M/N'),
-            '&le;' if ok else '&gt;',
-            self.format('e0_max', digits, eq='{}ρ'.format('' if self.ξ == 1.0 else self.ξ), omit_name=True),
-            '{}满足规范5.2.5条要求。'.format('' if ok else '不')
-            )
-
+            '' if ok else '不',
+            self.status+2)
 
 class eccentricity(abacus):
     """
     基底合力偏心距验算
-    《公路桥涵地基与基础设计规范》（JTG 3363-2019）第5.2.5节
+    《公路桥涵地基与基础设计规范》（JTG D63-2007）第4.2.5节
     """
     __title__ = '基底合力偏心距验算'
     __inputs__ = OrderedDict([
@@ -181,7 +119,7 @@ class eccentricity(abacus):
         ('N',('<i>N</i>', 'kN', 0, '基底竖向力')),
         ('Mx',('<i>M</i><sub>x</sub>', 'kN·m', 0, '基底弯矩','短期效应组合，同时考虑偶然组合')),
         ('My',('<i>M</i><sub>y</sub>', 'kN·m', 0, '基底弯矩','短期效应组合，同时考虑偶然组合')),
-        ('ξ',('', '', 1.0, '偏心距允许值系数','按表5.2.5确定(0.1~1.5)')),
+        ('ξ',('', '', 1.0, '偏心距允许值系数','按表4.2.5确定(0.1~1.5)')),
     ])
     __deriveds__ = OrderedDict((
         ('e0',('<i>e</i><sub>0</sub>', 'm', 0, '基底偏心矩')),
@@ -213,7 +151,7 @@ class eccentricity(abacus):
         yield self.format('pmin', digits, eq='N/A-Mx/Wx-My/Wy')
         yield self.format('ρ', digits, eq='e0/(1-pmin*A/N)')
         ok = self.e0 <= self.eqr
-        yield '{} {} {}，{}满足规范5.2.5条要求。'.format(
+        yield '{} {} {}，{}满足规范4.2.5条要求。'.format(
             self.format('e0', digits, eq='M/N'), '&le;' if ok else '&gt;', 
             self.format('eqr', digits, eq='{}ρ'.format('' if self.ξ == 1.0 else self.ξ), omit_name=True),
             '' if ok else '不')
@@ -221,7 +159,7 @@ class eccentricity(abacus):
 class overturning(abacus):
     """
     基础抗倾覆稳定性
-    《公路桥涵地基与基础设计规范》（JTG 3363-2019） 第5.4.1节
+    《公路桥涵地基与基础设计规范》（JTG D63-2007） 第4.4.1节
     """
     __title__ = '基础抗倾覆稳定性'
     __inputs__ = OrderedDict([
@@ -237,7 +175,7 @@ class overturning(abacus):
         ('ey',('<i>e</i><sub>y</sub>', 'm', 0, '基底偏心矩')),
         ('e0',('<i>e</i><sub>0</sub>', 'm', 0, '基底偏心矩')),
         ('s',('<i>s</i>', 'm', 0, '截面重心至验算倾覆轴的距离')),
-        ('k0',('<i>k</i><sub>0</sub>','',0,'墩台基础抗倾覆稳定性系数','查表5.4.3确定'))
+        ('k0',('<i>k</i><sub>0</sub>','',0,'墩台基础抗倾覆稳定性系数','查表4.4.3确定'))
         ))
 
     def solve(self):
@@ -274,7 +212,7 @@ class overturning(abacus):
         for para in ('b','d','N','Mx','My','ex','ey','e0','s'):
             yield self.format(para, digits)
         ok = self.k0 >= self.k
-        yield '{} {} {}， {}满足规范5.4.1条要求。'.format(
+        yield '{} {} {}， {}满足规范4.4.1条要求。'.format(
             self.format('k0', digits, eq='s/e0'), '&ge;' if ok else '&lt;',
             self.k,
             '' if ok else '不')
@@ -282,7 +220,7 @@ class overturning(abacus):
 class sliding(abacus):
     """
     基础抗滑移稳定性
-    《公路桥涵地基与基础设计规范》（JTG 3363-2019） 第5.4.2节
+    《公路桥涵地基与基础设计规范》（JTG D63-2007） 第4.4.2节
     """
     __title__ = '基础抗滑移稳定性'
     __inputs__ = OrderedDict([
@@ -290,7 +228,7 @@ class sliding(abacus):
         ('Pi',('∑<i>P</i><sub>i</sub>', 'kN', 0, '竖向力总和')),
         ('HiP',('∑<i>H</i><sub>iP</sub>', 'kN', 0, '抗滑稳定水平力总和')),
         ('Hia',('∑<i>H</i><sub>ia</sub>', 'kN', 0, '滑动水平力总和')), 
-        ('k',('[<i>k</i>]','',1.5,'墩台基础抗滑动稳定性系数','查表5.4.3确定'))
+        ('k',('[<i>k</i>]','',1.5,'墩台基础抗滑动稳定性系数','查表4.4.3确定'))
     ])
     __deriveds__ = OrderedDict([
         ('kc',('<i>k</i><sub>c</sub>','',0,'墩台基础抗滑动稳定性系数')),
@@ -305,7 +243,7 @@ class sliding(abacus):
         for para in ('μ','Pi','HiP','Hia'):
             yield self.format(para, digits)
         ok = self.kc >= self.k
-        yield '{} {} {}， {}满足规范5.4.2条要求。'.format(
+        yield '{} {} {}， {}满足规范4.4.2条要求。'.format(
             self.format('kc', digits, eq='(μ*Pi+HiP)/Hia'), '&ge;' if ok else '&lt;',
             self.k,
             '' if ok else '不')

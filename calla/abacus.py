@@ -97,7 +97,7 @@ class abacus:
 
     def _init_deriveds_(self):
         if not hasattr(self, '_deriveds_'):
-            self._deriveds_ = {}
+            self._deriveds_ = OrderedDict()
             if hasattr(self, '__deriveds__'):
                 if isinstance(self.__deriveds__, list):
                     for item in self.__deriveds__:
@@ -147,6 +147,7 @@ class abacus:
         """ Get a dictionary of derived parameters. """
         return { attr:(getattr(self, attr) if hasattr(self, attr) else 0) for attr in self._deriveds_} if hasattr(self, '__deriveds__') else None
 
+    @property
     def parameters(self):
         """ Get a dictionary of all parameters. """
         paras = self.inputs
@@ -251,7 +252,7 @@ class abacus:
                 return '{} = {}'.format(parameter, value)
             # use choices' value to substitude parameter value
             if info.choices:
-                if type(info.choices) is dict and value in info.choices:
+                if isinstance(info.choices, dict) and value in info.choices:
                     value = info.choices[value]
             s = ''
             if not omit_name:
@@ -337,6 +338,19 @@ class abacus:
         """create parameter object with dynamic type"""
         if isinstance(attrs, tuple):
             n = len(attrs)
+            _choices = None
+            if n > 6:
+                _choices_origin = attrs[6]
+                if isinstance(_choices_origin, list):
+                    _choices = OrderedDict()
+                    for item in _choices_origin:
+                        if isinstance(item, tuple):
+                            _choices[item[0]] = item[1]
+                    if len(_choices) < 1: # if isinstance(_choices_origin, dict):
+                        _choices = _choices_origin
+                else: # if isinstance(_choices_origin, dict):
+                    _choices = _choices_origin
+
             para_obj = type(
                 'param', (object,),
                 dict(
@@ -345,11 +359,12 @@ class abacus:
                     default_value=attrs[3] if n > 3 else None,
                     name=attrs[4] if n > 4 else '',
                     description=attrs[5] if n > 5 else '',
-                    choices=attrs[6] if n > 6 else None
+                    choices=_choices
                 ))
             return para_obj()
         return None
 
+    # TODO: 不适用于新的初始化格式，需改造
     @classmethod
     def para_attrs(self, parameter):
         """get attributes of parameter"""

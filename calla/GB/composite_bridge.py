@@ -14,7 +14,7 @@ __all__ = [
 
 from collections import OrderedDict
 from calla import abacus, InputError, html
-from math import pi, sqrt, ceil
+from math import log10, pi, sqrt, ceil
 from calla.JTG import material
 
 material_base = material.material_base
@@ -25,65 +25,75 @@ class deck_effective_width(abacus):
     《钢-混凝土组合桥梁设计规范》（GB 50917-2013） 第4.1.5节
     """
     __title__ = '钢-混桥面板有效宽度'
-    __inputs__ = OrderedDict((
-        ('location',('','','Span','横截面位置','',{
-            'Span':'跨中','MiddleSupport':'中间支座','SideSupport':'边支点'})),
-        ('span_type',('','','Simple','桥跨类型','',{'Simple':'简支梁','MiddleSpan':'连续梁中跨','SideSpan':'连续梁边跨'})),
-        ('b0',('<i>b</i><sub>0</sub>','mm',100,'钢梁腹板上方最外侧剪力连接件中心间距')),
-        ('b1',('<i>b</i><sub>1</sub>','mm',0,'翼缘基本宽度','相邻钢梁腹板外侧剪力件中心距的一半，或腹板外侧剪力件至自由边距离')),
-        ('b2',('<i>b</i><sub>2</sub>','mm',0,'翼缘基本宽度','相邻钢梁腹板外侧剪力件中心距的一半，或腹板外侧剪力件至自由边距离')),
+    __inputs__ = [
+        ('span_type','','','Simple','梁类型','',[('Simple','简支梁'),('Continous','连续梁')]),
+        ('location_simple','','','Span','位置','',[('Span','跨中'),('Support','支点')]),
+        ('location_continous','','','MiddleSpan','位置','',[
+            ('MiddleSpan','中跨'),('SideSpan','边跨'),('MiddleSupport','中支点'),('SideSupport','边支点')]),
+        ('b0','<i>b</i><sub>0</sub>','mm',100,'钢梁腹板上方最外侧剪力连接件中心间距'),
+        ('b1','<i>b</i><sub>1</sub>','mm',0,'翼缘宽度','相邻钢梁腹板外侧剪力件中心距的一半，或腹板外侧剪力件至自由边距离'),
+        ('b2','<i>b</i><sub>2</sub>','mm',0,'翼缘宽度','相邻钢梁腹板外侧剪力件中心距的一半，或腹板外侧剪力件至自由边距离'),
         # ('L',('<i>L</i>','mm',10000,'等效跨径','简支梁应取计算跨径，连续梁应按图4.1.5(a)选取')),
-        ('L1',('<i>L</i><sub>1</sub>','mm',10000,'跨径')),
-        ('L2',('<i>L</i><sub>2</sub>','mm',10000,'跨径')),
-        ))
-    __deriveds__ = OrderedDict((
-        ('Lc',('<i>L</i><sub>c</sub>','mm',0,'等效跨径','简支梁应取计算跨径，连续梁应按图4.1.5(a)选取')),
-        ('bc1',('<i>b</i><sub>c1</sub>','mm',0,'桥面板一侧有效宽度')),
-        ('bc2',('<i>b</i><sub>c2</sub>','mm',0,'桥面板一侧有效宽度')),
-        ('bc',('<i>b</i><sub>c</sub>','mm',0,'有效宽度')),
-        ))
-    __toggles__ = {
-        # 'location': { 'MiddleSpan':('L1','L2'),'MiddleSupport':('L'),'SideSupport':('L1','L2') },
-        'location': { 'Span':('L2'),'MiddleSupport':(),'SideSupport':('L2') },
-        }
+        ('L1','<i>L</i><sub>1</sub>','mm',10000,'跨径','简支梁跨径，或连续梁的相邻跨径1'),
+        ('L2','<i>L</i><sub>2</sub>','mm',10000,'跨径','连续梁的相邻跨径2'),
+    ]
+    __deriveds__ = [
+        ('Lc','<i>L</i><sub>c</sub>','mm',0,'等效跨径','简支梁应取计算跨径，连续梁应按图4.1.5(a)选取'),
+        ('bc1','<i>b</i><sub>c1</sub>','mm',0,'桥面板一侧有效宽度'),
+        ('bc2','<i>b</i><sub>c2</sub>','mm',0,'桥面板一侧有效宽度'),
+        ('bc','<i>b</i><sub>c</sub>','mm',0,'有效宽度'),
+    ]
+    __toggles__ = [
+        'span_type', { 'Simple':('location_continous','L2'),'Continous':('location_simple',) },
+        'location_continous', { 'SideSpan':('L2',),'SideSupport':('L2',) },
+    ]
 
     def solve(self):
-        if self.location == 'Span':
-            L = self.L1
-            self.Lc = L if self.span_type == 'Simple' else 0.6*L if self.span_type == 'MiddleSpan' else 0.8*L
-            self.bc1 = min(self.Lc/6, self.b1)
-            self.bc2 = min(self.Lc/6, self.b2)
-            self.bc = self.b0+self.bc1+self.bc2
-        elif self.location == 'MiddleSupport':
-            self.Lc = 0.2*(self.L1+self.L2)
-            self.bc1 = min(self.Lc/6, self.b1)
-            self.bc2 = min(self.Lc/6, self.b2)
+        # 等效跨径计算
+        self._m1 = True # 使用算法一
+        if self.span_type == 'Simple':
+            self.Lc = self.L1
+            self._eq1 = 'L1'
+            self._m1 = True if self.location_simple == 'Span' else False
+        elif self.span_type == 'Continous':
+            if self.location_continous == 'SideSupport':
+                self.Lc = 0.8*self.L1
+                self._eq1 = '0.8*L1'
+                self._m1 = False
+            elif self.location_continous == 'MiddleSupport':
+                self.Lc = 0.2*(self.L1+self.L2)
+                self._eq1 = '0.2*(L1+L2)'
+            elif self.location_continous == 'SideSpan':
+                self.Lc = 0.8*self.L1
+                self._eq1 = '0.8*L1'
+            elif self.location_continous == 'MiddleSpan':
+                self.Lc = 0.6*self.L2
+                self._eq1 = '0.6*L2'
+            else:
+                raise InputError(self, 'location_continous', '不支持的参数值')
+        else:
+            raise InputError(self, 'span_type', '不支持的参数值')
+        self.bc1 = min(self.Lc/6, self.b1)
+        self.bc2 = min(self.Lc/6, self.b2)
+        if self._m1:
             self.bc = self.b0+self.bc1+self.bc2
         else:
             self.validate('positive', 'b1', 'b2')
-            self.Lc = self.L1
-            self.bc1 = min(self.Lc/6, self.b1)
-            self.bc2 = min(self.Lc/6, self.b2)
             self.β1 = min(0.55+0.025*self.Lc/self.b1,1.0)
             self.β2 = min(0.55+0.025*self.Lc/self.b2,1.0)
             self.bc = self.b0+self.β1*self.bc1+self.β2*self.bc2
 
     def _html(self, digits=2):
-        for para in ('location','span_type','b0','b1','b2','L1','L2'):
-            yield self.format(para, digits=None)
-        if self.location == 'Span':
-            eq1 = 'L1' if self.span_type == 'Simple' else '0.6*L1' if self.span_type == 'MiddleSpan' else '0.8*L1'
-            eq2 = 'b0+bc1+bc2'
-        elif self.location == 'MiddleSupport':
-            eq1 = '0.2*(L1+L2)'
-            eq2 = 'b0+bc1+bc2'
-        else:
-            eq1 = 'L'
-            eq2 = 'b0+β1*bc1+β2*bc2'
-        yield self.format('Lc', digits, eq=eq1)
+        disableds = self.disableds()
+        for para in ('span_type','location_simple','location_continous','b0','b1','b2','L1','L2'):
+            if not para in disableds:
+                yield self.format(para, digits=None)
+        _eq2 = 'b0+bc1+bc2' if self._m1 else 'b0+β1*bc1+β2*bc2'
+
+        yield self.format('Lc', digits, eq=self._eq1)
         yield self.format('bc1', digits, eq='min(Lc/6, b1)')
         yield self.format('bc2', digits, eq='min(Lc/6, b2)')
-        yield self.format('bc', digits, eq=eq2)
+        yield self.format('bc', digits, eq=_eq2)
 
 class stress_increment(abacus):
     """

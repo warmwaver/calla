@@ -97,6 +97,14 @@ class pile_cap(abacus):
         a = 0.15*self.h0 # 压杆中线与承台顶面的交点至墩台边缘的距离
         for o in ['x', 'y']: # 分别计算平行于x轴方向和平行于y轴方向的弯曲
             li = xi if o == 'x' else yi
+            As = self.As
+            if isinstance(As, (tuple, list)):
+                if len(As) > 1:
+                    As = self.As[0] if o == 'x' else self.As[1]
+                elif len(As) > 0:
+                    As = self.As[0]
+                else:
+                    raise InputError(self, 'As', '不能为空')
             # 对于撑杆系杆模型，只算最外排桩；对于梁模型，只算最大的截面
             for i in [0, len(li)-1]:
                 # 计算第i排桩
@@ -122,8 +130,8 @@ class pile_cap(abacus):
                     # if bs > w:
                     #     bs = w
                     t, ε1, fced, Ciu = self.capacity(
-                        self.s, self.d, self.b, θi, Tid*1e3, self.As, self.Es, self.fcd, bs, self.βc)
-                    Tiu = self.fsd*self.As
+                        self.s, self.d, self.b, θi, Tid*1e3, As, self.Es, self.fcd, bs, self.βc)
+                    Tiu = self.fsd*As
                     if o == 'x':
                         self.Rstx.append(('{}={}'.format(o, li[i]), '拉压杆模型', t, bs, ε1, fced, Cid, Ciu/1e3, Tid, Tiu/1e3))
                     else:
@@ -143,10 +151,10 @@ class pile_cap(abacus):
                             if li[j] <= 0:
                                 break
                         x = abs(li[j]) - (self.bx if o == 'x' else self.by)/2
-                        Nid = max([Nd(i,j) for j in range(ngp)])*ngp
+                        Nid = max([Nd(i,j) if o == 'x' else Nd(j,i) for j in range(ngp)])*ngp
                     fc = bc.fc_rect(
                         option="review", γ0=1.1, fcd=self.fcd, fcuk=35, Es=200000, b=bs, h0=self.h0,
-                        ftd=self.ftd, fsd=self.fsd, As=self.As, fsd_=self.fsd, As_=0, ps="无", 
+                        ftd=self.ftd, fsd=self.fsd, As=As, fsd_=self.fsd, As_=0, ps="无", 
                         Md = Mcd*1e-3)
                     # f = fc_rect(concrete="C50", rebar="HRB400")
                     fc.solve()

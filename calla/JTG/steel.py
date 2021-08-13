@@ -59,7 +59,7 @@ class rib_size(abacus):
             self.eqr = 12*sqrt(345/self.fy)
         elif self.type == '2':
             self.eqr = 30*sqrt(345/self.fy)
-            self.eql2 = self.bs0/self.ts0
+            self.eql2 = self.bs0/self.ts
             self.eqr2 = 12*sqrt(345/self.fy)
         elif self.type == '3':
             self.eqr = 18*sqrt(345/self.fy)
@@ -67,6 +67,8 @@ class rib_size(abacus):
             self.eqr = 40*sqrt(345/self.fy)
             self.eql2 = self.bs/self.ts
             self.eqr2 = 30*sqrt(345/self.fy)
+        else:
+            raise InputError(self, 'type', '不支持的类型')
 
     def _html(self, digits=2):
         disableds = self.disableds()
@@ -267,7 +269,7 @@ class compressive_rib_buckling_coefficient(abacus):
         'case', {
             '1':('E','υ','a','b','t','Al','Il','nl','at','It','nt'),
             '2':('E','υ','t','Al','Il','nl','at','It','nt'),
-            # '3':('E','υ','t','Asl','Il','nl'),
+            '3':('at','It','nt'),
             },
     ]
 
@@ -650,30 +652,30 @@ class web_rib(abacus):
     《公路钢结构桥梁设计规范》（JTG D64-2015） 第5.3.3节
     """
     __title__ = '腹板及加劲肋'
-    __inputs__ = OrderedDict((
-        ('steel',('钢材型号','','Q345','','',['Q235','Q345'])),
-        ('σ',('<i>σ</i>','MPa',0,'基本组合下受压翼缘处腹板正应力')),
-        ('τ',('<i>τ</i>','MPa',0,'基本组合下腹板剪应力')),
-        ('fvd',('<i>f</i><sub>vd</sub>','MPa',160,'钢材的抗剪强度设计值')),
-        ('hw',('<i>h</i><sub>w</sub>','mm',90,'腹板高度')),
-        ('tw',('<i>t</i><sub>w</sub>','mm',10,'腹板厚度')),
-        ('nt',('是否设置横向加劲肋','',0,'','',{0:'否',1:'是'})),
-        ('a',('<i>a</i>','mm',1000,'腹板横向加劲肋间距')),
-        ('It',('<i>I</i><sub>t</sub>','mm<sup>4</sup>',0,'横向加劲肋惯性矩')),
-        ('nl',('<i>n</i><sub>l</sub>','',0,'纵向加劲肋数量')),
-        ('Il',('<i>I</i><sub>l</sub>','mm<sup>4</sup>',0,'纵向加劲肋惯性矩')),
-        ))
-    __deriveds__ = OrderedDict((
-        ('η',('<i>η</i>','',0,'折减系数')),
-        ('tw_min',('','mm',0,'','腹板最小厚度')),
-        ('eql',('','',0,'')),
-        ('It_min',('','mm<sup>4</sup>',0,'','横向加劲肋惯性矩限值')),
-        ('ξl',('<i>ξ</i><sub>l</sub>','',0,'纵向加劲肋的相对刚度')),
-        ('Il_min',('','mm<sup>4</sup>',0,'','纵向加劲肋惯性矩限值')),
-        ))
-    __toggles__ = {
-        'nt':{0:('a','It','nl','Il'),1:()},
-        }
+    __inputs__ = [
+        ('steel','钢材型号','','Q345','','',['Q235','Q345']),
+        ('σ','<i>σ</i>','MPa',0,'基本组合下受压翼缘处腹板正应力'),
+        ('τ','<i>τ</i>','MPa',0,'基本组合下腹板剪应力'),
+        ('fvd','<i>f</i><sub>vd</sub>','MPa',160,'钢材的抗剪强度设计值'),
+        ('hw','<i>h</i><sub>w</sub>','mm',90,'腹板高度'),
+        ('tw','<i>t</i><sub>w</sub>','mm',10,'腹板厚度'),
+        ('nt','','',0,'是否设置横向加劲肋','',{0:'否',1:'是'}),
+        ('a','<i>a</i>','mm',1000,'腹板横向加劲肋间距'),
+        ('It','<i>I</i><sub>t</sub>','mm<sup>4</sup>',0,'横向加劲肋惯性矩'),
+        ('nl','<i>n</i><sub>l</sub>','',0,'纵向加劲肋数量'),
+        ('Il','<i>I</i><sub>l</sub>','mm<sup>4</sup>',0,'纵向加劲肋惯性矩'),
+    ]
+    __deriveds__ = [
+        ('η','<i>η</i>','',0,'折减系数'),
+        ('tw_min','','mm',0,'','腹板最小厚度'),
+        ('eql','','',0,''),
+        ('It_min','','mm<sup>4</sup>',0,'','横向加劲肋惯性矩限值'),
+        ('ξl','<i>ξ</i><sub>l</sub>','',0,'纵向加劲肋的相对刚度'),
+        ('Il_min','','mm<sup>4</sup>',0,'','纵向加劲肋惯性矩限值'),
+    ]
+    __toggles__ = [
+        'nt', {0:('a','It','nl','Il')},
+    ]
 
     @staticmethod
     def web_thick(τ, fvd, hw, b):

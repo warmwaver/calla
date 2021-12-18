@@ -151,10 +151,10 @@ class Column(abacus):
     __inputs__ = [
         ('code','规范','','JTG','','',{'GB':'国家标准(GB)','JTG':'交通行业规范(JTG)','TB':'铁路行业规范(TB)'}),
         ('section','截面形状','','rectangle','','',{'rectangle':'矩形或倒T形','Tshape':'T形或I形','round':'圆形'}),
-        ('forces_fu', ('', 'kN,m', _forces_sample_, '基本组合内力',_forces_notes_)),
-        ('forces_ac', ('', 'kN,m', _forces_sample_, '偶然组合内力',_forces_notes_)),
-        ('forces_fr', ('', 'kN,m', _forces_sample_, '频遇组合内力',_forces_notes_)),
-        ('forces_qp', ('', 'kN,m', _forces_sample_, '准永久组合内力',_forces_notes_)),
+        ('forces_fu', '', 'kN,m', _forces_sample_, '基本组合内力',_forces_notes_),
+        ('forces_ac', '', 'kN,m', _forces_sample_, '偶然组合内力',_forces_notes_),
+        ('forces_fr', '', 'kN,m', _forces_sample_, '频遇组合内力',_forces_notes_),
+        ('forces_qp', '', 'kN,m', _forces_sample_, '准永久组合内力',_forces_notes_),
         # GB, JTG
         # {'N_fu':
         # [
@@ -171,8 +171,8 @@ class Column(abacus):
         #('fc',('<i>f</i>c','MPa',16.7)),
         #('fcuk',('<i>f</i><sub>cu,k</sub>','MPa',35)),
         # 矩形截面：
-        ('b',('<i>b</i>','mm',500,'矩形截面宽度', '沿x向尺寸'),
-        ('h',('<i>h</i>','mm',1000,'矩形截面高度', '沿y向尺寸'),
+        ('b','<i>b</i>','mm',500,'矩形截面宽度', '沿x向尺寸'),
+        ('h','<i>h</i>','mm',1000,'矩形截面高度', '沿y向尺寸'),
         #('h0',('h<sub>0</sub>','mm')),
         # T形截面：
         ('bf','<i>b</i><sub>f</sub>','mm',0,'受拉区翼缘计算宽度'),
@@ -191,7 +191,7 @@ class Column(abacus):
         #('force_type',('受力类型','',0,'',{0:'受弯构件',1:'偏心受压构件',2:'偏心受拉构件',3:'轴心受拉构件'})),
         #('Es',('<i>E</i><sub>s</sub>','MPa',2.0E5,'钢筋弹性模量')),
         #('ftk',('f<sub>tk</sub>','MPa',2.2)),
-        ('cs','<i>c</i><sub>s</sub>','mm',20,'钢筋外边距','最外层纵向受拉钢筋外边缘至受拉区底边的距离，当cs<20时，取cs=20；当cs>65时，取cs=65。')),
+        ('cs','<i>c</i><sub>s</sub>','mm',20,'钢筋外边距','最外层纵向受拉钢筋外边缘至受拉区底边的距离，当cs<20时，取cs=20；当cs>65时，取cs=65。'),
         ('deq','<i>d</i><sub>eq</sub>','mm',25,'钢筋等效直径'),
         ('l','<i>l</i>','mm',5000,'构件长度'),
         #('l0',('<i>l</i>0','mm',0,'构件计算长度')),
@@ -201,7 +201,7 @@ class Column(abacus):
         ('As_','<i>A</i><sub>s</sub><sup>\'</sup>','mm<sup>2</sup>',0,'纵向受压钢筋面积'),
         # JTG
         ('c','<i>c</i>','mm',30,'最外排纵向受拉钢筋的混凝土保护层厚度','当c > 50mm 时，取50mm'),
-        ('k','<i>k</i>','',2,'构件计算长度系数')),
+        ('k','<i>k</i>','',2,'构件计算长度系数'),
         # ('Nl',('<i>N</i><sub>l</sub>','kN',0,'作用长期效应组合轴力')),
         # ('Ml',('<i>M</i><sub>l</sub>','kN·m',0,'作用长期效应组合弯矩')),
         # ('Ns',('<i>N</i><sub>s</sub>','kN',0,'作用短期效应组合轴力')),

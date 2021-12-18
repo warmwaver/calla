@@ -84,7 +84,7 @@ class Pile(abacus, material_base):
         ('R',('<i>R</i>','kN',0,'桩底竖向力')),
         ))
     __toggles__ = {
-        'bottom_fixed':{True:'frk'}
+        'bottom_fixed':{True:('fa0',), False:('frk',)}
         }
     # __toggles__ = [
     #     'bottom_fixed',{True:'frk'}

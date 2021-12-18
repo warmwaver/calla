@@ -17,31 +17,31 @@ print(f.text())
 ```
 如果需要html格式的输出，请使用html()函数替换text()函数。
 
-## 开发者注意事项
+## 开发指南
 ### 如何开发一个新的计算类
-为了保证一致的输入及输出方式，方便使用，所有计算类应派生自抽象基类abacus。abacus主要的类成员如下：
+项目中已经有大量的计算类实例可供参考。为了保证一致的输入及输出方式，方便使用，所有计算类应派生自抽象基类abacus。abacus主要的类成员如下：
 
 - **\_\_title\_\_**：计算类名称
 - **\_\_inputs\_\_**: 输入参数字典
-采用OrderedDict，每个条目的格式为
+采用list，每个条目的格式为
 
 ```python
-__inputs__ = OrderedDict((
+__inputs__ = [
 	(parameter, (symbol, unit, default_value, name, description, choices])),
 	...
-	))
+	]
 ```
 
 - **\_\_deriveds\_\_**：结果参数字典
-采用OrderedDict，格式与__inputs__相同。
+采用list，格式与__inputs__相同。
 - **\_\_toggles\_\_**：参数开关字典。
 某个参数的取值对其它参数可用性有影响时，将其列入__toggles__字典可以实现简单的开关功能。格式为
 
 ```python
-__toggles__ = {
-	parameter:{option:(disabled_parameters),...},
+__toggles__ = [
+	parameter, {option:(disabled_parameters),...},
 	...
-	}
+	]
 ```
 
 - **solve**: 计算函数

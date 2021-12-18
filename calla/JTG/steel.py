@@ -746,10 +746,13 @@ class web_rib(abacus):
             yield self.format(para, digits)
         ok = self.tw >= self.tw_min
         eq = 'η·hw/{}'.format(self.C)
-        yield '{} {} {}，{}满足规范要求。'.format(
-            self.format('tw', digits), '≥' if ok else '&lt;', 
+        yield self.format_conclusion(
+            ok, 
+            self.format('tw', digits), 
+            '≥' if ok else '&lt;', 
             self.format('tw_min', digits=digits, eq = eq, omit_name=True),
-            '' if ok else '不')
+            '{}满足规范要求。'.format('' if ok else '不')
+        )
 
         if str(self.nt) == "0":
             return
@@ -759,27 +762,36 @@ class web_rib(abacus):
             yield self.format(para, digits)
         ok = self.eql <= 1
         eq = '(hw/100/tw)<sup>4</sup>·((σ/{})<sup>2</sup>+(τ/({}+58·(hw/a)<sup>2</sup>))<sup>2</sup>)'.format(self.C1,self.C2)
-        yield '{} {} {}，{}满足规范要求。'.format(
-            self.format('eql', digits,eq=eq), '≤' if ok else '&gt;', 
+        yield self.format_conclusion(
+            ok,
+            self.format('eql', digits,eq=eq), 
+            '≤' if ok else '&gt;', 
             1,
-            '' if ok else '不')
+            '{}满足规范要求。'.format('' if ok else '不')
+        )
 
         yield '(3) 腹板横向加劲肋惯性矩验算'
         ok = self.It >= self.It_min
-        yield '{} {} {}，{}满足规范要求。'.format(
-            self.format('It', digits), '≥' if ok else '&lt;', 
+        yield self.format_conclusion(
+            ok,
+            self.format('It', digits), 
+            '≥' if ok else '&lt;', 
             self.format('It_min', digits,eq='3·hw·tw<sup>3</sup>', omit_name=True),
-            '' if ok else '不')
+            '{}满足规范要求。'.format('' if ok else '不')
+        )
 
         yield '(4) 腹板纵向加劲肋惯性矩验算'
         yield '{}{}'.format(
             self.format('ξl', digits, value=self._ξl, eq='(a/hw)**2*(2.5-0.45*(a/hw))'),
             ' &lt; 1.5, 取 {0} = 1.5。'.format(self._deriveds_['ξl'].symbol) if self._ξl < 1.5 else '')
         ok = self.Il >= self.Il_min
-        yield '{} {} {}，{}满足规范要求。'.format(
-            self.format('Il', digits), '≥' if ok else '&lt;', 
+        yield self.format_conclusion(
+            ok,
+            self.format('Il', digits), 
+            '≥' if ok else '&lt;', 
             self.format('Il_min', digits=digits, eq = 'ξl·hw·tw<sup>3</sup>', omit_name=True),
-            '' if ok else '不')
+            '{}满足规范要求。'.format('' if ok else '不')
+        )
 
 class support_rib(abacus):
     """

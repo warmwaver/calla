@@ -92,12 +92,10 @@ class groundbase(abacus):
                 self.pmax = self.λ*N/A
                 self.status = 2
             elif ey == 0: # 单向偏压
-                if self.ecc_ok:
-                    self.pmax = 2*N/3/(b/2-ex)/d
+                self.pmax = 2*N/3/(b/2-ex)/d
                 self.status = 1
             elif ex == 0: # 单向偏压
-                if self.ecc_ok:
-                    self.pmax = 2*N/3/(d/2-ey)/b
+                self.pmax = 2*N/3/(d/2-ey)/b
                 self.status = 1
         else: # 不发生重分布
             self.pmax = N/A+Mx/Wx+My/Wy
@@ -117,19 +115,18 @@ class groundbase(abacus):
             )
         if self.e0 == 0:
             return
-        if self.status == 1 and not self.ecc_ok:
-            yield self.format('pmin', digits, eq='N/A-Mx/Wx-My/Wy')
-            yield self.format('ρ', digits, eq='e0/(1-pmin*A/N)')
-            ok = self.e0 <= self.e0_max
-            yield self.format_conclusion(
-                ok,
-                self.format('e0', digits, eq='M/N'),
-                '&le;' if ok else '&gt;',
-                self.format('e0_max', digits, eq='{}ρ'.format('' if self.ξ == 1.0 else self.ξ), omit_name=True),
-                '{}满足规范5.2.5条要求。'.format('' if ok else '不')
-                )
-            yield '偏心距超限，不满足最大压应力计算条件。'
-            return
+        # if self.status == 1 and not self.ecc_ok:
+        #     yield self.format('pmin', digits, eq='N/A-Mx/Wx-My/Wy')
+        #     yield self.format('ρ', digits, eq='e0/(1-pmin*A/N)')
+        #     ok = self.e0 <= self.e0_max
+        #     yield self.format_conclusion(
+        #         ok,
+        #         self.format('e0', digits, eq='M/N'),
+        #         '&le;' if ok else '&gt;',
+        #         self.format('e0_max', digits, eq='{}ρ'.format('' if self.ξ == 1.0 else self.ξ), omit_name=True),
+        #         '{}满足规范5.2.5条要求。'.format('' if ok else '不')
+        #         )
+        #     yield '偏心距超限，不满足最大压应力计算条件。'
         
         if self.status != 0:
             for para in ('ex','ey'):

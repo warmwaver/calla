@@ -328,8 +328,10 @@ class abacus:
             s += sep_names
         return s[:len(s)-len(sep_names)]
 
-    def format_conclusion(self, ok: bool, eq_left, comparison_symbol, eq_right, message):
-        return '<span class="conclusion_{}">{} {} {}, {}</span>'.format(
+    def format_conclusion(self, ok: bool, eq_left, comparison_symbol, eq_right, message: str=None):
+        if not message:
+            message = '{}满足规范要求。'.format('' if ok else '不')
+        return '<span class="conclusion_{}">{} {} {}，{}</span>'.format(
             'ok' if ok else 'ng', eq_left, comparison_symbol, eq_right, message
             )
 

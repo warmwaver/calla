@@ -22,35 +22,35 @@ class friction_pile_capacity(abacus):
     《公路桥涵地基与基础设计规范》（JTG 3363-2019） 第6.3.3节
     """
     __title__ = '摩擦桩轴向受压承载力'
-    __inputs__ = OrderedDict((
-        ('option',('考虑负摩阻力','',False,'','',{False:'否',True:'是'})),
-        ('L',('<i>L</i>','m',10,'桩长')),
-        ('h',('<i>h</i>','m',1,'桩端埋置深度','大于40m时按40m计算')),
-        ('u',('<i>u</i>','m',0,'桩身周长')),
-        ('Ap',('<i>A</i><sub>p</sub>','m<sup>2</sup>',0,'桩端截面面积')),
-        ('layers',('土层名称','',('填土','粘土','强风化砂岩'),'','输入各地层名称，示例：(填土,淤泥,粘土,强风化砂岩)')),
-        ('li',('<i>l</i><sub>i</sub>','m',(3,5,6),'土层厚度','输入各地层厚度，之间用逗号隔开，示例：(3,5,6)')),
-        ('qik',('<i>q</i><sub>ik</sub>','kPa',(50,60,90),'侧摩阻力标准值','输入各地层侧摩阻力标准值，之间用逗号隔开，示例：(50,60,90)')),
-        ('fa0',('[<i>f</i><sub>a0</sub>]','kPa',(220,250,300),'承载力基本容许值','输入各地层承载力基本容许值，之间用逗号隔开，示例：(220,250,300)')),
-        ('γ2',('<i>γ</i><sub>2</sub>','kN/m<sup>3</sup>',18,'土层重度','可直接输入桩端以上各土层的加权平均重度，也可输入各层土的重度，之间用逗号隔开')),
-        ('m0',('<i>m</i><sub>0</sub>','',0.7,'清底系数','清底系数(0.7~1.0)')),
-        ('λ',('<i>λ</i>','',0.65,'修正系数','按表5.3.3-2选用')),
-        ('k2',('<i>k</i><sub>2</sub>','',1.0,'修正系数','容许承载力随深度的修正系数，根据持力层土类按表3.3.4选用')),
-        ('R0',('<i>R</i><sub>0</sub>','kN',0,'桩顶反力标准值')),
+    __inputs__ = [
+        ('negative_friction','考虑负摩阻力','',False,'','',{False:'否',True:'是'}),
+        ('L','<i>L</i>','m',10,'桩长'),
+        ('h','<i>h</i>','m',1,'桩端埋置深度','大于40m时按40m计算'),
+        ('u','<i>u</i>','m',0,'桩身周长'),
+        ('Ap','<i>A</i><sub>p</sub>','m<sup>2</sup>',0,'桩端截面面积'),
+        ('layers','土层名称','',['填土','粘土','强风化砂岩'],'','输入各地层名称，示例：(填土,淤泥,粘土,强风化砂岩)'),
+        ('li','<i>l</i><sub>i</sub>','m',[3,5,6],'土层厚度','输入各地层厚度，之间用逗号隔开，示例：(3,5,6)'),
+        ('qik','<i>q</i><sub>ik</sub>','kPa',[50,60,90],'侧摩阻力标准值','输入各地层侧摩阻力标准值，之间用逗号隔开，示例：(50,60,90)'),
+        ('fa0','<i>f</i><sub>a0</sub>','kPa',[220,250,300],'承载力基本容许值','输入各地层承载力基本容许值，之间用逗号隔开，示例：(220,250,300)'),
+        ('γ2','<i>γ</i><sub>2</sub>','kN/m<sup>3</sup>',18,'土层重度','可直接输入桩端以上各土层的加权平均重度，也可输入各层土的重度，之间用逗号隔开'),
+        ('m0','<i>m</i><sub>0</sub>','',0.7,'清底系数','清底系数(0.7~1.0)'),
+        ('λ','<i>λ</i>','',0.65,'修正系数','按表6.3.3-2选用'),
+        ('k2','<i>k</i><sub>2</sub>','',1.0,'修正系数','容许承载力随深度的修正系数，根据持力层土类按表4.3.4选用'),
+        ('R0','<i>R</i><sub>0</sub>','kN',0,'桩顶反力标准值'),
         # 考虑负摩阻力的选项
-        ('ln',('<i>l</i><sub>n</sub>','m',10,'中性点深度','按桩周土沉降与桩沉降相等的条件计算，或参照条文说明表5-2确定')),
-        ('β',('<i>β</i>','',0.2,'负摩阻力系数','可按条文说明表5-3取值')),
-        ('p',('<i>p</i>','kPa',8,'地面均布荷载')),
-        ))
-    __deriveds__ = OrderedDict((
-        ('qr',('<i>q</i><sub>r</sub>','kPa',0,'桩端土承载力容许值')),
-        ('Ra',('[<i>R</i><sub>a</sub>]','kN',0,'桩基竖向承载力')),
-        ('R',('<i>R</i>','kN',0,'桩底竖向力')),
-        ('Nn',('<i>N</i><sub>n</sub>','kN',0,'单桩负摩阻力')),
-        ))
-    __toggles__ = {
-        'option':{True:(),False:('ln','p','β')},
-        }
+        ('ln','<i>l</i><sub>n</sub>','m',10,'中性点深度','按桩周土沉降与桩沉降相等的条件计算，或参照条文说明表5-2确定'),
+        ('β','<i>β</i>','',0.2,'负摩阻力系数','可按条文说明表5-3取值'),
+        ('p','<i>p</i>','kPa',8,'地面均布荷载'),
+    ]
+    __deriveds__ = [
+        ('qr','<i>q</i><sub>r</sub>','kPa',0,'桩端土承载力容许值'),
+        ('Ra','[<i>R</i><sub>a</sub>]','kN',0,'桩基竖向承载力'),
+        ('R','<i>R</i>','kN',0,'桩底竖向力'),
+        ('Nn','<i>N</i><sub>n</sub>','kN',0,'单桩负摩阻力'),
+    ]
+    __toggles__ = [
+        'negative_friction',{True:(),False:('ln','p','β')},
+    ]
     
     # 混凝土重度
     γc = 25
@@ -78,14 +78,13 @@ class friction_pile_capacity(abacus):
 
         if self.L > sum(self.li):
             raise InputError(self, 'L', '桩长不能大于土层厚度之和')
-        typeγ = type(self.γ2)
-        bl = typeγ is list or typeγ is tuple
+        γ2_is_list = isinstance(self.γ2,(list, tuple))
         ra = 0 # 竖向承载力(kN)
         γl = 0 # 土层重度*土层厚度之和
         Nn = 0 # 负摩阻力(kN)
         # 负摩阻力计算，条文说明5.3.2节
         ls = 0
-        if self.option:
+        if self.negative_friction:
             if self.ln>= sum(self.li):
                 raise InputError(self, 'ln', '不能超过土层厚度之和')
             if self.ln > self.L:
@@ -93,13 +92,13 @@ class friction_pile_capacity(abacus):
             for i in range(len(self.li)):
                 if ls < self.ln:
                     if ls+self.li[i] < self.ln:
-                        if bl:
+                        if γ2_is_list:
                             γl += self.li[i]*self.γ2[i]
                             γi_ = γl/(ls+self.li[i])
                         else:
                             γi_ = self.γ2 - 10
                     else:
-                        if bl:
+                        if γ2_is_list:
                             γl += (self.ln-ls)*self.γ2[i]
                             γi_ = γl/self.ln
                         else:
@@ -135,17 +134,17 @@ class friction_pile_capacity(abacus):
         #     ls -= self.li[i]
         ls = 0
         for i in range(len(self.li)):
-            if self.option and ls+self.li[i] <= self.ln:
+            if self.negative_friction and ls+self.li[i] <= self.ln:
                 ls += self.li[i]
                 continue
             if ls+self.li[i] < self.L:
-                if bl:
+                if γ2_is_list:
                     γl += self.li[i]*self.γ2[i]
                 ra += 0.5*self.u*self.qik[i]*self.li[i]
             elif ls < self.L:
-                if bl:
-                    γl += (self.ln-ls)*self.γ2[i]
-                self.γ2 = γl / self.L if bl else self.γ2
+                if γ2_is_list:
+                    γl += (self.L-ls)*self.γ2[i]
+                self.γ2 = γl / self.L if γ2_is_list else self.γ2
                 self.positive_check('γ2')
                 if self.h > 40:
                     self.h = 40
@@ -171,8 +170,8 @@ class friction_pile_capacity(abacus):
         yield self.formatx('Ap',digits=precision)
         yield '地质资料:'
         t = []
-        qik = self.para_attrs('qik')
-        fa0 = self.para_attrs('fa0')
+        qik = self._inputs_['qik']
+        fa0 = self._inputs_['fa0']
         t.append(['地层编号','地层名称(m)','地层厚度(m)','{}({})'.format(qik.symbol,qik.unit),'{}({})'.format(fa0.symbol,fa0.unit)])
         for i in range(len(self.li)):
             t.append([i, self.layers[i], self.li[i], self.qik[i], self.fa0[i]])
@@ -181,11 +180,11 @@ class friction_pile_capacity(abacus):
         yield self.format('m0', digits=None)
         yield self.format('λ', digits=None)
         yield self.format('k2', digits=None)
-        yield self.format('γ2', digits=None)
+        yield self.format('γ2', digits=precision)
         yield self.format('h', precision)
         yield self.format('qr',digits=precision, eq='m0·λ·(fa0+k2·γ2·(h-3))')
         eq = '0.5·u·∑qik·li+Ap·qr'
-        if self.option:
+        if self.negative_friction:
             yield self.format('Nn', eq='u·∑<i>q</i><sub>ni</sub>·li', digits=precision)
             eq += ' - Nn'
         yield self.format('Ra',eq=eq,digits=precision)

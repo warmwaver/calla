@@ -238,6 +238,7 @@ class solid_circular_CSFT_compressive_capacity(abacus):
         _LeD = Le/D
         φl = 1-0.115*sqrt(_LeD-4) if _LeD > 30 else 1-0.0226*(_LeD-4) if _LeD > 4 else 1 # (6.1.4-1~3)
         φe = 1/(1+1.85*e0/rc) if e0/rc <= 1.55 else 1/(3.92-5.16*φl+φl*e0/0.3/rc) # (6.1.3-1,3)
+        N0=N0/1e3
         self.Nu = φe*φl*N0 # (6.1.2-1)
 
         self.θ=θ; self.φe = φe; self.φl=φl; self.N0=N0; self.k=k
@@ -248,8 +249,10 @@ class solid_circular_CSFT_compressive_capacity(abacus):
         for attr in self.inputs:
             if hasattr(self, attr) and (not attr in disableds):
                 yield self.format(attr, digits = None)
-        for attr in ('Le', 'φl', 'φe','θ','N0'):
+        for attr in ('Le', 'φl', 'φe','θ'):
             yield self.format(attr, digits = digits)
+        eq = '0.9*Ac*fc*(1+α*θ)' if self.θ <= 1/(self.α-1)**2 else '0.9*Ac*fc*(1+sqrt(θ)+θ)'
+        yield self.format('N0', eq=eq)
         yield self.format('Nu', eq='φe*φl*N0')
         
         ok = self.N <= self.Nu

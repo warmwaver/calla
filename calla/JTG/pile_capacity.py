@@ -339,6 +339,8 @@ class end_bearing_pile_capacity(abacus):
             index = self.status[i]
             if index > 2 or index < -1:
                 raise InputError(self, 'status', '输入值超出合理范围')
+            if not isinstance(index, int):
+                raise InputError(self, 'status', '输入值只能为整数')
             c2 = table_c2[index]
             if ls+self.li[i] < self.L:
                 if bl:

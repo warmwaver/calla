@@ -16,78 +16,78 @@ class crack_width(abacus):
     《公路钢筋混凝土及预应力混凝土桥涵设计规范》（JTG 3362-2018）第6.4节
     """
     __title__ = '裂缝宽度'
-    __inputs__ = OrderedDict((
-        ('option',('计算选项','','review','','',{'review':'计算裂缝宽度','design':'计算配筋'})),
-        ('case',('','','rect','计算类别','',{'rect':'矩形、T形和I形截面','round':'圆形截面','ps':'B类预应力混凝土受弯'})),
-        ('force_type',('受力类型','','BD','','',{'BD':'受弯构件','EC':'偏心受压构件','ET':'偏心受拉构件','AT':'轴心受拉构件'})),
-        ('Es',('<i>E</i><sub>s</sub>','MPa',2.0E5,'钢筋弹性模量')),
-        ('c',('<i>c</i>','mm',30,'最外排纵向受拉钢筋的混凝土保护层厚度','当c > 50mm 时，取50mm')),
-        ('d',('<i>d</i>','mm',25,'纵向受拉钢筋直径','当用不同直径的钢筋时，d改用换算直径de')),
+    __inputs__ = [
+        ('option','计算选项','','review','','',{'review':'计算裂缝宽度','design':'计算配筋'}),
+        ('case','','','rect','计算类别','',{'rect':'矩形、T形和I形截面','round':'圆形截面','ps':'B类预应力混凝土受弯'}),
+        ('force_type','受力类型','','BD','','',{'BD':'受弯构件','EC':'偏心受压构件','ET':'偏心受拉构件','AT':'轴心受拉构件'}),
+        ('Es','<i>E</i><sub>s</sub>','MPa',2.0E5,'钢筋弹性模量'),
+        ('c','<i>c</i>','mm',30,'最外排纵向受拉钢筋的混凝土保护层厚度','当c > 50mm 时，取50mm'),
+        ('d','<i>d</i>','mm',25,'纵向受拉钢筋直径','当用不同直径的钢筋时，d改用换算直径de'),
         # 矩形、T形和I形截面
-        ('b',('<i>b</i>','mm',500,'截面宽度')),
-        ('h',('<i>h</i>','mm',1000,'截面高度')),
-        ('bf',('<i>b</i><sub>f</sub>','mm',0,'受拉区翼缘计算宽度')),
-        ('hf',('<i>h</i><sub>f</sub>','mm',0,'受拉区翼缘计算高度')),
-        ('bf_',('<i>b</i><sub>f</sub><sup>\'</sup>','mm',0,'受压区翼缘计算宽度')),
-        ('hf_',('<i>h</i><sub>f</sub><sup>\'</sup>','mm',0,'受压区翼缘计算高度')),
+        ('b','<i>b</i>','mm',500,'截面宽度'),
+        ('h','<i>h</i>','mm',1000,'截面高度'),
+        ('bf','<i>b</i><sub>f</sub>','mm',0,'受拉区翼缘计算宽度'),
+        ('hf','<i>h</i><sub>f</sub>','mm',0,'受拉区翼缘计算高度'),
+        ('bf_','<i>b</i><sub>f</sub><sup>\'</sup>','mm',0,'受压区翼缘计算宽度'),
+        ('hf_','<i>h</i><sub>f</sub><sup>\'</sup>','mm',0,'受压区翼缘计算高度'),
         # 圆形截面
-        ('r',('<i>r</i>','mm',500,'圆形截面半径')),
-        ('a_s',('<i>a</i><sub>s</sub>','mm',60,'受拉钢筋重心至受拉边缘的距离','圆形截面为单根钢筋中心到构件边缘的距离')),
+        ('r','<i>r</i>','mm',500,'圆形截面半径'),
+        ('a_s','<i>a</i><sub>s</sub>','mm',60,'受拉钢筋重心至受拉边缘的距离','圆形截面为单根钢筋中心到构件边缘的距离'),
         # ('l',('<i>l</i>','mm',0,'构件长度')),
-        ('l0',('<i>l</i><sub>0</sub>','mm',0,'构件计算长度')),
-        ('as_',('<i>a</i><sub>s</sub><sup>\'</sup>','mm',0,'受压区钢筋合力点至受压区边缘距离')),
+        ('l0','<i>l</i><sub>0</sub>','mm',0,'构件计算长度'),
+        ('as_','<i>a</i><sub>s</sub><sup>\'</sup>','mm',0,'受压区钢筋合力点至受压区边缘距离'),
         # force_type ='EC':
-        ('ys',('<i>y</i><sub>s</sub>','mm',0,'截面重心至受拉钢筋距离','截面重心至纵向受拉钢筋合力点的距离')),
+        ('ys','<i>y</i><sub>s</sub>','mm',0,'截面重心至受拉钢筋距离','截面重心至纵向受拉钢筋合力点的距离'),
         # force_type ='ET':
-        ('ys_',('<i>y</i><sub>s</sub><sup>\'</sup>','mm',0,'截面重心至受拉较小或受压钢筋距离')),
-        ('As',('<i>A</i><sub>s</sub>','mm<sup>2</sup>',0,'受拉钢筋面积')),
-        ('Ap',('<i>A</i><sub>p</sub>','mm<sup>2</sup>',0,'受拉预应力筋面积')),
-        ('Nl',('<i>N</i><sub>l</sub>','kN',0,'准永久组合轴力','作用准永久组合计算的轴力值')),
-        ('Ml',('<i>M</i><sub>l</sub>','kN·m',0,'准永久组合弯矩','作用准永久组合计算的弯矩值')),
-        ('Ns',('<i>N</i><sub>s</sub>','kN',0,'频遇组合轴力','作用频遇组合计算的轴力值')),
-        ('Ms',('<i>M</i><sub>s</sub>','kN·m',0,'频遇组合弯矩','作用频遇组合计算的弯矩值')),
-        ('Np0',('<i>N</i><sub>p0</sub>','kN',0,'预应力和普通钢筋的合力',\
-            '混凝土法向预应力等于零时预应力钢筋和普通钢筋的合力')),
-        ('ep',('<i>e</i><sub>p</sub>','mm',0,'Np0作用点至受力筋合力点的距离',\
-            '混凝土法向应力等于零时，纵向预应力钢筋和普通钢筋的合力Np0的作用点至受拉区纵向预应力钢筋和普通钢筋合力点的距离')),
-        ('Mp2',('<i>M</i><sub>p2</sub>','kN·m',0,'预加力Np产生的次弯矩','由预加力Np在后张法预应力混凝土连续梁等超静定结构中产生的次弯矩')),
-        ('wlim',('<i>w</i><sub>lim</sub>','mm',0.2,'裂缝宽度限值')),
-        ('C1',('<i>C</i><sub>1</sub>','',1.0,'钢筋表面形状系数','对光面钢筋，C1=1.4；对带肋钢筋，C1=1.0')),
-        ('C3',('<i>C</i><sub>3</sub>','',1.0,'与构件受力性质有关的系数','钢筋混凝土板式受弯构件C3=1.15，其它受弯构件C3=1.0，轴心受拉构件C3=1.2，偏心受拉构件C3=1.1，偏心受压构件C3=0.9')),
-        ))
-    __deriveds__ = OrderedDict((
-        ('h0',('<i>h</i><sub>0</sub>','mm',900,'截面有效高度')),
-        ('rs',('<i>r</i><sub>s</sub>','mm',500,'纵向钢筋至圆心距离')),
-        ('C2',('<i>C</i><sub>2</sub>','',1.0,'荷载长期效应影响系数')),
-        ('e0',('<i>e</i><sub>0</sub>','mm',0,'轴向力Ns的偏心距')),
-        ('ηs',('<i>η</i><sub>s</sub>','',0,'使用阶段的偏心距增大系数')),
-        ('es',('<i>e</i><sub>s</sub>','mm',0,'轴向压力作用点至纵向受拉钢筋合力点的距离')),
-        ('e',('<i>e</i>','mm',0,'轴向压力作用点至纵向受拉钢筋合力点的距离','公式6.4.4-12')),
-        ('γf_',('<i>γ</i><sub>f</sub><sup>\'</sup>','',0,'受压翼缘截面面积与腹板有效截面面积的比值')),
-        ('z',('<i>z</i>','mm',0,'纵向受拉钢筋合力点至截面受压区合力点的距离','不大于0.87h0')),
-        ('σss',('<i>σ</i><sub>ss</sub>','MPa',0,'钢筋应力')),
-        ('β',('<i>β</i>','',0,'构件纵向受拉钢筋对裂缝贡献的系数')),
-        ('ρte',('<i>ρ</i><sub>te</sub>','',0,'纵向受拉钢筋的有效配筋率')),
-        ('Ate',('<i>A</i><sub>te</sub>','mm<sup>2</sup>',0,'有效受拉混凝土截面面积')),
-        ('es_',('<i>e</i><sub>s</sub><sup>\'</sup>','mm','轴向拉力作用点至受压区或受拉较小边纵向钢筋合力点的距离')),
-        ('Wcr',('<i>W</i><sub>cr</sub>','mm',0,'最大裂缝宽度')),
-        ('eql',('','',0,'')),
-        ))
-    __toggles__ = OrderedDict((
-        ('option',{'review':(),'design':('As')}),
-        ('case',{
+        ('ys_','<i>y</i><sub>s</sub><sup>\'</sup>','mm',0,'截面重心至受拉较小或受压钢筋距离'),
+        ('As','<i>A</i><sub>s</sub>','mm<sup>2</sup>',0,'受拉钢筋面积'),
+        ('Ap','<i>A</i><sub>p</sub>','mm<sup>2</sup>',0,'受拉预应力筋面积'),
+        ('Nl','<i>N</i><sub>l</sub>','kN',0,'准永久组合轴力','作用准永久组合计算的轴力值'),
+        ('Ml','<i>M</i><sub>l</sub>','kN·m',0,'准永久组合弯矩','作用准永久组合计算的弯矩值'),
+        ('Ns','<i>N</i><sub>s</sub>','kN',0,'频遇组合轴力','作用频遇组合计算的轴力值'),
+        ('Ms','<i>M</i><sub>s</sub>','kN·m',0,'频遇组合弯矩','作用频遇组合计算的弯矩值'),
+        ('Np0','<i>N</i><sub>p0</sub>','kN',0,'预应力和普通钢筋的合力',\
+            '混凝土法向预应力等于零时预应力钢筋和普通钢筋的合力'),
+        ('ep','<i>e</i><sub>p</sub>','mm',0,'Np0作用点至受力筋合力点的距离',\
+            '混凝土法向应力等于零时，纵向预应力钢筋和普通钢筋的合力Np0的作用点至受拉区纵向预应力钢筋和普通钢筋合力点的距离'),
+        ('Mp2','<i>M</i><sub>p2</sub>','kN·m',0,'预加力Np产生的次弯矩','由预加力Np在后张法预应力混凝土连续梁等超静定结构中产生的次弯矩'),
+        ('wlim','<i>w</i><sub>lim</sub>','mm',0.2,'裂缝宽度限值'),
+        ('C1','<i>C</i><sub>1</sub>','',1.0,'钢筋表面形状系数','对光面钢筋，C1=1.4；对带肋钢筋，C1=1.0'),
+        ('C3','<i>C</i><sub>3</sub>','',1.0,'与构件受力性质有关的系数','钢筋混凝土板式受弯构件C3=1.15，其它受弯构件C3=1.0，轴心受拉构件C3=1.2，偏心受拉构件C3=1.1，偏心受压构件C3=0.9'),
+    ]
+    __deriveds__ = [
+        ('h0','<i>h</i><sub>0</sub>','mm',900,'截面有效高度'),
+        ('rs','<i>r</i><sub>s</sub>','mm',500,'纵向钢筋至圆心距离'),
+        ('C2','<i>C</i><sub>2</sub>','',1.0,'荷载长期效应影响系数'),
+        ('e0','<i>e</i><sub>0</sub>','mm',0,'轴向力Ns的偏心距'),
+        ('ηs','<i>η</i><sub>s</sub>','',0,'使用阶段的偏心距增大系数'),
+        ('es','<i>e</i><sub>s</sub>','mm',0,'轴向压力作用点至纵向受拉钢筋合力点的距离'),
+        ('e','<i>e</i>','mm',0,'轴向压力作用点至纵向受拉钢筋合力点的距离','公式6.4.4-12'),
+        ('γf_','<i>γ</i><sub>f</sub><sup>\'</sup>','',0,'受压翼缘截面面积与腹板有效截面面积的比值'),
+        ('z','<i>z</i>','mm',0,'纵向受拉钢筋合力点至截面受压区合力点的距离','不大于0.87h0'),
+        ('σss','<i>σ</i><sub>ss</sub>','MPa',0,'钢筋应力'),
+        ('β','<i>β</i>','',0,'构件纵向受拉钢筋对裂缝贡献的系数'),
+        ('ρte','<i>ρ</i><sub>te</sub>','',0,'纵向受拉钢筋的有效配筋率'),
+        ('Ate','<i>A</i><sub>te</sub>','mm<sup>2</sup>',0,'有效受拉混凝土截面面积'),
+        ('es_','<i>e</i><sub>s</sub><sup>\'</sup>','mm','轴向拉力作用点至受压区或受拉较小边纵向钢筋合力点的距离'),
+        ('Wcr','<i>W</i><sub>cr</sub>','mm',0,'最大裂缝宽度'),
+        ('eql','','',0,''),
+    ]
+    __toggles__ = [
+        'option',{'review':(),'design':('As',)},
+        'case',{
             'rect':('r','rs', 'Ap','Np0','ep','Mp2'),
             'round':('b','h','bf','hf','bf_','hf_','ys','ys_','as_', 'Ap','Np0','ep','Mp2'),
             'ps':('force_type', 'b','h','bf','hf','bf_','hf_','ys','ys_','r','rs','l0','Nl','Ns')
-            }),
+            },
         # 'force_type' can be disabled by 'case'
-        ('force_type',{
+        'force_type',{
             'BD':('l0','Nl','Ns','ys','ys_','as_'),
             'EC':('ys_',),
             'ET':('l0','ys'),
             'AT':('Ml','Ms','l0','ys','ys_','as_')
-            }),
-        ))
+            },
+    ]
 
     @staticmethod
     def f_Wcr(C1,C2,C3,σss,Es,c,d,ρte):
@@ -255,6 +255,12 @@ class crack_width(abacus):
                 self.Ap,self.As,self.ep)
         else:
             raise InputError(self, 'case', '不支持的参数值')
+        self._ρte = self.ρte
+        # ρte 参数解释
+        if self.ρte > 0.1:
+            self.ρte = 0.1
+        if self.ρte < 0.01:
+            self.ρte = 0.01
         c = 50 if self.c > 50 else self.c
         self.Wcr=self.f_Wcr(self.C1,self.C2,self.C3,self.σss,self.Es, c, self.d,self.ρte)
         return self.Wcr
@@ -307,7 +313,12 @@ class crack_width(abacus):
         yield '系数:'
         yield self.formatx('C1', 'C2', 'C3', digits=digits)
         yield '钢筋:'
-        yield self.formatx('c', 'a_s', 'd', 'As','Ap',digits=digits)
+        yield self.formatx('a_s', 'd', 'As','Ap',digits=digits)
+        yield '{}{}'.format(
+            self.format('c', digits = digits),
+            ' > 50 mm，故取{}。'.format(self.format('c', omit_name=True, value=50, digits = 2))\
+                if self.c > 50 else ''
+            )
         yield self.format('Es',digits=None)
         if self.case == 'rect':
             yield '构件尺寸:'
@@ -315,7 +326,11 @@ class crack_width(abacus):
             yield self.format('h0', omit_name = True, digits=None)
             yield self.format('Ate',eq='2*a_s*{}'.format('bf' if self.bf>0 else 'b'))
             eq = 'β·As/π/(r<sup>2</sup>-r<sub>1</sub><sup>2</sup>)' if self.case == 'round' else 'As/Ate'
-            yield self.format('ρte',eq=eq, digits = 3)
+            yield '{}{}'.format(
+                self.format('ρte',eq=eq, value=self._ρte, digits = 3),
+                '，超出0.01~0.1范围，故取{}。'.format(self.format('ρte', omit_name=True, digits = 2))\
+                    if self._ρte > 0.1 or self._ρte < 0.01 else ''
+                )
             yield self.format('force_type')
             if self.force_type == 'EC' or self.force_type == 'ET':
                 yield self.format('e0',digits=digits)
@@ -361,15 +376,29 @@ class crack_width(abacus):
         ok = self.Wcr<self.wlim or abs(self.Wcr-self.wlim)<0.001
         if self.σss <= 0:
             yield '故全截面处于受压状态。'
-            yield '{} {} {}，{}满足规范要求。'.format(
-            self.format('Wcr', value=0), '≤' if ok else '&gt;',
-            self.format('wlim', omit_name=True), '' if ok else '不')
+            # yield '{} {} {}，{}满足规范要求。'.format(
+            # self.format('Wcr', value=0), '≤' if ok else '&gt;',
+            # self.format('wlim', omit_name=True), '' if ok else '不')
+            yield self.format_conclusion(
+                ok,
+                self.format('Wcr', value=0),
+                '≤' if ok else '&gt;',
+                self.format('wlim', omit_name=True),
+                '{}满足规范要求。'.format('' if ok else '不')
+            )
         else:
-            wcr = self.para_attrs('Wcr')
-            yield self.format('Wcr', eq='C1·C2·C3·σss/Es·(c+d)/(0.36+1.7·ρte)',digits=digits)
-            yield '{} {} {}，{}{}满足规范要求。'.format(
-                wcr.symbol, '≤' if ok else '&gt;',
-                self.format('wlim', omit_name=True), wcr.name, '' if ok else '不')
+            # wcr = self.para_attrs('Wcr')
+            # yield self.format('Wcr', eq='C1·C2·C3·σss/Es·(c+d)/(0.36+1.7·ρte)',digits=digits)
+            # yield '{} {} {}，{}{}满足规范要求。'.format(
+            #     wcr.symbol, '≤' if ok else '&gt;',
+            #     self.format('wlim', omit_name=True), wcr.name, '' if ok else '不')
+            yield self.format_conclusion(
+                ok,
+                self.format('Wcr', eq='C1·C2·C3·σss/Es·(c+d)/(0.36+1.7·ρte)',digits=digits+1),
+                '≤' if ok else '&gt;',
+                self.format('wlim', omit_name=True),
+                '{}满足规范要求。'.format('' if ok else '不')
+            )
             
     def _html_As(self,digits=2):
         yield '构件受力类型: '

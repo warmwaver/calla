@@ -698,8 +698,8 @@ class eccentric_compression(gb_eccentric_compression, material_base):
                 self.Es, self.fsd, self.As, self.es, self.fsd_, self.As_, self.as_, self.es_, 
                 self.Ep, self.fpd, self.σp0, self.Ap, self.ep, self.fpd_, self.σp0_, self.Ap_, self.ap_, self.ep_,
                 self.εcu, self.ξb) 
-            self.σs = self.f_σsi(self.β, self.Es, self.εcu, self.h0, self.x)
-            self.σp = self.f_σpi(self.β, self.Ep, self.εcu, self.h0, self.x, self.σp0)
+            self.σs = self.f_σsi(self.β, self.Es, self.εcu, self.h0, self.x) if self.x > 0 else 0
+            self.σp = self.f_σpi(self.β, self.Ep, self.εcu, self.h0, self.x, self.σp0) if self.x > 0 else 0
             self.Nu = Nu/1000 #kN
             self.Mu = self.fMu(
                 1.0, self.fcd,self.b,self.x,self.h0,self.fsd_,self.As_,self.as_,
@@ -1367,8 +1367,8 @@ class eccentric_tension(abacus, material_base):
         ('Mu_',('','kN·m',0,'截面受弯承载力')),
         ('Nud',('','kN',0,'抗拉承载力')),
         ('γ0Nd',('','kN',0,'')),
-        ('γ0Nde',('','kN',0,'')),
-        ('γ0Nde_',('','kN',0,'')),
+        ('γ0Nde',('','kN·m',0,'')),
+        ('γ0Nde_',('','kN·m',0,'')),
         ('γ0Md',('','kN·m',0,'')),
         ('eqr',('','mm',0,''))
         ))
@@ -1387,7 +1387,7 @@ class eccentric_tension(abacus, material_base):
         return fcd*b*x*(h0-x/2)+fsd_*As_*(h0-as_)+(fpd_-σp0_)*Ap_*(h0-ap_)
     
     def solve(self):
-        self.validate('positive', 'b', 'h')
+        self.validate('positive', 'b', 'h', 'Nd')
         b=self.b; h = self.h; Nd=self.Nd; Md=self.Md
         fcd=self.fcd
         fsd=self.fsd; As=self.As; a_s=self.a_s
@@ -1405,13 +1405,15 @@ class eccentric_tension(abacus, material_base):
         if not self.large_eccentric: # 小偏心受拉
             self.γ0Nde = self.γ0*Nd*(-e)*1e-3
             self.γ0Nde_ = self.γ0*Nd*e_*1e-3
-            self.Mu = fsd*As_*(h0-as_)+fpd*Ap_*(h0-ap_)
-            self.Mu_ = fsd*As*(h0_-as_)+fpd*Ap_*(h0-ap_)
+            Mu = fsd*As_*(h0-as_)+fpd*Ap_*(h0-ap_)
+            Mu_ = fsd*As*(h0_-as_)+fpd*Ap_*(h0-ap_)
+            self.Mu = Mu*1e-6 # kNm
+            self.Mu_ = Mu_*1e-6 # kNm
         else: # 大偏心受拉
             self.γ0Nd = self.γ0*Nd
             x = (fsd*As+fpd*Ap-fsd_*As_-(fpd_-σp0_)*Ap_-self.γ0Nd)/(fcd*b)
-            self.Nu = self.f_Nu(fcd,b,x,fsd,As,fsd_,As_,fpd, Ap,fpd_,σp0_,Ap_)
-            self.Mu = self.f_Mu(fcd, b, x, h0, fsd_, As_, as_,fpd_,σp0_,Ap_,Ap,ap_)
+            self.Nu = self.f_Nu(fcd,b,x,fsd,As,fsd_,As_,fpd, Ap,fpd_,σp0_,Ap_)*1e-3 # kN
+            self.Mu = self.f_Mu(fcd, b, x, h0, fsd_, As_, as_,fpd_,σp0_,Ap_,Ap,ap_)*1e-6 # kNm
             self.γ0Nde = self.γ0*Nd*e*1e-3
             self.ξ = x/h0
             self.ξb = f_ξb(fcd, fsd) #TODO: 增加预应力计算
@@ -1442,7 +1444,7 @@ class eccentric_tension(abacus, material_base):
                     self.Mu = fMu2(
                         self.h, self.fsd, self.As, self.a_s, self.as_, self.fpd, self.Ap, self.ap,
                         self.fpd_, self.σp0_, self.Ap_, self.ap_
-                        )*1e-6 # kNm
+                        )*1e-6
         self.a=a; self.a_=a_; self.h0=h0; self.h0_=h0_
         self.e0=e0; self.e=e
 
@@ -1918,7 +1920,8 @@ class torsion(abacus, material_base):
             '预应力钢筋和普通钢筋的合力对换算截面重心轴的偏心距，预应力构件按式(6.1.7-2)计算')),
         ('Np0',('<i>N</i><sub>p0</sub>','kN',100,'预应力和普通钢筋的合力',\
             '混凝土法向预应力等于零时预应力钢筋和普通钢筋的合力')),
-        ('A0',('<i>A</i><sub>0</sub>','mm<sup>2</sup>',0,'构件的换算截面面积')),
+        ('A0',('<i>A</i><sub>0</sub>','mm<sup>2</sup>',0,'构件的换算截面面积',\
+            '预应力及普通钢筋换算成混凝土后的总截面面积')),
         ))
     __deriveds__ = OrderedDict((
         ('fcv',('<i>f</i><sub>cv</sub>','MPa',0,'名义剪应力设计值')),
@@ -1999,6 +2002,7 @@ class torsion(abacus, material_base):
         self.validate('positive','Asv1', 'fcuk', 'ρ','bcor','hcor')
         if self.option:
             self.validate('positive', 'A0')
+        Np0 = self.Np0; A0=self.A0
         Vd = self.Vd*1e3
         Td = self.Td*1e6
         self.Acor=self.bcor*self.hcor
@@ -2023,7 +2027,7 @@ class torsion(abacus, material_base):
                 self.Wtf = self.hf**2/2*(self.bf-self.b)
             else:
                 self.Wtf = 0
-            self.Wt = self.Wtw+self.Wtf_+self.Wtf
+            self.Wt = Wt = self.Wtw+self.Wtf_+self.Wtf
         # 5.5.1 抗扭承载力
         self.βa = 1.0
         if (self.t2 >= 0.1*self.b and self.t2 <= 0.25*self.b) or \
@@ -2041,7 +2045,7 @@ class torsion(abacus, material_base):
         self.Tu = self.fTu(
             h, self.βa,self.ftd,self.Wt, self.ζ, self.fsv, self.Asv1,
             self.Acor, self.sv)/1e6
-        if self.option and ep0 <= h/6 and ζ >= 1.7:
+        if self.option and self.ep0 <= h/6 and ζ >= 1.7:
             # 5.5.1 说明
             Tu += 0.05*Np0/A0*Wt
         # 5.5.3 截面验算
@@ -2061,8 +2065,8 @@ class torsion(abacus, material_base):
         self.ρsv = 0 if self.sv == 0 else self.Asv/self.sv/b
         self.Vut = self.fVut(
             self.α1,self.α2,self.α3, self.βt, b,self.h0,self.fcuk, self.P, self.ρsv, self.fsv)
-        Np0 = self.Np0; A0=self.A0
-        if self.ep0 <= self.h/6 and self.ζ >= 1.7:
+        
+        if self.option == False or (self.ep0 <= self.h/6 and self.ζ >= 1.7):
             Np0 = 0; A0=1
         self.Tut = self.fTut(
             self.βt, self.βa,self.ftd, Wt, self.ζ, self.fsv, self.Asv1,
@@ -2185,7 +2189,7 @@ class local_pressure(abacus, material_base):
         ('n1',('<i>n</i><sub>1</sub>','',0,'方格网沿<i>l</i><sub>1</sub>方向的钢筋根数')),
         ('As1',('<i>A</i><sub>s1</sub>','mm<sup>2</sup>',0,'方格网沿<i>l</i><sub>1</sub>方向单根钢筋的截面面积')),
         ('l2',('<i>l</i><sub>2</sub>','mm',0,'方格网尺寸')),
-        ('n2',('<i>n</i><sub>1</sub>','',0,'方格网沿<i>l</i><sub>2</sub>方向的钢筋根数')),
+        ('n2',('<i>n</i><sub>2</sub>','',0,'方格网沿<i>l</i><sub>2</sub>方向的钢筋根数')),
         ('As2',('<i>A</i><sub>s2</sub>','mm<sup>2</sup>',0,'方格网沿<i>l</i><sub>2</sub>方向单根钢筋的截面面积')),
         ('Ass1',('<i>A</i><sub>ss1</sub>','mm<sup>2</sup>',0,'单根螺旋形间接钢筋的截面面积')),
         ('dcor',('<i>d</i><sub>cor</sub>','mm',0,'混凝土核芯面积的直径','螺旋形间接钢筋内表面范围内混凝土核芯面积的直径')),
@@ -2194,8 +2198,9 @@ class local_pressure(abacus, material_base):
     __deriveds__ = OrderedDict((
         ('ηs',('<i>η</i><sub>s</sub>','',1.0,'混凝土局部承压修正系数')),
         ('β',('<i>β</i>','',0,'混凝土局部承压强度提高系数')),
-        ('βcor',('<i>β</i><sub>cor</sub>','kN',0,'','配置间接钢筋时局部抗压承载力提高系数')),
-        ('k',('<i>V</i><sub>sb</sub>','kN',0,'','间接钢筋影响系数')),
+        ('βcor',('<i>β</i><sub>cor</sub>','',0,'配置间接钢筋时局部抗压承载力提高系数')),
+        ('k',('<i>k</i>','',0,'间接钢筋影响系数')),
+        ('ρv',('<i>ρ</i><sub>v</sub>','',0,'间接钢筋体积配箍率','核心面积Acor范围内单位混凝土体积所含间接钢筋的体积')),
         ))
     __toggles__ = {
         'concrete': material_base.material_toggles['concrete'],
@@ -2240,12 +2245,13 @@ class local_pressure(abacus, material_base):
         if self.rebar_shape == '方格网':
             self.ρv = self.f_ρv1(self.n1,self.As1,self.l1,self.n2,self.As2,self.l2,self.Acor,self.s)
         else:
+            self.validate('positive', 'dcor')
             self.ρv = self.f_ρv2(self.Ass1,self.dcor,self.s)
         self.Flud2 = self.f_Flud2(self.ηs,self.β,self.fcd,self.k,self.ρv,self.βcor,self.fsd,self.Aln)/1000
 
     def _html(self, digits=2):
         disableds = self.disableds()
-        for attr in self.inputs:
+        for attr in self._inputs_:
             if hasattr(self, attr) and (not attr in disableds):
                 yield self.format(attr, digits = None)
         Fl = self.γ0*self.Fld
@@ -2254,6 +2260,10 @@ class local_pressure(abacus, material_base):
         yield self.format('β',digits)
         yield self.format('fcd')
         yield self.format('fsd')
+        yield self.format('k',digits)
+        eq = '(n1*As1*l1+n2*As2*l2)/Acor/s' if self.rebar_shape == '方格网' else '4*Ass1/dcor/s'
+        yield self.format('ρv',digits, eq=eq)        
+        yield self.format('βcor')
         yield '{} {} {} = {} kN， {}满足规范第5.7.1条要求。'.format(
             self.replace_by_symbols('γ0·Fld'), '≤' if ok else '&gt;',
             self.replace_by_symbols('1.3·ηs·β·fcd·Aln'), 

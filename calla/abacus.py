@@ -7,6 +7,7 @@ __all__ = [
     ]
 
 from calla.html import html2text
+from collections import OrderedDict
     
 def replace_by_aliases(expression, aliases):
     """
@@ -59,7 +60,7 @@ class abacus:
         'alias' is usually in html style that can be displayed better in browser.
         'choices' is optional, valid for multi-select parameters.
         """
-        self._inputs_ = {}
+        self._inputs_ = OrderedDict()
         if hasattr(self, '__inputs__'):
             if isinstance(self.__inputs__, list):
                 for item in self.__inputs__:
@@ -77,12 +78,26 @@ class abacus:
                         if not hasattr(self, k):
                             v = infos[2] if len(infos) > 2 else 0
                             setattr(self, k, v)
+
+        # initialize toggles
+        if hasattr(self, '__toggles__'):
+            if isinstance(self.__toggles__, list):
+                self._toggles_ = OrderedDict()
+                count = int(len(self.__toggles__)/2)
+                for i in range(count):
+                    k = self.__toggles__[2*i]
+                    v = self.__toggles__[2*i+1]
+                    if isinstance(k, str) and isinstance(v, dict):
+                        self._toggles_[k] = v
+            else:
+                self._toggles_ = self.__toggles__
+
         # initialize parameters by inputs
         self.inputs = inputs
 
     def _init_deriveds_(self):
         if not hasattr(self, '_deriveds_'):
-            self._deriveds_ = {}
+            self._deriveds_ = OrderedDict()
             if hasattr(self, '__deriveds__'):
                 if isinstance(self.__deriveds__, list):
                     for item in self.__deriveds__:
@@ -112,26 +127,27 @@ class abacus:
     @inputs.setter
     def inputs(self, values):
         """ Set value for inputs """
-        def _setvalue(cls, values, key):
-            v = values[key]
+        def _setvalue(cls, key, value):
             t = type(getattr(cls,key))
-            if t is bool and not isinstance(v, bool):
-                v = True if str(v) == 'True' else False 
-            setattr(cls, key, v)
+            if t is bool and not isinstance(value, bool):
+                value = True if str(value) == 'True' else False 
+            setattr(cls, key, value)
 
         for key in values:
             if hasattr(self, key):
-                _setvalue(self, values, key)
+                _setvalue(self, key, values[key])
+
         # toggles may reset the value of some disabled inputs
-        if (hasattr(self, '__toggles__')):
-            for key in self.__toggles__:
+        if hasattr(self, '__toggles__'):
+            for key in self._toggles_:
                 if key in values:
-                    _setvalue(self, values, key)
+                    _setvalue(self, key, values[key])
 
     def deriveds(self):
         """ Get a dictionary of derived parameters. """
-        return { attr:(getattr(self, attr) if hasattr(self, attr) else 0) for attr in self.__deriveds__} if hasattr(self, '__deriveds__') else None
+        return { attr:(getattr(self, attr) if hasattr(self, attr) else 0) for attr in self._deriveds_} if hasattr(self, '__deriveds__') else None
 
+    @property
     def parameters(self):
         """ Get a dictionary of all parameters. """
         paras = self.inputs
@@ -196,14 +212,14 @@ class abacus:
         ['As']
         """
         r = []
-        if not hasattr(self,'__toggles__'):
+        if not hasattr(self,'_toggles_'):
             return r
-        for key in self.__toggles__:
+        for key in self._toggles_:
             # A latter toggle can be diabled by a previous toggle,
             # together with its' toggle function.
             if key in r: 
                 continue
-            choices = self.__toggles__[key]
+            choices = self._toggles_[key]
             if hasattr(self, key):
                 v = getattr(self, key)
                 if v not in choices:
@@ -236,7 +252,7 @@ class abacus:
                 return '{} = {}'.format(parameter, value)
             # use choices' value to substitude parameter value
             if info.choices:
-                if type(info.choices) is dict and value in info.choices:
+                if isinstance(info.choices, dict) and value in info.choices:
                     value = info.choices[value]
             s = ''
             if not omit_name:
@@ -312,11 +328,31 @@ class abacus:
             s += sep_names
         return s[:len(s)-len(sep_names)]
 
+    def format_conclusion(self, ok: bool, eq_left, comparison_symbol, eq_right, message: str=None):
+        if not message:
+            message = '{}满足规范要求。'.format('' if ok else '不')
+        return '<span class="conclusion_{}">{} {} {}，{}</span>'.format(
+            'ok' if ok else 'ng', eq_left, comparison_symbol, eq_right, message
+            )
+
     @staticmethod
     def create_param_object(attrs: tuple):
         """create parameter object with dynamic type"""
         if isinstance(attrs, tuple):
             n = len(attrs)
+            _choices = None
+            if n > 6:
+                _choices_origin = attrs[6]
+                if isinstance(_choices_origin, list):
+                    _choices = OrderedDict()
+                    for item in _choices_origin:
+                        if isinstance(item, tuple):
+                            _choices[item[0]] = item[1]
+                    if len(_choices) < 1: # if isinstance(_choices_origin, dict):
+                        _choices = _choices_origin
+                else: # if isinstance(_choices_origin, dict):
+                    _choices = _choices_origin
+
             para_obj = type(
                 'param', (object,),
                 dict(
@@ -325,11 +361,12 @@ class abacus:
                     default_value=attrs[3] if n > 3 else None,
                     name=attrs[4] if n > 4 else '',
                     description=attrs[5] if n > 5 else '',
-                    choices=attrs[6] if n > 6 else None
+                    choices=_choices
                 ))
             return para_obj()
         return None
 
+    # TODO: 不适用于新的初始化格式，需改造
     @classmethod
     def para_attrs(self, parameter):
         """get attributes of parameter"""
@@ -437,12 +474,12 @@ class abacus:
         html format reports.
         """
         disableds = self.disableds()
-        if hasattr(self, '__inputs__'):
-            for attr in self.__inputs__:
+        if hasattr(self, '_inputs_'):
+            for attr in self._inputs_:
                 if hasattr(self, attr) and (not attr in disableds):
                     yield self.format(attr, digits = None)
-        if hasattr(self, '__deriveds__'):
-            for attr in self.__deriveds__:
+        if hasattr(self, '_deriveds_'):
+            for attr in self._deriveds_:
                 if hasattr(self, attr) and (not attr in disableds):
                     yield self.format(attr, digits = digits)
         

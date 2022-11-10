@@ -21,7 +21,7 @@ class Pile(abacus, material_base):
     《公路桥涵地基与基础设计规范》（JTG D63-2007）
     """
     _forces_sample_ = (0, 0, 0, 0, 0, 0)
-    _forces_notes_ = '荷载定义: (Fx, Fy, Fz, Mx, My, Mz), x,y,z为柱局部坐标，x为轴向。'
+    _forces_notes_ = '荷载定义: (Fx, Fy, Fz, Mx, My, Mz), x,y,z为柱局部坐标，x为轴向，轴力Fx受拉为正，受压为负。'
 
     __title__ = '弹性桩验算'
     __inputs__ = OrderedDict((
@@ -47,7 +47,10 @@ class Pile(abacus, material_base):
         ('C0',('<i>C</i><sub>0</sub>','kN/m<sup>3</sup>',300000,'桩端地基竖向抗力系数',
         '非岩石地基C0=m0*h, h≥10；岩石地基查表P.0.2-2')),
         ('bottom_fixed',('桩底嵌固','',False,'', '', {True:'是',False:'否'})),
+        ('de',('<i>d</i><sub>e</sub>','mm',25,'纵向受拉钢筋等效直径')),
         ('As',('<i>A</i><sub>s</sub>','mm<sup>2</sup>',0,'纵向受拉钢筋面积')),
+        ('c',('<i>c</i>','mm',30,'最外排纵向受拉钢筋的混凝土保护层厚度','当c > 50mm 时，取50mm')),
+        ('a_s',('<i>a</i><sub>s</sub>','mm',60,'受拉钢筋重心至受拉边缘的距离','圆形截面为单根钢筋中心到构件边缘的距离')),
         # 岩土参数
         ('layers',('地层名称','',('填土','粘土','中风化砂岩'),'','输入各地层名称，示例：(填土,淤泥,粘土,强风化砂岩)')),
         ('li',('<i>l</i><sub>i</sub>','m',(3,5,6),'土层厚度','输入各地层厚度，之间用逗号隔开')),
@@ -81,7 +84,11 @@ class Pile(abacus, material_base):
         ('R',('<i>R</i>','kN',0,'桩底竖向力')),
         ))
     __toggles__ = {
+        'bottom_fixed':{True:('fa0',), False:('frk',)}
         }
+    # __toggles__ = [
+    #     'bottom_fixed',{True:'frk'}
+    # ]
     __toggles__.update(material_base.material_toggles)
 
     def solve(self):
@@ -94,7 +101,9 @@ class Pile(abacus, material_base):
         # 基本组合
         lc = loads.load_combination
         forces_fu = wrapforces(self.forces_fu)
+
         def _fMax(force):
+            '计算桩中最大弯矩及所在位置'
             # y方向
             pe.H0 = force.Fy
             pe.M0 = force.Mz
@@ -107,7 +116,7 @@ class Pile(abacus, material_base):
             pe.solve()
             Mzmax = pe.Mmax
             zz = pe.z_Mmax
-            Mmax = max(Mymax, Mzmax) # sqrt(Mymax**2 + Mzmax**2)
+            Mmax = max(abs(Mymax), abs(Mzmax)) # max(Mymax, Mzmax) # sqrt(Mymax**2 + Mzmax**2)
             z = zy if Mymax > Mzmax else zz
             return (Mmax,z)
         M,z = _fMax(forces_fu)
@@ -157,7 +166,7 @@ class Pile(abacus, material_base):
             option='review', case='round', force_type='EC',
             Es=material.rebar.Es(self.rebar),
             fcuk=material.concrete.fcuk(self.concrete),
-            d=28,C=30,r=r,rs=r-60,l=1000,l0=1000,
+            d=self.de,c=self.c,a_s=self.a_s,r=r,rs=r-self.a_s,l=self.h,l0=l0,
             As=self.As,
             Nl=abs(forces_l.Fx), # 暂不考虑桩基重力
             Ml=abs(Ml),

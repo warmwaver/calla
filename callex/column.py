@@ -30,6 +30,7 @@ class FreeTopColumnForce(abacus):
     __inputs__ = OrderedDict([
         ('code',('规范','','JTG','','',{'GB':'国家标准(GB)','JTG':'交通行业规范(JTG)','TB':'铁路行业规范(TB)'})),
         ('section',('截面形状','','rectangle','','',{'rectangle':'矩形或倒T形','Tshape':'T形或I形','round':'圆形'})),
+        # TODO: Don't use such complicated input, make it easy!
         ('loads', ('', 'kN,m', _loads_sample_, '节点荷载',
         '''荷载定义: [(type, location, (Fx, Fy, Fz, Mx, My, Mz)), ...]
         type: dead, live, wind, temperature, accident, earthquake
@@ -147,80 +148,87 @@ class Column(abacus):
     _forces_notes_ = '荷载定义: (Fx, Fy, Fz, Mx, My, Mz), x,y,z为柱局部坐标，x为轴向。轴力受拉为正，受压为负。'
 
     __title__ = '柱验算'
-    __inputs__ = OrderedDict([
-        ('code',('规范','','JTG','','',{'GB':'国家标准(GB)','JTG':'交通行业规范(JTG)','TB':'铁路行业规范(TB)'})),
-        ('section',('截面形状','','rectangle','','',{'rectangle':'矩形或倒T形','Tshape':'T形或I形','round':'圆形'})),
-        ('forces_fu', ('', 'kN,m', _forces_sample_, '基本组合内力',_forces_notes_)),
-        ('forces_ac', ('', 'kN,m', _forces_sample_, '偶然组合内力',_forces_notes_)),
-        ('forces_fr', ('', 'kN,m', _forces_sample_, '频遇组合内力',_forces_notes_)),
-        ('forces_qp', ('', 'kN,m', _forces_sample_, '准永久组合内力',_forces_notes_)),
-        ('N',('<i>N</i>','kN',0,'轴力','轴力设计值，拉力为正，压力为负。TB规范下输入(主力，主力+附加力，主力+地震力)组合值')),
-        ('M',('<i>M</i>','kN·m',0,'弯矩','弯矩设计值。TB规范下输入(主力，主力+附加力，主力+地震力)组合值')),
-        ('V',('<i>V</i>','kN',0,'剪力设计值')),
-        ('γ0',('<i>γ</i><sub>0</sub>','',1.0,'重要性系数')),
-        ('α1',('<i>α</i><sub>1</sub>','',1,'系数')),
-        ('concrete',('混凝土','','C40','','',list(material.concrete_types))),
+    __inputs__ = [
+        ('code','规范','','JTG','','',{'GB':'国家标准(GB)','JTG':'交通行业规范(JTG)','TB':'铁路行业规范(TB)'}),
+        ('section','截面形状','','rectangle','','',{'rectangle':'矩形或倒T形','Tshape':'T形或I形','round':'圆形'}),
+        ('forces_fu', '', 'kN,m', _forces_sample_, '基本组合内力',_forces_notes_),
+        ('forces_ac', '', 'kN,m', _forces_sample_, '偶然组合内力',_forces_notes_),
+        ('forces_fr', '', 'kN,m', _forces_sample_, '频遇组合内力',_forces_notes_),
+        ('forces_qp', '', 'kN,m', _forces_sample_, '准永久组合内力',_forces_notes_),
+        # GB, JTG
+        # {'N_fu':
+        # [
+        #     ('Nx', '', 'kN,m', 0, '轴力设计值',),
+        #     ('Ny', '', 'kN,m', 0, '轴力设计值',),
+        # ]
+        # }
+        ('N','<i>N</i>','kN',0,'轴力','轴力设计值，拉力为正，压力为负。TB规范下输入(主力，主力+附加力，主力+地震力)组合值'),
+        ('M','<i>M</i>','kN·m',0,'弯矩','弯矩设计值。TB规范下输入(主力，主力+附加力，主力+地震力)组合值'),
+        ('V','<i>V</i>','kN',0,'剪力设计值'),
+        ('γ0','<i>γ</i><sub>0</sub>','',1.0,'重要性系数'),
+        ('α1','<i>α</i><sub>1</sub>','',1,'系数'),
+        ('concrete','混凝土','','C40','','',list(material.concrete_types)),
         #('fc',('<i>f</i>c','MPa',16.7)),
         #('fcuk',('<i>f</i><sub>cu,k</sub>','MPa',35)),
         # 矩形截面：
-        ('b',('<i>b</i>','mm',500,'矩形截面宽度', '沿x向尺寸')),
-        ('h',('<i>h</i>','mm',1000,'矩形截面高度', '沿y向尺寸')),
+        ('b','<i>b</i>','mm',500,'矩形截面宽度', '沿x向尺寸'),
+        ('h','<i>h</i>','mm',1000,'矩形截面高度', '沿y向尺寸'),
         #('h0',('h<sub>0</sub>','mm')),
         # T形截面：
-        ('bf',('<i>b</i><sub>f</sub>','mm',0,'受拉区翼缘计算宽度')),
-        ('hf',('<i>h</i><sub>f</sub>','mm',0,'受拉区翼缘计算高度')),
-        ('bf_',('<i>b</i><sub>f</sub><sup>\'</sup>','mm',0,'受压区翼缘计算宽度')),
-        ('hf_',('<i>h</i><sub>f</sub><sup>\'</sup>','mm',0,'受压区翼缘计算高度')),
+        ('bf','<i>b</i><sub>f</sub>','mm',0,'受拉区翼缘计算宽度'),
+        ('hf','<i>h</i><sub>f</sub>','mm',0,'受拉区翼缘计算高度'),
+        ('bf_','<i>b</i><sub>f</sub><sup>\'</sup>','mm',0,'受压区翼缘计算宽度'),
+        ('hf_','<i>h</i><sub>f</sub><sup>\'</sup>','mm',0,'受压区翼缘计算高度'),
         # 圆形截面
-        ('d',('<i>d</i>','mm',500,'圆形截面直径')),
-        ('rebar',('钢筋','','HRB400','','',material.rebar.types)),
+        ('d','<i>d</i>','mm',500,'圆形截面直径'),
+        ('rebar','钢筋','','HRB400','','',material.rebar.types),
         #material_base.ps_item,
         #('fy',('<i>f</i><sub>y</sub>','MPa',360)),
         #('fyp',('<i>f</i><sub>y</sub><sup>\'</sup>','MPa',360)),
-        ('a_s',('<i>a</i><sub>s</sub>','mm',60,'受拉钢筋距边缘距离','受拉区纵向普通钢筋合力点至受拉边缘的距离')),
-        ('as_',('<i>a</i><sub>s</sub><sup>\'</sup>','mm',60,'受压钢筋距边缘距离','受拉区纵向预应力筋合力点至受拉边缘的距离')),
+        ('a_s','<i>a</i><sub>s</sub>','mm',60,'受拉钢筋距边缘距离','受拉区纵向普通钢筋合力点至受拉边缘的距离'),
+        ('as_','<i>a</i><sub>s</sub><sup>\'</sup>','mm',60,'受压钢筋距边缘距离','受拉区纵向预应力筋合力点至受拉边缘的距离'),
         #('option',('计算选项','',0,'',{0:'计算裂缝宽度',1:'计算配筋'})),
         #('force_type',('受力类型','',0,'',{0:'受弯构件',1:'偏心受压构件',2:'偏心受拉构件',3:'轴心受拉构件'})),
         #('Es',('<i>E</i><sub>s</sub>','MPa',2.0E5,'钢筋弹性模量')),
         #('ftk',('f<sub>tk</sub>','MPa',2.2)),
-        ('cs',('<i>c</i><sub>s</sub>','mm',20,'钢筋外边距','最外层纵向受拉钢筋外边缘至受拉区底边的距离，当cs<20时，取cs=20；当cs>65时，取cs=65。')),
-        ('deq',('<i>d</i><sub>eq</sub>','mm',25,'钢筋等效直径')),
-        ('l',('<i>l</i>','mm',5000,'构件长度')),
+        ('cs','<i>c</i><sub>s</sub>','mm',20,'钢筋外边距','最外层纵向受拉钢筋外边缘至受拉区底边的距离，当cs<20时，取cs=20；当cs>65时，取cs=65。'),
+        ('deq','<i>d</i><sub>eq</sub>','mm',25,'钢筋等效直径'),
+        ('l','<i>l</i>','mm',5000,'构件长度'),
         #('l0',('<i>l</i>0','mm',0,'构件计算长度')),
         #('ys',('<i>y</i>s','mm',0,'截面重心至受拉钢筋距离','截面重心至纵向受拉钢筋合力点的距离')),
-        ('As',('<i>A</i><sub>s</sub>','mm<sup>2</sup>',(0,0),'纵向受拉钢筋面积','两侧钢筋若不同，分别输入(Asx,Asy)')),
-        ('Ap',('<i>A</i><sub>p</sub>','mm<sup>2</sup>',(0,0),'纵向受拉预应力筋面积','两侧预应力若不同，分别输入(Apx,Apy)')),
-        ('As_',('<i>A</i><sub>s</sub><sup>\'</sup>','mm<sup>2</sup>',0,'纵向受压钢筋面积')),
+        ('As','<i>A</i><sub>s</sub>','mm<sup>2</sup>',(0,0),'纵向受拉钢筋面积','两侧钢筋若不同，分别输入(Asx,Asy)'),
+        ('Ap','<i>A</i><sub>p</sub>','mm<sup>2</sup>',(0,0),'纵向受拉预应力筋面积','两侧预应力若不同，分别输入(Apx,Apy)'),
+        ('As_','<i>A</i><sub>s</sub><sup>\'</sup>','mm<sup>2</sup>',0,'纵向受压钢筋面积'),
         # JTG
-        ('c',('<i>c</i>','mm',30,'最外排纵向受拉钢筋的混凝土保护层厚度','当c > 50mm 时，取50mm')),
-        ('k',('<i>k</i>','',2,'构件计算长度系数')),
+        ('c','<i>c</i>','mm',30,'最外排纵向受拉钢筋的混凝土保护层厚度','当c > 50mm 时，取50mm'),
+        ('k','<i>k</i>','',2,'构件计算长度系数'),
         # ('Nl',('<i>N</i><sub>l</sub>','kN',0,'作用长期效应组合轴力')),
         # ('Ml',('<i>M</i><sub>l</sub>','kN·m',0,'作用长期效应组合弯矩')),
         # ('Ns',('<i>N</i><sub>s</sub>','kN',0,'作用短期效应组合轴力')),
         # ('Ms',('<i>M</i><sub>s</sub>','kN·m',0,'作用短期效应组合弯矩')),
         # ('V',('<i>V</i>','kN',0,'剪力设计值')),
         # GB
-        ('Nq',('<i>N</i><sub>q</sub>','kN',0,'轴力','按荷载准永久组合计算的轴向力值')),
-        ('Mq',('<i>M</i><sub>q</sub>','kN·m',0,'弯矩','按荷载准永久组合计算的弯矩值')),
-        ('bear_repeated_load',('承受重复荷载','',0)),
-        ('wlim',('<i>w</i><sub>lim</sub>','mm',0.2,'裂缝宽度限值')),
+        ('Nq','<i>N</i><sub>q</sub>','kN',0,'轴力','按荷载准永久组合计算的轴向力值'),
+        ('Mq','<i>M</i><sub>q</sub>','kN·m',0,'弯矩','按荷载准永久组合计算的弯矩值'),
+        ('bear_repeated_load','承受重复荷载','',0),
+        ('wlim','<i>w</i><sub>lim</sub>','mm',0.2,'裂缝宽度限值'),
         # TB
-        ('n',('<i>n</i>','',1,'钢筋与混凝土模量比值','钢筋的弹性模量与混凝土的变形模量之比')),
-        ('M1',('M<sub>1</sub>','kN·m',0,'活载作用下的弯矩')),
-        ('M2',('M<sub>2</sub>','kN·m',0,'恒载作用下的弯矩'))
-        ])
-    __toggles__ = {
-        'code':{
+        ('n','<i>n</i>','',1,'钢筋与混凝土模量比值','钢筋的弹性模量与混凝土的变形模量之比'),
+        ('M1','M<sub>1</sub>','kN·m',0,'活载作用下的弯矩'),
+        ('M2','M<sub>2</sub>','kN·m',0,'恒载作用下的弯矩')
+        ]
+    __toggles__ = [
+        'code',{
             'GB':('n','M1','M2','Nl','Ml','Ns','Ms','N','M','V'),
             'JTG':('α1','Nq','Mq','bear_repeated_load','n','M1','M2','cs','N','M','V'),
             'TB':('γ0','α1','Nq','Mq','bear_repeated_load','Nl','Ml','Ns','Ms','cs')
             },
-        'section':{
+        'section',{
             'rectangle':('d','bf','hf','bf_','hf_'),
             'Tshape':('d'),
             'round':('b','h','bf','hf','bf_','hf_','As_'),
             },
-        }
+    ]
 
     def solve_GB(self):
         paras = self.inputs
@@ -348,11 +356,11 @@ class Column(abacus):
         else:
             Md = forces_uls.My
         if self.code == 'GB':
-            bc.N = sqrt(Nd)
-            bc.M = sqrt(Md)
+            bc.N = abs(Nd)
+            bc.M = abs(Md)
         else:
-            bc.Nd = sqrt(Nd)
-            bc.Md = sqrt(Md)
+            bc.Nd = abs(Nd)
+            bc.Md = abs(Md)
         bc.b = self.h
         bc.h = self.b
         bc.h0 = self.b - self.as_
@@ -365,7 +373,7 @@ class Column(abacus):
         # y方向偏心弯曲验算
         if self.section != 'round':
             bcy = copy.copy(bc)
-            Md = sqrt(forces_uls.Mz)
+            Md = abs(forces_uls.Mz)
             if self.code == 'GB':
                 bc.M = Md
             else:

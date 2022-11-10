@@ -38,12 +38,13 @@ def iteration_method_solve(function, start, **kwargs):
     """牛顿法求解非线性方程"""
     count = 0
     x0 = start
+    toleration = 1e-3
     while True:
         x1 = function(x0, **kwargs)
         # --test--
         # print(count, x0, x1, sep='\t')
         # --------
-        if abs((x1-x0)/x0)<1e-3:
+        if abs(x1-x0)<=abs(x0)*toleration: # abs((x1-x0)/x0)<1e-3:
             return x1
         if count>100:
             raise NumericError('No real solution.')

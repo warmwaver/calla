@@ -1,6 +1,6 @@
 """
 桩基承载力计算
-依据：JTG 3363-2019 公路桥涵地基与基础设计规范
+依据：JTG D63-2007 公路桥涵地基与基础设计规范
 """
 
 __all__ = [
@@ -9,7 +9,7 @@ __all__ = [
     'tensile_pile_capacity',
     'pile_width',
     'pile_effects',
-    'pile_group_effects_pier'
+    'pile_group_effects_P06'
     ]
 
 from collections import OrderedDict
@@ -19,38 +19,38 @@ from math import pi, tan
 class friction_pile_capacity(abacus):
     """
     钻孔灌注桩（摩擦桩）轴向受压承载力计算
-    《公路桥涵地基与基础设计规范》（JTG 3363-2019） 第6.3.3节
+    《公路桥涵地基与基础设计规范》（JTG D63-2007） 第5.3.3节
     """
     __title__ = '摩擦桩轴向受压承载力'
-    __inputs__ = [
-        ('negative_friction','考虑负摩阻力','',False,'','',{False:'否',True:'是'}),
-        ('L','<i>L</i>','m',10,'桩长'),
-        ('h','<i>h</i>','m',1,'桩端埋置深度','大于40m时按40m计算'),
-        ('u','<i>u</i>','m',0,'桩身周长'),
-        ('Ap','<i>A</i><sub>p</sub>','m<sup>2</sup>',0,'桩端截面面积'),
-        ('layers','土层名称','',['填土','粘土','强风化砂岩'],'','输入各地层名称，示例：(填土,淤泥,粘土,强风化砂岩)'),
-        ('li','<i>l</i><sub>i</sub>','m',[3,5,6],'土层厚度','输入各地层厚度，之间用逗号隔开，示例：(3,5,6)'),
-        ('qik','<i>q</i><sub>ik</sub>','kPa',[50,60,90],'侧摩阻力标准值','输入各地层侧摩阻力标准值，之间用逗号隔开，示例：(50,60,90)'),
-        ('fa0','<i>f</i><sub>a0</sub>','kPa',[220,250,300],'承载力基本容许值','输入各地层承载力基本容许值，之间用逗号隔开，示例：(220,250,300)'),
-        ('γ2','<i>γ</i><sub>2</sub>','kN/m<sup>3</sup>',18,'土层重度','可直接输入桩端以上各土层的加权平均重度，也可输入各层土的重度，之间用逗号隔开'),
-        ('m0','<i>m</i><sub>0</sub>','',0.7,'清底系数','清底系数(0.7~1.0)'),
-        ('λ','<i>λ</i>','',0.65,'修正系数','按表6.3.3-2选用'),
-        ('k2','<i>k</i><sub>2</sub>','',1.0,'修正系数','容许承载力随深度的修正系数，根据持力层土类按表4.3.4选用'),
-        ('R0','<i>R</i><sub>0</sub>','kN',0,'桩顶反力标准值'),
+    __inputs__ = OrderedDict((
+        ('option',('考虑负摩阻力','',False,'','',{False:'否',True:'是'})),
+        ('L',('<i>L</i>','m',10,'桩长')),
+        ('h',('<i>h</i>','m',1,'桩端埋置深度','大于40m时按40m计算')),
+        ('u',('<i>u</i>','m',0,'桩身周长')),
+        ('Ap',('<i>A</i><sub>p</sub>','m<sup>2</sup>',0,'桩端截面面积')),
+        ('layers',('土层名称','',('填土','粘土','强风化砂岩'),'','输入各地层名称，示例：(填土,淤泥,粘土,强风化砂岩)')),
+        ('li',('<i>l</i><sub>i</sub>','m',(3,5,6),'土层厚度','输入各地层厚度，之间用逗号隔开，示例：(3,5,6)')),
+        ('qik',('<i>q</i><sub>ik</sub>','kPa',(50,60,90),'侧摩阻力标准值','输入各地层侧摩阻力标准值，之间用逗号隔开，示例：(50,60,90)')),
+        ('fa0',('[<i>f</i><sub>a0</sub>]','kPa',(220,250,300),'承载力基本容许值','输入各地层承载力基本容许值，之间用逗号隔开，示例：(220,250,300)')),
+        ('γ2',('<i>γ</i><sub>2</sub>','kN/m<sup>3</sup>',18,'土层重度','可直接输入桩端以上各土层的加权平均重度，也可输入各层土的重度，之间用逗号隔开')),
+        ('m0',('<i>m</i><sub>0</sub>','',0.7,'清底系数','清底系数(0.7~1.0)')),
+        ('λ',('<i>λ</i>','',0.65,'修正系数','按表5.3.3-2选用')),
+        ('k2',('<i>k</i><sub>2</sub>','',1.0,'修正系数','容许承载力随深度的修正系数，根据持力层土类按表3.3.4选用')),
+        ('R0',('<i>R</i><sub>0</sub>','kN',0,'桩顶反力标准值')),
         # 考虑负摩阻力的选项
-        ('ln','<i>l</i><sub>n</sub>','m',10,'中性点深度','按桩周土沉降与桩沉降相等的条件计算，或参照条文说明表5-2确定'),
-        ('β','<i>β</i>','',0.2,'负摩阻力系数','可按条文说明表5-3取值'),
-        ('p','<i>p</i>','kPa',8,'地面均布荷载'),
-    ]
-    __deriveds__ = [
-        ('qr','<i>q</i><sub>r</sub>','kPa',0,'桩端土承载力容许值'),
-        ('Ra','[<i>R</i><sub>a</sub>]','kN',0,'桩基竖向承载力'),
-        ('R','<i>R</i>','kN',0,'桩底竖向力'),
-        ('Nn','<i>N</i><sub>n</sub>','kN',0,'单桩负摩阻力'),
-    ]
-    __toggles__ = [
-        'negative_friction',{True:(),False:('ln','p','β')},
-    ]
+        ('ln',('<i>l</i><sub>n</sub>','m',10,'中性点深度','按桩周土沉降与桩沉降相等的条件计算，或参照条文说明表5-2确定')),
+        ('β',('<i>β</i>','',0.2,'负摩阻力系数','可按条文说明表5-3取值')),
+        ('p',('<i>p</i>','kPa',8,'地面均布荷载')),
+        ))
+    __deriveds__ = OrderedDict((
+        ('qr',('<i>q</i><sub>r</sub>','kPa',0,'桩端土承载力容许值')),
+        ('Ra',('[<i>R</i><sub>a</sub>]','kN',0,'桩基竖向承载力')),
+        ('R',('<i>R</i>','kN',0,'桩底竖向力')),
+        ('Nn',('<i>N</i><sub>n</sub>','kN',0,'单桩负摩阻力')),
+        ))
+    __toggles__ = {
+        'option':{True:(),False:('ln','p','β')},
+        }
     
     # 混凝土重度
     γc = 25
@@ -78,13 +78,14 @@ class friction_pile_capacity(abacus):
 
         if self.L > sum(self.li):
             raise InputError(self, 'L', '桩长不能大于土层厚度之和')
-        γ2_is_list = isinstance(self.γ2,(list, tuple))
+        typeγ = type(self.γ2)
+        bl = typeγ is list or typeγ is tuple
         ra = 0 # 竖向承载力(kN)
         γl = 0 # 土层重度*土层厚度之和
         Nn = 0 # 负摩阻力(kN)
         # 负摩阻力计算，条文说明5.3.2节
         ls = 0
-        if self.negative_friction:
+        if self.option:
             if self.ln>= sum(self.li):
                 raise InputError(self, 'ln', '不能超过土层厚度之和')
             if self.ln > self.L:
@@ -92,13 +93,13 @@ class friction_pile_capacity(abacus):
             for i in range(len(self.li)):
                 if ls < self.ln:
                     if ls+self.li[i] < self.ln:
-                        if γ2_is_list:
+                        if bl:
                             γl += self.li[i]*self.γ2[i]
                             γi_ = γl/(ls+self.li[i])
                         else:
                             γi_ = self.γ2 - 10
                     else:
-                        if γ2_is_list:
+                        if bl:
                             γl += (self.ln-ls)*self.γ2[i]
                             γi_ = γl/self.ln
                         else:
@@ -134,17 +135,17 @@ class friction_pile_capacity(abacus):
         #     ls -= self.li[i]
         ls = 0
         for i in range(len(self.li)):
-            if self.negative_friction and ls+self.li[i] <= self.ln:
+            if self.option and ls+self.li[i] <= self.ln:
                 ls += self.li[i]
                 continue
             if ls+self.li[i] < self.L:
-                if γ2_is_list:
+                if bl:
                     γl += self.li[i]*self.γ2[i]
                 ra += 0.5*self.u*self.qik[i]*self.li[i]
             elif ls < self.L:
-                if γ2_is_list:
-                    γl += (self.L-ls)*self.γ2[i]
-                self.γ2 = γl / self.L if γ2_is_list else self.γ2
+                if bl:
+                    γl += (self.ln-ls)*self.γ2[i]
+                self.γ2 = γl / self.L if bl else self.γ2
                 self.positive_check('γ2')
                 if self.h > 40:
                     self.h = 40
@@ -170,8 +171,8 @@ class friction_pile_capacity(abacus):
         yield self.formatx('Ap',digits=precision)
         yield '地质资料:'
         t = []
-        qik = self._inputs_['qik']
-        fa0 = self._inputs_['fa0']
+        qik = self.para_attrs('qik')
+        fa0 = self.para_attrs('fa0')
         t.append(['地层编号','地层名称(m)','地层厚度(m)','{}({})'.format(qik.symbol,qik.unit),'{}({})'.format(fa0.symbol,fa0.unit)])
         for i in range(len(self.li)):
             t.append([i, self.layers[i], self.li[i], self.qik[i], self.fa0[i]])
@@ -180,11 +181,11 @@ class friction_pile_capacity(abacus):
         yield self.format('m0', digits=None)
         yield self.format('λ', digits=None)
         yield self.format('k2', digits=None)
-        yield self.format('γ2', digits=precision)
+        yield self.format('γ2', digits=None)
         yield self.format('h', precision)
         yield self.format('qr',digits=precision, eq='m0·λ·(fa0+k2·γ2·(h-3))')
         eq = '0.5·u·∑qik·li+Ap·qr'
-        if self.negative_friction:
+        if self.option:
             yield self.format('Nn', eq='u·∑<i>q</i><sub>ni</sub>·li', digits=precision)
             eq += ' - Nn'
         yield self.format('Ra',eq=eq,digits=precision)
@@ -203,7 +204,7 @@ class friction_pile_capacity(abacus):
 class end_bearing_pile_capacity(abacus):
     """
     端承桩轴向受压承载力计算
-    《公路桥涵地基与基础设计规范》（JTG 3363-2019） 第6.3.7节
+    《公路桥涵地基与基础设计规范》（JTG D63-2007） 第5.3.4节
     """
     __title__ = '端承桩轴向受压承载力'
     __inputs__ = OrderedDict((
@@ -339,8 +340,6 @@ class end_bearing_pile_capacity(abacus):
             index = self.status[i]
             if index > 2 or index < -1:
                 raise InputError(self, 'status', '输入值超出合理范围')
-            if not isinstance(index, int):
-                raise InputError(self, 'status', '输入值只能为整数')
             c2 = table_c2[index]
             if ls+self.li[i] < self.L:
                 if bl:
@@ -405,7 +404,7 @@ class end_bearing_pile_capacity(abacus):
 class tensile_pile_capacity(abacus):
     """
     摩擦桩轴向受拉承载力计算
-    《公路桥涵地基与基础设计规范》（JTG 3363-2019） 第6.3.9节
+    《公路桥涵地基与基础设计规范》（JTG D63-2007） 第5.3.8节
     """
     __title__ = '摩擦桩轴向受拉承载力'
     __inputs__ = OrderedDict((
@@ -413,7 +412,7 @@ class tensile_pile_capacity(abacus):
         ('u',('<i>u</i>','m',0,'桩身周长')),
         ('Ap',('<i>A</i><sub>p</sub>','m<sup>2</sup>',0,'桩截面面积')),
         ('layers',('土层名称','',('填土','粘土','强风化砂岩'),'','输入各地层名称，示例：(填土,淤泥,粘土,强风化砂岩)')),
-        ('αi',('<i>α</i><sub>i</sub>','',1.0,'桩侧摩阻力影响系数', '''振动沉桩对各土层桩侧摩阻力的影响系数，按表6.3.5-3 采用；
+        ('αi',('<i>α</i><sub>i</sub>','',1.0,'桩侧摩阻力影响系数', '''振动沉桩对各土层桩侧摩阻力的影响系数，按表5.3.5-3 采用；
         对锤击、静压沉桩和钻孔桩， αi=1。''')),
         ('li',('<i>l</i><sub>i</sub>','m',[3,5,10],'土层厚度','输入各地层厚度，之间用逗号隔开，示例：(3,5,6)')),
         ('qik',('<i>q</i><sub>ik</sub>','kPa',[50,60,90],'侧摩阻力标准值','输入各地层侧摩阻力标准值，之间用逗号隔开，示例：(50,60,90)')),
@@ -497,8 +496,8 @@ class tensile_pile_capacity(abacus):
         #     yield '（安全系数{:.2f}）'.format(self.K)
         return
 
-# 附录L.0.8表格数据
-tableL08 = (
+# 附录P.0.8，表格数据经过测试，勿修改
+tableP08 = (
     (0, 1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1),
     (0.1, 1,0.1,0.005,0.00017, 0,1,0.1,0.005, -0.00017,-0.00001,1,0.1, -0.005,-0.00033,-0.00001,1),
     (0.2, 1,0.2,0.02,0.00133, -0.00007,1,0.2,0.02, -0.00133,-0.00013,0.99999,0.2, -0.02,-0.00267,-0.0002,0.99999),
@@ -532,7 +531,7 @@ tableL08 = (
 class pile_width(abacus):
     """
     桩的计算宽度
-    《公路桥涵地基与基础设计规范》（JTG 3363-2019） 附录L.0.1
+    《公路桥涵地基与基础设计规范》（JTG D63-2007） 附录P.0.1
     """
     __title__ = '桩的计算宽度'
     __inputs__ = OrderedDict((
@@ -584,7 +583,7 @@ class pile_effects(abacus):
     """
     按m法计算弹性桩水平位移及作用效应
     αh>2.5时，单排桩柱式桥墩承受桩柱顶荷载时的作用效应及位移
-    《公路桥涵地基与基础设计规范》（JTG 3363-2019） 附录L.0.3
+    《公路桥涵地基与基础设计规范》（JTG D63-2007） 附录P.0.3
     """
     __title__ = '单排桩柱式桥墩水平位移及作用效应'
     __inputs__ = OrderedDict((
@@ -649,7 +648,7 @@ class pile_effects(abacus):
         for number in (1,2,3,4):
             for letter in ('A', 'B', 'C', 'D'):
                 key = letter+str(number)
-                result[key] = cls.query(tableL08, h, n)
+                result[key] = cls.query(tableP08, h, n)
                 n += 1
         return result
 
@@ -748,7 +747,7 @@ class pile_effects(abacus):
         self.αh = self.α * self.h
         # self.Mz = self._Mz(self.z)
         # self.Qz = self._Qz(self.z)
-        t = [row[0] for row in tableL08]
+        t = [row[0] for row in tableP08]
         Mmax = Qmax = 0
         z_Mmax = z_Qmax = 0
         self.Forces = []
@@ -797,11 +796,11 @@ class pile_effects(abacus):
         t.insert(0, ['桩深(m)','弯矩M','剪力Q'])
         yield html.table2html(t, digits)
     
-class pile_group_effects_pier(abacus):
+class pile_group_effects_P06(abacus):
     """
     按m法计算多排桩（群桩）作用力
     αh>2.5时，多排竖直桩柱式桥墩承受桩顶荷载时的作用效应及位移。
-    《公路桥涵地基与基础设计规范》（JTG 3363-2019） 附录L.0.6
+    《公路桥涵地基与基础设计规范》（JTG D63-2007） 附录P.0.6
     """
     __title__ = '多排桩作用效应'
     __inputs__ = OrderedDict((
@@ -869,7 +868,7 @@ class pile_group_effects_pier(abacus):
     def f_Qz(α, E, I, x0, φ0, M0, H0, A4, B4, C4, D4):
         return α**3*E*I*(x0*A4+φ0/α*B4+M0*C4/(α**2*E*I)+H0*D4/(α**3*E*I))
 
-    def _solve(self):
+    def solveP06(self):
         d=self.d; h=self.h; hc=self.hc; l0=self.l0; kf=self.kf
         Ec=self.Ec*1e3; I =self.I; I0=self.I0; m=self.m; C0=self.C0
         bottom_fixed=self.bottom_fixed; ξ=self.ξ
@@ -948,30 +947,20 @@ class pile_group_effects_pier(abacus):
         if l0 <= 0:
             self.γcβ = γcβ; self.γβc = γβc
         self.c = c; self.a = a; self.β = β
-        self.L1 = L1; self.S = S; self.b2 = b2; self.b1 = b1
+        self.L1 = L1; self.S = S; self.b2 = b2
 
     def solve(self):
         self.validate('non-negative', 'l0')
         self.validate('positive', 'C0', 'Ec', 'd')
         self.I = pi*self.d**4/64
         self.I0 = self.I
-
-        self.n = len(self.xi) if hasattr(self.xi, '__len__') else 1 # 平行于水平力作用方向的一排桩的桩数
-
-        if isinstance(self.Ki, (int, float)):
-            if self.n > 0:
-                self.Ki = [self.Ki for i in range(self.n)]
-        elif isinstance(self.Ki, (tuple, list)):
-            if len(self.Ki) != self.n:
-                raise InputError(self, 'Ki', '数目与xi不对应')
-
         self.npiles = sum(self.Ki) # 总桩数
         if self.npiles <= 0:
             raise InputError(self, 'Ki', '桩数应>0')
-
+        self.n = len(self.xi) if hasattr(self.xi, '__len__') else 1 # 平行于水平力作用方向的一排桩的桩数
         if self.ξ <= 0:
             self.ξ = 1 if self.bottom_fixed else 0.5
-        self._solve()
+        self.solveP06()
 
 def _test1():
     from math import pi
@@ -1014,7 +1003,7 @@ def _test3():
     f.solve()
     Mz = 313.19
     assert abs((f._Mz(0.28) - Mz)/Mz) < 0.01
-    t = [row[0] for row in tableL08]
+    t = [row[0] for row in tableP08]
     print('h', 'z', 'Mz', 'Qz')
     for h in t:
         f.z = h/f.α
@@ -1023,7 +1012,7 @@ def _test3():
         print(h, f.z, Mz, Qz)
     
 def _test4():
-    f = pile_group_effects_pier(
+    f = pile_group_effects_P06(
     L1=5, d=1.5, h=20, l0=0, h2=10, hc=0, b2=1, kf=0.9, Ec=30000, m=5000, C0=300000, P=4200+20000, H=6480, M=6480*4.06, 
     bottom_fixed="False", z=1, xi=[-2.5,2.5], Ki=[3,3], ξ=1, ψ=1)
     f.solve()

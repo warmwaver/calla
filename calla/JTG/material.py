@@ -14,6 +14,7 @@ class concrete:
     # 混凝土变异系数
     δf = {20:0.18, 25:0.16, 30:0.14, 35:0.13, 40:0.12,
              45:0.12, 50:0.11, 55:0.11, 60:0.1}
+
     @staticmethod
     def fcuk(concrete_type):
         if type(concrete_type) is str:
@@ -24,6 +25,7 @@ class concrete:
             except:
                 raise Exception('无法识别的混凝土类型：{}'.format(concrete_type))
         return concrete_type
+
     @staticmethod
     def fck(concrete_type):
         concrete_type = concrete.fcuk(concrete_type)
@@ -38,6 +40,7 @@ class concrete:
             f *= 1+(concrete_type-40)/(80-40)*(0.87-1)
         f = round(f, 1)
         return f
+
     @staticmethod
     def fcd(concrete_type):
         _fcd_ = (11.5,13.8,16.1,18.4,20.5,22.4,24.4,26.5,28.5,30.5,32.4,34.6)
@@ -47,6 +50,7 @@ class concrete:
             return _fcd_[int(index)]
         else:
             return round(concrete.fck(concrete_type)/1.45,1)
+
     @staticmethod
     def ftk(concrete_type):
         concrete_type = concrete.fcuk(concrete_type)
@@ -63,9 +67,11 @@ class concrete:
             f *= 1+(concrete_type-40)/(80-40)*(0.87-1)
         f = round(f, 2)
         return f
+
     @staticmethod
     def ftd(concrete_type):
         return round(concrete.ftk(concrete_type)/1.45,2)
+
     @staticmethod
     def Ec(concrete_type):
         ''' 混凝土弹性模量(MPa) '''
@@ -156,10 +162,15 @@ class material_base:
     """
     concrete_types = ['C25','C30','C35','C40','C45','C50', 'C55','C60','C65','C70','C75','C80','其它']
     concrete_item = ('concrete',('混凝土','','C40','','',concrete_types))
+    concrete_input = ('concrete','混凝土','','C40','','',concrete_types)
+
     rebar_types = list(rebar.types) + ['其它']
     rebar_item = ('rebar',('钢筋','','HRB400','','',rebar_types))
+    rebar_input = ('rebar','钢筋','','HRB400','','',rebar_types)
+
     ps_types = ['ΦS1960','ΦS1860','ΦS1720','ΦT1080','ΦT930','ΦT785','其它','无']
     ps_item = ('ps',('预应力筋','','无','','',ps_types))
+    ps_input = ('ps','预应力筋','','无','','',ps_types)
     
     material_toggles = {
         'concrete': { key:('fcuk','fcd', 'ftd') if key.startswith('C') else () for key in concrete_types },

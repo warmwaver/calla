@@ -53,7 +53,11 @@ class abacus:
     def __init__(self, **inputs):
         """
         Initialize parameters from '__inputs__'.
-        parameters format: (parameter, (symbol, unit, default_value, name, description[, choices]))
+        Recommended parameters format: (parameter, symbol, unit, default_value, name, description[, choices])
+        e.g. __inputs__ = [
+            ('Es','E<sub>s</sub>','MPa',2.0E5,'Elastic modulus of rebar'),
+            ]
+        Supported parameters format (obselete): (parameter, (symbol, unit, default_value, name, description[, choices]))
         e.g. __inputs__ = OrderedDict((
             ('Es',('E<sub>s</sub>','MPa',2.0E5,'Elastic modulus of rebar')),
             ))
@@ -133,6 +137,7 @@ class abacus:
                 value = True if str(value) == 'True' else False 
             setattr(cls, key, value)
 
+        # set values for all inputs
         for key in values:
             if hasattr(self, key):
                 _setvalue(self, key, values[key])
@@ -552,7 +557,7 @@ class SolvingError(Exception):
 class InputWarning(Warning):
     pass
 
-def common_attrs(calculators:[abacus]):
+def common_attrs(calculators:list[abacus]):
     """ Get common attributes of calculators. """
     if calculators == None or len(calculators)<1:
         return None
@@ -568,7 +573,7 @@ def common_attrs(calculators:[abacus]):
             attrs = [attr for attr in attrs if attr in attrs_t]
     return attrs
 
-def parameters_table(calculators:[abacus]):
+def parameters_table(calculators:list[abacus]):
     """ Get parameters table of calculators based on common attributes. """
     attrs = common_attrs(calculators)
     if attrs == None or len(attrs)<1:

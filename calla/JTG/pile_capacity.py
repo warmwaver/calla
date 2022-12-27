@@ -14,7 +14,7 @@ __all__ = [
 
 from collections import OrderedDict
 from calla import abacus, InputError, html
-from math import pi, tan
+from math import pi, tan, isinf
 
 class friction_pile_capacity(abacus):
     """
@@ -157,7 +157,7 @@ class friction_pile_capacity(abacus):
         self.Ra = ra - Nn
         self.Nn = Nn
         self.R = self.R0 + (self.γc-self.γ2)*self.L*self.Ap
-        self.K = self.Ra/self.R
+        self.K = self.Ra/self.R if self.R>0 else float('inf')
         return ra
     
     def solve(self):
@@ -196,7 +196,7 @@ class friction_pile_capacity(abacus):
         self.format('Ra', digits=precision, omit_name=True),
         '{}满足规范要求。'.format('' if ok else '不')
         )
-        if ok:
+        if ok and not isinf(self.K):
             yield '承载力富余量{:.1f}%。'.format((self.K-1)*100)
         return
 
@@ -397,9 +397,15 @@ class end_bearing_pile_capacity(abacus):
         yield self.format('R0', digits=None)
         ra = self.para_attrs('Ra')
         ok = self.Ra > self.R
-        yield '{} {} {}， {}满足规范要求。'.format(
-            self.format('R', digits=precision), '&le;' if ok else '&gt;', 
-            self.format('Ra', digits=precision, omit_name=True), '' if ok else '不')
+        yield self.format_conclusion(
+            ok,
+            self.format('R', digits=precision),
+            '&le;' if ok else '&gt;', 
+            self.format('Ra', digits=precision, omit_name=True),            
+            '{}满足规范要求。'.format('' if ok else '不'),
+            )
+        if ok:
+            yield '承载力富余量{:.1f}%。'.format((self.K-1)*100)
         return
 
 class tensile_pile_capacity(abacus):
@@ -769,6 +775,24 @@ class pile_effects(abacus):
             self.Forces.append([z, Mz, Qz])
             if end:
                 break
+        # 对于嵌岩桩，计算到桩底
+        if self.bottom_fixed:
+            hmax = self.α*self.h
+            h = 4+0.1
+            while h < hmax:
+                z = h/self.α
+                Mz = self._Mz(z)
+                if abs(Mz) > abs(Mmax):
+                    Mmax = Mz
+                    z_Mmax = z
+                Qz = self._Qz(z)
+                if abs(Qz) > abs(Qmax):
+                    Qmax = Qz
+                    z_Qmax = z
+                self.Forces.append([z, Mz, Qz])
+                if end:
+                    break
+                h = h+0.1
         self.Mmax = Mmax
         self.z_Mmax = z_Mmax
         self.Qmax = Qmax
@@ -777,21 +801,21 @@ class pile_effects(abacus):
     def _html(self, digits=2):
         for param in self.inputs:
             yield self.format(param)
-        yield self.format('α', eq='(m*b1/E/I)<sup>0.2</sup>')
+        yield self.format('α', digits, eq='(m*b1/E/I)<sup>0.2</sup>')
         if self.αh <= 2.5:
             yield '{} &le; 2.5， 不满足适用条件，计算结果仅供参考。'.format(self.format('αh', omit_name=True))
-        yield self.format('kh', eq='C0/(α*E)*I0/I')
+        yield self.format('kh', digits, eq='C0/(α*E)*I0/I')
         for param in ('δHH','δHM','δMH','δMM'):
             yield self.format(param)
-        yield self.format('x0', eq='H0*δHH+M0*δHM')
-        yield self.format('φ0', eq='-(H0*δMH+M0*δMM)')
+        yield self.format('x0',digits+1, eq='H0*δHH+M0*δHM')
+        yield self.format('φ0', digits, eq='-(H0*δMH+M0*δMM)')
         yield '{} ({})'.format(
-            self.format('Mmax'), 
-            self.format('z_Mmax', omit_name = True)
+            self.format('Mmax', digits), 
+            self.format('z_Mmax', digits, omit_name = True)
             )
         yield '{} ({})'.format(
-            self.format('Qmax'), 
-            self.format('z_Qmax', omit_name = True)
+            self.format('Qmax', digits), 
+            self.format('z_Qmax', digits, omit_name = True)
             )
         t = self.Forces
         t.insert(0, ['桩深(m)','弯矩M','剪力Q'])

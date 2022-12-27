@@ -17,12 +17,14 @@ __all__ = [
     'local_pressure',
     ]
 
-from math import pi, sin, cos, acos, sqrt
 from collections import OrderedDict
-from calla import abacus, numeric, InputError, SolvingError
-from calla.JTG import material
+from math import acos, cos, pi, sin, sqrt
+
+from calla import InputError, SolvingError, abacus, numeric
+from calla.GB.compressive_capacity import \
+    eccentric_compression as gb_eccentric_compression
 from calla.GB.flexural_capacity import fc_rect as gb_fc_rect
-from calla.GB.compressive_capacity import eccentric_compression as gb_eccentric_compression
+from calla.JTG import material
 
 material_base = material.material_base
         
@@ -653,7 +655,7 @@ class eccentric_compression(gb_eccentric_compression, material_base):
     
     def init_params(self):
         ''' 初始化基本计算参数 '''
-        self.validate('positive', 'b', 'h', 'Nd')
+        self.validate('positive', 'b', 'h', 'Nd', 'fsd', 'fsd_')
         # 5.1.4节
         self.β = 0.8 if self.fcuk <= 50 else 0.8+(self.fcuk-50)*(0.74-0.8)/(80-50)
         # strictly, a = (σs*As*a_s+σp*Ap*ap)/(σs*As+σp*Ap)
@@ -665,6 +667,7 @@ class eccentric_compression(gb_eccentric_compression, material_base):
             (self.fsd_*self.As_*self.a_s+(self.fpd_-self.σp0_)*self.Ap_*self.ap_)\
                 /(self.fsd_*self.As_+(self.fpd_-self.σp0_)*self.Ap_)
         self.h0_ = self.h - self.a_
+        self.validate('positive', 'h0', 'h0_')
         # 计算偏心距增大系数
         self.A = self.b*self.h
         self.I = self.b*self.h**3/12
@@ -1255,32 +1258,38 @@ class biaxial_eccentric(abacus):
     《公路钢筋混凝土及预应力混凝土桥涵设计规范》（JTG 3362-2018）第5.3.11节
     """
     __title__ = '双向偏心受压承载力'
-    __inputs__ = OrderedDict((
-        ('γ0',('<i>γ</i><sub>0</sub>','',1.0,'重要性系数')),
-        ('Nd',('<i>N</i><sub>d</sub>','kN',1000,'轴力设计值')),
-        ('Nu0',('<i>N</i><sub>u0</sub>','kN',1000,'轴心抗压承载力设计值')),
-        ('Nux',('<i>N</i><sub>ux</sub>','kN',1000,'偏心抗压承载力设计值')),
-        ('Nuy',('<i>N</i><sub>uy</sub>','kN',1000,'偏心抗压承载力设计值')),
-        ))
-    __deriveds__ = OrderedDict((
-        ('Nu',('','kN',0,'抗压承载力')),
-        ('eql',('','kN',0,'')),
-        ))
+    __inputs__ = [
+        ('γ0','<i>γ</i><sub>0</sub>','',1.0,'重要性系数'),
+        ('Nd','<i>N</i><sub>d</sub>','kN',1000,'轴力设计值'),
+        ('Nu0','<i>N</i><sub>u0</sub>','kN',1000,'轴心抗压承载力设计值'),
+        ('Nux','<i>N</i><sub>ux</sub>','kN',1000,'偏心抗压承载力设计值'),
+        ('Nuy','<i>N</i><sub>uy</sub>','kN',1000,'偏心抗压承载力设计值'),
+    ]
+    __deriveds__ = [
+        ('Nu','','kN',0,'抗压承载力'),
+        ('eql','','kN',0,''),
+    ]
     
     def solve(self):
         self.validate('positive', 'Nux', 'Nuy', 'Nu0')
         fNu = lambda Nux,Nuy,Nu0:1/(1/Nux+1/Nuy-1/Nu0)
-        self.Nu = fNu(self.Nux,self.Nuy,self.Nu0)
+        try:
+            self.Nu = fNu(self.Nux,self.Nuy,self.Nu0)
+        except ZeroDivisionError:
+            self.Nu = float('inf')
         self.eql = self.γ0*self.Nd
 
     def _html(self,digits=2):
         for para in ('γ0','Nd','Nu0','Nux','Nuy'):
             yield self.format(para, digits)
         ok = self.eql <= self.Nu
-        yield '{} {} {}，{}满足规范要求。'.format(
-            self.format('eql', digits,eq='γ0·Nd'), '≤' if ok else '&gt;', 
+        yield self.format_conclusion(
+            ok,
+            self.format('eql', digits,eq='γ0·Nd'), 
+            '≤' if ok else '&gt;', 
             self.format('Nu', digits=digits, eq='1/(1/Nux+1/Nuy-1/Nu0)', omit_name=True),
-            '' if ok else '不')
+            '{}满足规范要求。'.format('' if ok else '不')
+        )
     
 class axial_tension(abacus):
     """
@@ -1951,7 +1960,7 @@ class torsion(abacus, material_base):
     __toggles__ = {
         'concrete': material_base.material_toggles['concrete'],
         'rebar': material_base.material_toggles['rebar'],
-        'section_type':{'rect':('t1','t2','bf_','hf_','bf','hf'),'box':('bf_','hf_','bf','hf')},
+        'section_type':{'rect':('t1','t2','bf_','hf_','bf','hf','bw'),'box':('bf_','hf_','bf','hf')},
         'option':{False:('ep0','Np0','A0')}
         }
 
@@ -2047,7 +2056,7 @@ class torsion(abacus, material_base):
             self.Acor, self.sv)/1e6
         if self.option and self.ep0 <= h/6 and ζ >= 1.7:
             # 5.5.1 说明
-            Tu += 0.05*Np0/A0*Wt
+            self.Tu += 0.05*Np0/A0*self.Wt
         # 5.5.3 截面验算
         b = self.b if self.section_type == 'rect' else self.bw
         self.τd = self.fτd(b,self.h0,self.Wt,self.γ0,Vd,Td)
@@ -2057,7 +2066,7 @@ class torsion(abacus, material_base):
         self.γ0Vd = self.γ0*self.Vd
         Wt = self.Wtw if withflange else self.Wt
         Wt = (self.βa if box else 1)*Wt
-        self.βt = self.fβt(Vd,Td,b,self.h0,Wt)
+        self.βt = self.fβt(Vd,Td,b,self.h0,Wt) if Td>0 else 0
         if self.βt < 0.5:
             self.βt = 0.5
         if self.βt >1.0:
@@ -2173,40 +2182,47 @@ class local_pressure(abacus, material_base):
     《公路钢筋混凝土及预应力混凝土桥涵设计规范》（JTG 3362-2018）第5.7节
     """
     __title__ = '局部承压验算'
-    __inputs__ = OrderedDict((
-        ('γ0',('<i>γ</i><sub>0</sub>','',1.0,'重要性系数')),
-        ('Fld',('<i>F</i><sub><i>l</i>d</sub>','kN',0,'局部受压面积上的局部压力设计值')),
-        ('Ab',('<i>A</i><sub>b</sub>','mm<sup>2</sup>',0,'局部受压时的计算底面积')),
-        ('Al',('<i>A</i><sub>l</sub>','mm<sup>2</sup>',0,'不扣除孔洞的混凝土局部受压面积')),
-        ('Aln',('<i>A</i><sub>ln</sub>','mm<sup>2</sup>',0,'扣除孔洞的混凝土局部受压面积')),
-        material_base.concrete_item,
-        ('fcd',('<i>f</i><sub>cd</sub>','N/mm<sup>2</sup>',22.4,'混凝土轴心抗压强度设计值')),
-        material_base.rebar_item,
-        ('fsd',('<i>f</i><sub>sd</sub>','MPa',330,'钢筋抗拉强度设计值')),
-        ('Acor',('<i>A</i><sub>cor</sub>','mm<sup>2</sup>',0,'混凝土核芯面积','方格网或螺旋形间接钢筋内表面范围内的混凝土核芯面积')),
-        ('rebar_shape',('间接钢筋类型','','方格网','','',['方格网','螺旋筋'])),
-        ('l1',('<i>l</i><sub>1</sub>','mm',0,'方格网尺寸')),
-        ('n1',('<i>n</i><sub>1</sub>','',0,'方格网沿<i>l</i><sub>1</sub>方向的钢筋根数')),
-        ('As1',('<i>A</i><sub>s1</sub>','mm<sup>2</sup>',0,'方格网沿<i>l</i><sub>1</sub>方向单根钢筋的截面面积')),
-        ('l2',('<i>l</i><sub>2</sub>','mm',0,'方格网尺寸')),
-        ('n2',('<i>n</i><sub>2</sub>','',0,'方格网沿<i>l</i><sub>2</sub>方向的钢筋根数')),
-        ('As2',('<i>A</i><sub>s2</sub>','mm<sup>2</sup>',0,'方格网沿<i>l</i><sub>2</sub>方向单根钢筋的截面面积')),
-        ('Ass1',('<i>A</i><sub>ss1</sub>','mm<sup>2</sup>',0,'单根螺旋形间接钢筋的截面面积')),
-        ('dcor',('<i>d</i><sub>cor</sub>','mm',0,'混凝土核芯面积的直径','螺旋形间接钢筋内表面范围内混凝土核芯面积的直径')),
-        ('s',('<i>s</i>','mm',30,'方格网或螺旋形间接钢筋的层距')),
-        ))
-    __deriveds__ = OrderedDict((
-        ('ηs',('<i>η</i><sub>s</sub>','',1.0,'混凝土局部承压修正系数')),
-        ('β',('<i>β</i>','',0,'混凝土局部承压强度提高系数')),
-        ('βcor',('<i>β</i><sub>cor</sub>','',0,'配置间接钢筋时局部抗压承载力提高系数')),
-        ('k',('<i>k</i>','',0,'间接钢筋影响系数')),
-        ('ρv',('<i>ρ</i><sub>v</sub>','',0,'间接钢筋体积配箍率','核心面积Acor范围内单位混凝土体积所含间接钢筋的体积')),
-        ))
-    __toggles__ = {
-        'concrete': material_base.material_toggles['concrete'],
-        'rebar': material_base.material_toggles['rebar'],
-        'rebar_shape': {'方格网':('Ass1','dcor'),'螺旋筋':('n1','As1','l1','n2','As2','l2')},
-        }
+    __inputs__ = [
+        ('γ0','<i>γ</i><sub>0</sub>','',1.0,'重要性系数'),
+        ('Fld','<i>F</i><sub><i>l</i>d</sub>','kN',0,'局部受压面积上的局部压力设计值'),
+        ('Ab','<i>A</i><sub>b</sub>','mm<sup>2</sup>',0,'局部受压时的计算底面积'),
+        ('Al','<i>A</i><sub>l</sub>','mm<sup>2</sup>',0,'不扣除孔洞的混凝土局部受压面积'),
+        ('Aln','<i>A</i><sub>ln</sub>','mm<sup>2</sup>',0,'扣除孔洞的混凝土局部受压面积'),
+        material_base.concrete_input,
+        ('fcd','<i>f</i><sub>cd</sub>','N/mm<sup>2</sup>',22.4,'混凝土轴心抗压强度设计值'),
+        ('fcuk','<i>f</i><sub>cu,k</sub>','MPa',50,'混凝土立方体抗压强度标准值','取混凝土标号'),
+        material_base.rebar_input,
+        ('fsd','<i>f</i><sub>sd</sub>','MPa',330,'钢筋抗拉强度设计值'),
+        ('Acor','<i>A</i><sub>cor</sub>','mm<sup>2</sup>',0,'混凝土核芯面积',
+        '方格网或螺旋形间接钢筋内表面范围内的混凝土核芯面积'),
+        ('rebar_shape','间接钢筋类型','','方格网','','',['方格网','螺旋筋']),
+        ('l1','<i>l</i><sub>1</sub>','mm',0,'方格网尺寸'),
+        ('n1','<i>n</i><sub>1</sub>','',0,'方格网沿<i>l</i><sub>1</sub>方向的钢筋根数'),
+        ('As1','<i>A</i><sub>s1</sub>','mm<sup>2</sup>',0,'方格网沿<i>l</i><sub>1</sub>方向单根钢筋的截面面积'),
+        ('l2','<i>l</i><sub>2</sub>','mm',0,'方格网尺寸'),
+        ('n2','<i>n</i><sub>2</sub>','',0,'方格网沿<i>l</i><sub>2</sub>方向的钢筋根数'),
+        ('As2','<i>A</i><sub>s2</sub>','mm<sup>2</sup>',0,'方格网沿<i>l</i><sub>2</sub>方向单根钢筋的截面面积'),
+        ('Ass1','<i>A</i><sub>ss1</sub>','mm<sup>2</sup>',0,'单根螺旋形间接钢筋的截面面积'),
+        ('dcor','<i>d</i><sub>cor</sub>','mm',0,'混凝土核芯面积的直径',
+        '螺旋形间接钢筋内表面范围内混凝土核芯面积的直径'),
+        ('s','<i>s</i>','mm',30,'方格网或螺旋形间接钢筋的层距'),
+    ]
+    __deriveds__ = [
+        ('ηs','<i>η</i><sub>s</sub>','',1.0,'混凝土局部承压修正系数'),
+        ('β','<i>β</i>','',0,'混凝土局部承压强度提高系数'),
+        ('βcor','<i>β</i><sub>cor</sub>','',0,'配置间接钢筋时局部抗压承载力提高系数'),
+        ('k','<i>k</i>','',0,'间接钢筋影响系数'),
+        ('ρv','<i>ρ</i><sub>v</sub>','',0,'间接钢筋体积配箍率','核心面积Acor范围内单位混凝土体积所含间接钢筋的体积'),
+        ('Fl','','',0,''),
+        ('Flud1','','',0,''),
+        ('Flud2','','',0,''),
+    ]
+    __toggles__ = [
+        'concrete', material_base.material_toggles['concrete'],
+        'rebar', material_base.material_toggles['rebar'],
+        'rebar_shape', {'方格网':('Ass1','dcor'),'螺旋筋':('n1','As1','l1','n2','As2','l2')},
+    ]
+
     @staticmethod
     def f_Flud1(ηs,β,fcd,Aln):
         '''第5.7.1条'''
@@ -2227,7 +2243,7 @@ class local_pressure(abacus, material_base):
 
     def solve(self):
         self.validate('positive', 'Ab','Al','Acor','s')
-        fcuk = material.concrete.fcuk(self.concrete)
+        fcuk = self.fcuk # material.concrete.fcuk(self.concrete)
         if fcuk < 50:
             ηs = 1.0
             k = 2.0
@@ -2248,14 +2264,14 @@ class local_pressure(abacus, material_base):
             self.validate('positive', 'dcor')
             self.ρv = self.f_ρv2(self.Ass1,self.dcor,self.s)
         self.Flud2 = self.f_Flud2(self.ηs,self.β,self.fcd,self.k,self.ρv,self.βcor,self.fsd,self.Aln)/1000
+        self.Fl = self.γ0*self.Fld
 
     def _html(self, digits=2):
         disableds = self.disableds()
         for attr in self._inputs_:
             if hasattr(self, attr) and (not attr in disableds):
                 yield self.format(attr, digits = None)
-        Fl = self.γ0*self.Fld
-        ok = Fl <= self.Flud1
+        ok = self.Fl <= self.Flud1
         yield self.format('ηs',digits)
         yield self.format('β',digits)
         yield self.format('fcd')
@@ -2264,17 +2280,21 @@ class local_pressure(abacus, material_base):
         eq = '(n1*As1*l1+n2*As2*l2)/Acor/s' if self.rebar_shape == '方格网' else '4*Ass1/dcor/s'
         yield self.format('ρv',digits, eq=eq)        
         yield self.format('βcor')
-        yield '{} {} {} = {} kN， {}满足规范第5.7.1条要求。'.format(
-            self.replace_by_symbols('γ0·Fld'), '≤' if ok else '&gt;',
-            self.replace_by_symbols('1.3·ηs·β·fcd·Aln'), 
-            '{1:.{0}f}'.format(digits, self.Flud1),
-            '' if ok else '不')
-        ok = Fl <= self.Flud2
-        yield '{} {} {} = {} kN， {}满足规范第5.7.2条要求。'.format(
-            self.replace_by_symbols('γ0·Fld'), '≤' if ok else '&gt;',
-            self.replace_by_symbols('0.9·(ηs·β·fcd+k·ρv·βcor·fsd)·Aln'), 
-            '{1:.{0}f}'.format(digits, self.Flud2),
-            '' if ok else '不')
+        yield self.format_conclusion(
+            ok,
+            self.format('Fl', digits, omit_name=True, eq='γ0·Fld'), 
+            '≤' if ok else '&gt;',
+            self.format('Flud1', digits, omit_name=True, eq='1.3·ηs·β·fcd·Aln'),
+            '{}满足规范第5.7.1条要求。'.format('' if ok else '不')
+        )
+        ok = self.Fl <= self.Flud2
+        yield self.format_conclusion(
+            ok,
+            self.format('Fl', digits, omit_name=True, eq='γ0·Fld'), 
+            '≤' if ok else '&gt;',
+            self.format('Flud2', digits, omit_name=True, eq='0.9·(ηs·β·fcd+k·ρv·βcor·fsd)·Aln'),
+            '{}满足规范第5.7.2条要求。'.format('' if ok else '不')
+        )
 
 if __name__ == '__main__':
     import doctest

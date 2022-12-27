@@ -382,6 +382,7 @@ class flutter_stability(abacus):
         print(Uf_min)
 
     def solve(self):
+        self.validate('positive', 'ρ', 'B', 'μ', 'ft', 'm')
         self.b = self.B/2
         self.μ = self.m/(pi*self.ρ*self.b**2)
         self.If = self.Ks/sqrt(self.μ)*self.Ud/self.ft/self.B # (7.5.1)

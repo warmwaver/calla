@@ -255,6 +255,7 @@ class fc_T(fc_rect):
     _same_as_rect = True
         
     def solve(self):
+        self.validate('positive', 'bf_')
         self.init_params()
 
         b=self.b; h=self.h; h0=self.h0; bf_=self.bf_; hf_=self.hf_

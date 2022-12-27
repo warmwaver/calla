@@ -121,63 +121,63 @@ class eccentric_compression(abacus):
     《混凝土结构设计规范》(GB 50010-2010）第6.2.17节
     """
     __title__ = '矩形截面偏心受压承载力'
-    __inputs__ = OrderedDict((
-        ('option',('选项','','design','','',{'review':'截面复核','design':'截面设计'})),
-        ('option_m2',('考虑弯矩二阶效应','',True,'','',{True:'是',False:'否'})),
-        ('symmetrical',('对称配筋','',False,'','',{True:'是',False:'否'})),
-        ('Asp_known',('已知受压钢筋面积','',False,'','',{True:'是',False:'否'})),
-        ('N',('<i>N</i>','kN',1000,'轴力','当考虑弯矩二阶效应时，N为与弯矩设计值M2相应的轴向压力设计值')),
-        ('M',('<i>M</i>','kN·m',600,'弯矩')),
-        ('M1',('<i>M</i><sub>1</sub>','kN·m',600,'构件绝对值较小端弯矩')),
-        ('M2',('<i>M</i><sub>2</sub>','kN·m',600,'构件绝对值较大端弯矩')),
-        ('α1',('<i>α</i><sub>1</sub>','',1,'系数')),
-        ('fc',('<i>f</i><sub>c</sub>','MPa',16.7,'混凝土轴心抗压强度设计值')),
-        ('fcuk',('<i>f</i><sub>cu,k</sub>','MPa',35,'混凝土立方体抗压强度标准值','取混凝土标高')),
-        ('b',('<i>b</i>','mm',500,'矩形截面宽度')),
-        ('h',('<i>h</i>','mm',1000,'矩形截面高度')),
-        ('lc',('<i>l</i><sub>c</sub>','mm',3000,'构件的计算长度','可近似取偏心受压构件相应主轴方向上下支撑点之间的距离')),
-        ('fy',('<i>f</i><sub>y</sub>','MPa',360,'钢筋抗拉强度设计值')),
-        ('As',('<i>A</i><sub>s</sub>','mm<sup>2</sup>',0,'受拉钢筋面积')),
-        ('a_s',('<i>a</i><sub>s</sub>','mm',60,'受拉区纵向普通钢筋合力点至受拉边缘的距离')),
-        ('fy_',('<i>f</i><sub>y</sub><sup>\'</sup>','MPa',360,'钢筋抗压强度设计值')),
-        ('As_',('<i>A</i><sub>s</sub><sup>\'</sup>','mm<sup>2</sup>',0,'受压区钢筋面积', '受压区纵向普通钢筋的截面面积')),
-        ('as_',('<i>a</i><sub>s</sub><sup>\'</sup>','mm',60,'受压区纵向钢筋合力点至受压边缘的距离')),
-        ('Ep',('<i>E</i><sub>p</sub>','MPa',1.95E5,'预应力钢筋弹性模量')),
-        ('fpy',('<i>f</i><sub>py</sub>','MPa',1320,'受拉区预应力筋抗压强度设计值')),
-        ('Ap',('<i>A</i><sub>p</sub>','mm<sup>2</sup>',0,'受拉预应力筋面积')),
-        ('ap',('<i>a</i><sub>p</sub>','mm',60,'受拉区纵向预应力筋合力点至受拉边缘的距离')),
-        ('fpy_',('<i>f</i><sub>py</sub><sup>\'</sup>','MPa',1320,'受压区预应力筋抗压强度设计值')),
-        ('Ap_',('<i>A</i><sub>p</sub><sup>\'</sup>','mm<sup>2</sup>',0,'受压预应力筋面积')),
-        ('ap_',('<i>a</i><sub>p</sub><sup>\'</sup>','mm',60,'受压区纵向预应力筋合力点至受拉边缘的距离')),
-        ('Es',('<i>E</i><sub>s</sub>','MPa',2E5,'钢筋弹性模量')),
-        ('σp0',('<i>σ</i><sub>p0</sub>','MPa',1320,'受拉预应力钢筋初始应力','受拉区纵向预应力筋合力点处混凝土法向应力等于零时的预应力筋应力')),
-        ('σp0_',('<i>σ</i><sub>p0</sub><sup>\'</sup>','MPa',1320,'受压预应力钢筋初始应力','截面受压区纵向预应力钢筋合力点处混凝土法向应力等于零时，预应力钢筋中的应力')),
-        ))
-    __deriveds__ = OrderedDict((
-        ('A',('<i>A</i>','mm<sup>2</sup>',0,'构件截面面积')),
-        ('ζc',('<i>ζ</i><sub>c</sub>','',1,'截面曲率修正系数','当计算值大于1.0时取1.O')),
-        ('ηns',('<i>η</i><sub>ns</sub>','',1,'弯矩增大系数')),
-        ('Cm',('<i>C</i><sub>m</sub>','',0.7,'构件端截面偏心距调节系数')),
-        ('a',('<i>a</i>','mm',0,'纵向受拉普通钢筋和受拉预应力筋的合力点至截面近边缘的距离')),
-        ('a_',('<i>a</i><sup>\'</sup>','mm',0,'纵向受压普通钢筋和受拉预应力筋的合力点至截面近边缘的距离')),
-        ('ea',('<i>e</i><sub>a</sub>','mm',20,'附加偏心距')),
-        ('e0',('<i>e</i><sub>0</sub>','mm',0,'轴向压力对截面重心的偏心距','取为M/N')),
-        ('ei',('<i>e</i><sub>i</sub>','mm',20,'初始偏心距')),
-        ('e',('<i>e</i>','mm',0,'轴向压力作用点至纵向受拉普通钢筋和受拉预应力筋的合力点的距离')),
-        ('x',('<i>x</i>','mm',0,'截面受压区高度')),
-        ('xb',('<i>x</i><sub>b</sub>','mm',0,'截面界限受压区高度')),
-        ('Nu',('<i>N</i><sub>u</sub>','kN',0,'截面受压承载力')),
-        ('Mu',('<i>M</i><sub>u</sub>','kN',0,'截面受弯承载力')),
-        ('Md',('<i>M</i>','kN·m',0,'')),
-        ('Asmin',('<i>A</i><sub>s,min</sub>','mm<sup>2</sup>',0,'最小配筋面积')),
-        ('eqr',('','mm',0,''))
-        ))
-    __toggles__ = OrderedDict((
-        ('option', {'review':('Asp_known'),'design':('As')}),
-        ('option_m2', {True:('M'),False:('M1','M2')}),
-        ('symmetrical', {True:('As_', 'as_', 'Asp_known'),False:()}),
-        ('Asp_known', {True:(),False:('As_')}),
-        ))
+    __inputs__ = [
+        ('option','选项','','design','','',{'review':'截面复核','design':'截面设计'}),
+        ('option_m2','考虑弯矩二阶效应','',True,'','',{True:'是',False:'否'}),
+        ('symmetrical','对称配筋','',False,'','',{True:'是',False:'否'}),
+        ('Asp_known','已知受压钢筋面积','',False,'','',{True:'是',False:'否'}),
+        ('N','<i>N</i>','kN',1000,'轴力','当考虑弯矩二阶效应时，N为与弯矩设计值M2相应的轴向压力设计值'),
+        ('M','<i>M</i>','kN·m',600,'弯矩'),
+        ('M1','<i>M</i><sub>1</sub>','kN·m',600,'构件绝对值较小端弯矩'),
+        ('M2','<i>M</i><sub>2</sub>','kN·m',600,'构件绝对值较大端弯矩'),
+        ('α1','<i>α</i><sub>1</sub>','',1,'系数'),
+        ('fc','<i>f</i><sub>c</sub>','MPa',16.7,'混凝土轴心抗压强度设计值'),
+        ('fcuk','<i>f</i><sub>cu,k</sub>','MPa',35,'混凝土立方体抗压强度标准值','取混凝土标高'),
+        ('b','<i>b</i>','mm',500,'矩形截面宽度'),
+        ('h','<i>h</i>','mm',1000,'矩形截面高度'),
+        ('lc','<i>l</i><sub>c</sub>','mm',3000,'构件的计算长度','可近似取偏心受压构件相应主轴方向上下支撑点之间的距离'),
+        ('fy','<i>f</i><sub>y</sub>','MPa',360,'钢筋抗拉强度设计值'),
+        ('As','<i>A</i><sub>s</sub>','mm<sup>2</sup>',0,'受拉钢筋面积'),
+        ('a_s','<i>a</i><sub>s</sub>','mm',60,'受拉区纵向普通钢筋合力点至受拉边缘的距离'),
+        ('fy_','<i>f</i><sub>y</sub><sup>\'</sup>','MPa',360,'钢筋抗压强度设计值'),
+        ('As_','<i>A</i><sub>s</sub><sup>\'</sup>','mm<sup>2</sup>',0,'受压区钢筋面积', '受压区纵向普通钢筋的截面面积'),
+        ('as_','<i>a</i><sub>s</sub><sup>\'</sup>','mm',60,'受压区纵向钢筋合力点至受压边缘的距离'),
+        ('Ep','<i>E</i><sub>p</sub>','MPa',1.95E5,'预应力钢筋弹性模量'),
+        ('fpy','<i>f</i><sub>py</sub>','MPa',1320,'受拉区预应力筋抗压强度设计值'),
+        ('Ap','<i>A</i><sub>p</sub>','mm<sup>2</sup>',0,'受拉预应力筋面积'),
+        ('ap','<i>a</i><sub>p</sub>','mm',60,'受拉区纵向预应力筋合力点至受拉边缘的距离'),
+        ('fpy_','<i>f</i><sub>py</sub><sup>\'</sup>','MPa',1320,'受压区预应力筋抗压强度设计值'),
+        ('Ap_','<i>A</i><sub>p</sub><sup>\'</sup>','mm<sup>2</sup>',0,'受压预应力筋面积'),
+        ('ap_','<i>a</i><sub>p</sub><sup>\'</sup>','mm',60,'受压区纵向预应力筋合力点至受拉边缘的距离'),
+        ('Es','<i>E</i><sub>s</sub>','MPa',2E5,'钢筋弹性模量'),
+        ('σp0','<i>σ</i><sub>p0</sub>','MPa',1320,'受拉预应力钢筋初始应力','受拉区纵向预应力筋合力点处混凝土法向应力等于零时的预应力筋应力'),
+        ('σp0_','<i>σ</i><sub>p0</sub><sup>\'</sup>','MPa',1320,'受压预应力钢筋初始应力','截面受压区纵向预应力钢筋合力点处混凝土法向应力等于零时，预应力钢筋中的应力'),
+    ]
+    __deriveds__ = [
+        ('A','<i>A</i>','mm<sup>2</sup>',0,'构件截面面积'),
+        ('ζc','<i>ζ</i><sub>c</sub>','',1,'截面曲率修正系数','当计算值大于1.0时取1.O'),
+        ('ηns','<i>η</i><sub>ns</sub>','',1,'弯矩增大系数'),
+        ('Cm','<i>C</i><sub>m</sub>','',0.7,'构件端截面偏心距调节系数'),
+        ('a','<i>a</i>','mm',0,'纵向受拉普通钢筋和受拉预应力筋的合力点至截面近边缘的距离'),
+        ('a_','<i>a</i><sup>\'</sup>','mm',0,'纵向受压普通钢筋和受拉预应力筋的合力点至截面近边缘的距离'),
+        ('ea','<i>e</i><sub>a</sub>','mm',20,'附加偏心距'),
+        ('e0','<i>e</i><sub>0</sub>','mm',0,'轴向压力对截面重心的偏心距','取为M/N'),
+        ('ei','<i>e</i><sub>i</sub>','mm',20,'初始偏心距'),
+        ('e','<i>e</i>','mm',0,'轴向压力作用点至纵向受拉普通钢筋和受拉预应力筋的合力点的距离'),
+        ('x','<i>x</i>','mm',0,'截面受压区高度'),
+        ('xb','<i>x</i><sub>b</sub>','mm',0,'截面界限受压区高度'),
+        ('Nu','<i>N</i><sub>u</sub>','kN',0,'截面受压承载力'),
+        ('Mu','<i>M</i><sub>u</sub>','kN',0,'截面受弯承载力'),
+        ('Nes_','<i>N</i><i>e</i><sub>s</sub><sup>\'</sup>','kN·m',0,''),
+        ('Asmin','<i>A</i><sub>s,min</sub>','mm<sup>2</sup>',0,'最小配筋面积'),
+        ('eqr','','mm',0,'')
+    ]
+    __toggles__ = [
+        'option', {'review':('Asp_known'),'design':('As')},
+        'option_m2', {True:('M'),False:('M1','M2')},
+        'symmetrical', {True:('As_', 'as_', 'Asp_known'),False:()},
+        'Asp_known', {True:(),False:('As_')},
+    ]
     # Non-static members
     ρmin = 0.002
     # Options
@@ -537,7 +537,7 @@ class eccentric_compression(abacus):
                 (self.fy_*self.As_*self.as_+(self.fpy_-self.σp0_)*self.Ap_*self.ap_)/(self.fy_*self.As_+self.fpy_*self.Ap_)
             if self.x<2*self.a_:
                 self.es_ = self.ei-(self.h/2-self.as_) # 偏心压力作用点至受压钢筋合力点的距离
-                self.Md = self.N*self.es_*1e-3
+                self.Nes_ = self.N*self.es_*1e-3
                 self.Mu = self.fMu2(
                     self.h, self.fy, self.As, self.a_s, self.as_, self.fpy, self.Ap, self.ap,
                     self.fpy_, self.σp0_, self.Ap_, self.ap_
@@ -577,12 +577,13 @@ class eccentric_compression(abacus):
         if self.As_ > 0:
             self.eqr = 2*self.a_
             ok = self.x >= self.eqr
-            yield '{} {} {}，{}满足规范公式(6.2.10-4)要求{}。'.format(
+            yield self.format_conclusion(
+                ok,
                 self.format('x'), 
                 '&ge;' if ok else '&lt;', 
                 self.format('eqr', omit_name = True, eq='2a_'),
-                '' if ok else '不',
-                '' if ok else '，需按6.2.14条要求验算'
+                '{}满足规范公式(6.2.10-4)要求{}。'.format('' if ok else '不',
+                '' if ok else '，需按6.2.14条要求验算')
                 )
             if not ok:
                 # 当不满足此条件时，其正截面
@@ -590,17 +591,22 @@ class eccentric_compression(abacus):
                 # 将本规范公式（ 6. 2. 14 ）中的M 以Ne ；代替，此处 ε：为轴向
                 # 压力作用点至受压区纵向普通钢筋合力点的距离；初始偏心距应
                 # 按公式（ 6. 2. 17-4 ）确定。
-                ok = self.Md <= self.Mu
-                yield '{} {} {}，{}满足规范公式(6.2.14)要求。'.format(
-                    self.format('Md', digits), 
+                ok = self.Nes_ <= self.Mu
+                yield self.format_conclusion(
+                    ok,
+                    self.format('Nes_', digits), 
                     '&le;' if ok else '&gt;', 
                     self.format('Mu', omit_name = True, eq='fpy*Ap*(h-ap-as_)+fy*As*(h-a_s-as_)-(fpy_-σp0_)*Ap_*(ap_-as_)'),
-                    '' if ok else '不'
+                    '{}满足规范公式(6.2.14)要求。'.format('' if ok else '不')
                 )
         ok = self.Nu > self.N
-        yield '{} {} {}，{}满足规范要求。'.format(
-            self.format('Nu'), '&gt;' if ok else '&lt;', self.format('N',omit_name=True),
-            '' if ok else '不')
+        yield self.format_conclusion(
+            ok,
+            self.format('Nu', digits, eq='α1*fc*b*x+fy_*As_-σs*As-(σp0_-fpy_)*Ap_-σp*Ap'), 
+            '&gt;' if ok else '&lt;', 
+            self.format('N',omit_name=True),
+            '{}满足规范公式(6.2.17-1)要求。'.format('' if ok else '不')
+            )
         
     def _html_As(self, digits = 2):
         yield '截面尺寸:{}'.format(self.formatx('b','h','h0',digits=None,omit_name=True))

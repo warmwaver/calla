@@ -171,8 +171,8 @@ class Column(abacus):
         #('fc',('<i>f</i>c','MPa',16.7)),
         #('fcuk',('<i>f</i><sub>cu,k</sub>','MPa',35)),
         # 矩形截面：
-        ('b','<i>b</i>','mm',500,'矩形截面宽度', '沿x向尺寸'),
-        ('h','<i>h</i>','mm',1000,'矩形截面高度', '沿y向尺寸'),
+        ('b','<i>b</i>','mm',500,'矩形截面宽度', '沿局部坐标z向尺寸'),
+        ('h','<i>h</i>','mm',1000,'矩形截面高度', '沿局部坐标y向尺寸'),
         #('h0',('h<sub>0</sub>','mm')),
         # T形截面：
         ('bf','<i>b</i><sub>f</sub>','mm',0,'受拉区翼缘计算宽度'),
@@ -196,8 +196,8 @@ class Column(abacus):
         ('l','<i>l</i>','mm',5000,'构件长度'),
         #('l0',('<i>l</i>0','mm',0,'构件计算长度')),
         #('ys',('<i>y</i>s','mm',0,'截面重心至受拉钢筋距离','截面重心至纵向受拉钢筋合力点的距离')),
-        ('As','<i>A</i><sub>s</sub>','mm<sup>2</sup>',(0,0),'纵向受拉钢筋面积','两侧钢筋若不同，分别输入(Asx,Asy)'),
-        ('Ap','<i>A</i><sub>p</sub>','mm<sup>2</sup>',(0,0),'纵向受拉预应力筋面积','两侧预应力若不同，分别输入(Apx,Apy)'),
+        ('As','<i>A</i><sub>s</sub>','mm<sup>2</sup>',(0,0),'纵向受拉钢筋面积','两侧钢筋若不同，分别输入平行于y轴和z轴的边的钢筋面积(Asy,Asz)'),
+        ('Ap','<i>A</i><sub>p</sub>','mm<sup>2</sup>',(0,0),'纵向受拉预应力筋面积','两侧预应力若不同，分别输入平行于y轴和z轴的边的预应力筋面积(Apy,Apz)'),
         ('As_','<i>A</i><sub>s</sub><sup>\'</sup>','mm<sup>2</sup>',0,'纵向受压钢筋面积'),
         # JTG
         ('c','<i>c</i>','mm',30,'最外排纵向受拉钢筋的混凝土保护层厚度','当c > 50mm 时，取50mm'),
@@ -307,28 +307,28 @@ class Column(abacus):
             return (ax, ay)
 
         if isinstance(self.As, float) or isinstance(self.As, int):
-            Asx = Asy = self.As
+            Asy = Asz = self.As
         elif isinstance(self.As, tuple) or isinstance(self.As, list):
             n = len(self.As)
             if n >0 and n < 1:
-                Asx = Asy = self.As
+                Asy = Asz = self.As
             elif n > 1:
-                Asx = self.As[0]
-                Asy = self.As[1]
+                Asy = self.As[0]
+                Asz = self.As[1]
             else:
                 raise InputError(self,'As','无法识别的输入')
         else:
             raise InputError(self,'As','无法识别的输入')
-        Asx_, Asy_ = _seperate('As_')
+        Asy_, Asz_ = _seperate('As_')
         if isinstance(self.Ap, float) or isinstance(self.Ap, int):
-            Apx = Apy = self.Ap
+            Apy = Apz = self.Ap
         elif isinstance(self.Ap, tuple) or isinstance(self.Ap, list):
             n = len(self.Ap)
             if n >0 and n < 1:
-                Apx = Apy = self.Ap
+                Apy = Apz = self.Ap
             elif n > 1:
-                Apx = self.Ap[0]
-                Apy = self.Ap[1]
+                Apy = self.Ap[0]
+                Apz = self.Ap[1]
             else:
                 raise InputError(self,'Ap','无法识别的输入')
         else:
@@ -339,7 +339,7 @@ class Column(abacus):
             calla.GB.compressive_capacity.axial_compression(**paras)
         ac.Nd = forces_uls.Fx
         ac.A = self.A
-        ac.As_ = Asx+Asy
+        ac.As_ = Asy+Asz
         ac.solve()
 
         # 偏心受压承载力
@@ -347,10 +347,11 @@ class Column(abacus):
         # bc.fcd = calla.JTG.concrete.fcd(self.concrete)
         # bc.fsd=bc.fsd_=calla.JTG.rebar.fsd(self.rebar)
         bc.option = 'review'
+        bc.ps = '无'
         Nd = forces_uls.Fx
         #choseX = forces_uls[0] > forces_uls[1]
         bcs = []
-        # z方向偏心弯曲验算，对于圆截面则是合力方向计算
+        # z方向偏心弯曲验算(My作用)，对于圆截面则是合力方向计算
         if self.section == 'round':
             Md = sqrt(forces_uls.Mz**2+forces_uls.My**2)
         else:
@@ -365,25 +366,25 @@ class Column(abacus):
         bc.h = self.b
         bc.h0 = self.b - self.as_
         bc.l0 = self.k*self.l
-        bc.As = Asx
-        bc.As_ = Asx_
-        bc.Ap = Apx
+        bc.As = Asy
+        bc.As_ = Asy_
+        bc.Ap = Apy
         bc.solve()
         bcs.append(bc)
-        # y方向偏心弯曲验算
+        # y方向偏心弯曲(Mz作用)验算
         if self.section != 'round':
             bcy = copy.copy(bc)
             Md = abs(forces_uls.Mz)
             if self.code == 'GB':
-                bc.M = Md
+                bcy.M = Md
             else:
-                bc.Md = Md
+                bcy.Md = Md
             bcy.b = self.b
             bcy.h = self.h
             bcy.h0 = self.h - self.as_
-            bcy.As = Asy
-            bcy.As_ = Asy_
-            bcy.Ap = Apy
+            bcy.As = Asz
+            bcy.As_ = Asz_
+            bcy.Ap = Apz
             bcy.solve()
             bcs.append(bcy)
 
@@ -421,7 +422,7 @@ class Column(abacus):
         forces_s = wrapforces(self.forces_fr)
         cw.Ns = abs(forces_s.Fx)
         # z方向验算
-        cw.As = Asx
+        cw.As = Asy
         if self.section == 'round':
             cw.Ml = sqrt(forces_l.Mz**2+forces_l.My**2)
             cw.Ms = sqrt(forces_s.Mz**2+forces_s.My**2)
@@ -436,7 +437,7 @@ class Column(abacus):
             cws[1].b = self.b
             cws[1].h = self.h
             cws[1].h0 = cws[1].h-cws[1].a_s
-            cws[1].As = Asy
+            cws[1].As = Asz
             cws[1].ys = cws[1].h/2-cws[1].a_s
             cws[1].Ml = abs(forces_l.Mz)
             cws[1].Ms = abs(forces_s.Mz)

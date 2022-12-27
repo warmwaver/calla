@@ -13,34 +13,34 @@ class longitudinal_force_distribution(abacus):
     温度产生的桥梁纵向水平力计算
     '''
     __title__ = '桥梁纵向温度水平力'
-    __inputs__ = OrderedDict([
-        ('spans',('跨径','',[60,100,60],'','')),
+    __inputs__ = [
+        ('spans','跨径','m',[60,100,60],'',''),
         # ('nb',('<i>n</i><sub>b</sub>','',7,'每个墩台支座个数')),
-        ('kb',('<i>k</i><sub>b</sub>','kN/m',[0,0,0,0],'支座刚度','一个桥墩上若有多个支座，则为多个支座的组合刚度')),
+        ('kb','<i>k</i><sub>b</sub>','kN/m',[0,0,0,0],'支座刚度','一个桥墩上若有多个支座，则为多个支座的组合刚度'),
         # ('a_s',('<i>a</i><sub>s</sub>','mm',60,'受拉钢筋距边缘距离','受拉区纵向普通钢筋合力点至受拉边缘的距离')),
         # ('as_',('<i>a</i><sub>s</sub><sup>\'</sup>','mm',60,'受压钢筋距边缘距离','受拉区纵向预应力筋合力点至受拉边缘的距离')),
-        ('option',('','','A','桥墩刚度输入方式','',{'A':'直接输入','B':'辅助计算'})),
-        ('kp',('<i>k</i><sub>p</sub>','kN/m',[0,0,0,0],'桥墩刚度','')),
-        ('E',('<i>E</i>','kN/m<sup>2</sup>',3.25e7,'桥墩混凝土弹性模量')),
-        ('I',('[<i>I</i>]','m<sup>4</sup>',[6,6,6,6],'桥墩截面惯性矩')),
-        ('l',('[<i>l</i>]','m',[6,6,6,6],'桥墩高度')),
+        ('option','','','A','墩(台)刚度输入方式','',{'A':'直接输入','B':'辅助计算'}),
+        ('kp','<i>k</i><sub>p</sub>','kN/m',[0,0,0,0],'墩(台)刚度','墩顶水平线刚度'),
+        ('E','<i>E</i>','kN/m<sup>2</sup>',3.25e7,'墩(台)混凝土弹性模量'),
+        ('I','[<i>I</i>]','m<sup>4</sup>',[6,6,6,6],'墩(台)截面惯性矩'),
+        ('l','[<i>l</i>]','m',[6,6,6,6],'墩(台)高度'),
         # 温度作用参数
-        ('Ws',('','kN',[5000, 62000, 62000, 5000],'墩顶重力','列表')),
-        ('fixeds',('','',[False, True, False, False],'是否固定支座','列表，是：True，否：False')),
-        ('Δt',('Δ<i>t</i>','°C',30,'温度变化')),
-        ('α',('<i>α</i><sub>t</sub>','1/°C',1e-5,'材料线膨胀系数')),
-        ('μ',('<i>μ</i>','',0.03,'支座摩擦系数','按《公路桥涵设计通用规范》4.3.13取值')),
-        ])
-    __deriveds__ = OrderedDict((
-        ('xs',('[<i>x</i>]','m',[0, 60, 160, 220],'桥墩坐标','由spans计算')),
-        ('ks',('[<i>K</i>]','kN/m',[],'墩顶水平线刚度','支座和墩身的组合刚度')),
-        ('xsp',('<i>x</i><sub>sp</sub>','m',1.0,'不动点位置','以起点支座起算')),
-        ('move_status',('','',[],'支座滑动')),
-        ('Fs',('[<i>F</i>]','kN',0,'温度作用墩顶水平力','')),
-        ))
-    __toggles__ = {
-        'option':{'A':('E','I','l'),'B':('kp')}
-    }
+        ('Ws','','kN',[5000, 62000, 62000, 5000],'墩顶承受的主梁恒载','列表'),
+        ('fixeds','','',[False, True, False, False],'是否固定支座','列表，是：True，否：False'),
+        ('Δt','Δ<i>t</i>','°C',30,'温度变化'),
+        ('α','<i>α</i><sub>t</sub>','1/°C',1e-5,'材料线膨胀系数'),
+        ('μ','<i>μ</i>','',0.03,'支座摩擦系数','按《公路桥涵设计通用规范》4.3.13取值'),
+    ]
+    __deriveds__ = [
+        ('xs','[<i>x</i>]','m',[0, 60, 160, 220],'桥墩坐标','由spans计算'),
+        ('ks','[<i>K</i>]','kN/m',[],'墩顶水平线刚度','支座和墩身的组合刚度'),
+        ('xsp','<i>x</i><sub>sp</sub>','m',1.0,'不动点位置','以起点支座起算'),
+        ('move_status','','',[],'支座滑动'),
+        ('Fs','[<i>F</i>]','kN',0,'温度作用墩顶水平力',''),
+    ]
+    __toggles__ = [
+        'option', {'A':('E','I','l'),'B':('kp',)}
+    ]
 
     @staticmethod
     def temperature_force_distribution(xs, ks, Ws, fixeds, Δt, α, μ):
@@ -71,7 +71,8 @@ class longitudinal_force_distribution(abacus):
             for i in range(len(xs)):
                 x = xs[i]
                 if move_status[i]:
-                    Fs.append(μ*Ws[i]*(1 if Δt*(x-xsp)>0 else -1))
+                    _μ = μ[i] if isinstance(μ, (list, tuple)) else μ
+                    Fs.append(_μ*Ws[i]*(1 if Δt*(x-xsp)>0 else -1))
                 else:
                     Fs.append(ks[i]*α*Δt*(x-xsp))
             return Fs
@@ -84,6 +85,7 @@ class longitudinal_force_distribution(abacus):
         xsp = kxsum/ksum
         print('不动点坐标：xsp = ',xsp)
         count = 0
+        #μ_is_list = isinstance(μ, (list, tuple))
         while count < 10:
             a = 0
             b = 0
@@ -92,9 +94,10 @@ class longitudinal_force_distribution(abacus):
                 k = ks[i]
                 x = xs[i]
                 G = Ws[i]
+                _μ = μ[i] if isinstance(μ, (list, tuple)) else μ
                 Δ = α*Δt*(x-xsp)
                 F = k*Δ
-                Fmax = μ*G
+                Fmax = _μ*G
                 u = 1 if F > 0 else -1
                 fixed = fixeds[i]
                 if abs(F) > Fmax and not fixed:
@@ -145,14 +148,23 @@ class longitudinal_force_distribution(abacus):
             sum += span
             xs.append(sum)
         ks = []
-        I_is_list = isinstance(self.I, list) or isinstance(self.I, tuple)
-        l_is_list = isinstance(self.I, list) or isinstance(self.I, tuple)
-        kb_is_list = isinstance(self.kb, list) or isinstance(self.kb, tuple)
+        I_is_list = isinstance(self.I, (list, tuple))
+        l_is_list = isinstance(self.I, (list, tuple))
+        kb_is_list = isinstance(self.kb, (list, tuple))
         if kb_is_list:
             for ki in self.kb:
                 if ki==0:
                     raise InputError(self, 'kb', '支座刚度应大于0')
-        for i in range(len(xs)):
+        npiers = len(xs)
+        # validation of inputs
+        disableds = self.disableds()
+        for key in ('kp', 'kb', 'I', 'l', 'Ws', 'fixeds'):
+            if not key in disableds:
+                attr = getattr(self, key)
+                if isinstance(attr, (list, tuple)):
+                    if len(attr) < npiers:
+                        raise InputError(self, key, '桥墩个数应=跨数+1')
+        for i in range(npiers):
             # 支座刚度
             kb = self.kb[i] if kb_is_list else self.kb
             # 桥墩刚度
@@ -184,14 +196,25 @@ class longitudinal_force_distribution(abacus):
             yield self.format(param, digits)
         tb = []
         rh = ['墩(台)号']
-        for i in range(len(self.xs)):
+        n = len(self.xs)
+        for i in range(n):
             rh.append(i)
         tb.append(rh)
         for param in ('xs', 'fixeds', 'kb', 'kp', 'ks', 'Ws', 'move_status', 'Fs'):
-            attr = self.para_attrs(param)
+            attr = self._inputs_[param] if param in self._inputs_ else self._deriveds_[param]
             chname = attr.name if attr.unit=='' else'{}({})'.format(attr.name, attr.unit)
-            tb.append([chname]+getattr(self,param))
+            tb.append([chname]+self._to_list(getattr(self,param), n))
         yield html.table2html(tb, digits)
+    
+    @staticmethod
+    def _to_list(param, n:int):
+        '''数据转换成列表'''
+        if hasattr(param, '__len__') and not isinstance(param, str):
+            # 本身为列表，直接返回数据
+            return param
+        else:
+            # 生成数据列表
+            return [param for _ in range(n)]
 
 class braking_force(abacus):
     '''

@@ -228,7 +228,9 @@ class crack_width(abacus):
                 # 受弯构件：σss = 0.6/(0.45r+0.26rs)*Ms/As
                 fσss_BD = lambda r,rs,Ms,As:0.6/(0.45*r+0.26*rs)*Ms/As
                 self.σss = fσss_BD(self.r,self.rs,self.Ms*1e6,self.As)
-            elif self.force_type == 'EC' and (self.Ns>0 and self.Ms> 0): # 偏心受压
+            elif self.force_type == 'EC': # 偏心受压
+                if not (self.Ns>0 and self.Ms> 0):
+                    raise InputError(self, 'Ms', 'Ns和Ms必须为正')
                 self.eql = self.e0/self.r # 6.4.3: e0/r<0.55时可不进行裂缝宽度计算
                 self.ηs = self.f_ηs(self.e0,self.l0,2*self.r,2*self.r-self.a_s)
                 self.σss = self.f_σss_round(
@@ -402,7 +404,7 @@ class crack_width(abacus):
             
     def _html_As(self,digits=2):
         yield '构件受力类型: '
-        yield self.__inputs__['force_type'][5][self.force_type]
+        yield self.format('force_type')
         yield '构件尺寸:'
         yield self.formatx('b','h','h0','r','rs','l0',digits=None)
         yield '钢筋:'

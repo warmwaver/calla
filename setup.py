@@ -3,8 +3,8 @@
 from setuptools import setup, find_packages
 
 setup(name='calla',
-      version='0.3',
-      description='Calculation for structural engineers',
+      version='0.4',
+      description='Open implementation of formulas in specifications or codes for structural engineering',
       url='https://github.com/warmwaver/calla',
       author='warmwaver',
       author_email='warmwaver@126.com',
@@ -13,4 +13,5 @@ setup(name='calla',
       long_description="Open implementation of formulas in specifications or codes for structural engineering.",
       license="MIT",
       platforms=["any"],
+      python_requires='>=3.10',
      )

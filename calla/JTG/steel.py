@@ -125,37 +125,37 @@ class compressive_rib(abacus):
     《公路钢结构桥梁设计规范》（JTG D64-2015） 第5.1.6节
     """
     __title__ = '受压加劲板刚度'
-    __inputs__ = OrderedDict((
-        ('E',('<i>E</i>','MPa',2.06E5,'钢材弹性模量')),
-        ('υ',('<i>υ</i>','',0.31,'钢材泊松比')),
-        ('a',('<i>a</i>','mm',2000,'加劲板的计算长度','横隔板或刚性横向加劲肋的间距')),
-        ('b',('<i>b</i>','mm',1800,'加劲板的计算宽度','腹板或刚性纵向加劲肋的间距')),
-        ('t',('<i>t</i>','mm',12,'母板厚度')),
-        ('hl',('<i>h</i><sub>l</sub>','mm',90,'纵向加劲肋截面高度')),
-        ('tl',('<i>t</i><sub>l</sub>','mm',10,'纵向加劲肋厚度')),
-        ('nl',('<i>n</i><sub>l</sub>','',5,'等间距布置纵向加劲肋根数')),
-        ('option',('是否有横向加劲肋','',False,'','',{True:'是',False:'否'})),
-        ('ht',('<i>h</i><sub>t</sub>','mm',100,'横向加劲肋截面高度')),
-        ('tt',('<i>t</i><sub>t</sub>','mm',10,'横向加劲肋厚度')),
-        ('at',('<i>a</i><sub>t</sub>','mm',1000,'横向加劲肋间距')),
-        ))
-    __deriveds__ = OrderedDict((
-        ('α',('<i>α</i>','',0,'加劲板的长宽比')),
-        ('Il',('<i>I</i><sub>l</sub>','mm<sup>4</sup>',0,'纵向加劲肋惯性矩')),
-        ('It',('<i>I</i><sub>t</sub>','mm<sup>4</sup>',0,'横向加劲肋惯性矩')),
-        ('D',('<i>D</i>','N·mm',0,'单宽板刚度')),
-        ('γl',('<i>γ</i><sub>l</sub>','',0,'纵向加劲肋的相对刚度')),
-        ('γl_',('<i>γ</i><sub>l</sub><sup>*</sup>','',0,'纵向加劲肋的相对刚度限值')),
-        ('δl',('<i>δ</i><sub>l</sub>','',0,'单根纵向加劲肋的截面面积与母板的面积之比')),
-        ('Asl',('<i>A</i><sub>sl</sub>','mm<sup>2</sup>',0,'单根纵向加劲肋的截面面积')),
-        ('Asl_min',('<i>bt</i>/10<i>n</i>','mm<sup>2</sup>',0,'','单根纵向加劲肋的截面面积限值')),
-        ('γt',('<i>γ</i><sub>t</sub>','',0,'横向加劲肋的相对刚度')),
-        ('γt_min',('1+<i>nγ</i><sub>l</sub><sup>*</sup>/4/(<i>at</i>/<i>b</i>)','',0,'横向加劲肋的相对刚度')),
-        ('k',('<i>k</i>','',0.425,'加劲板的弹性屈曲系数','加劲肋尺寸符合本规范第5.1.5条规定时，可参考附录B计算')),
-        ))
-    __toggles__ = {
-        'option':{True:(),False:('ht','tt','at')},
-        }
+    __inputs__ = [
+        ('E','<i>E</i>','MPa',2.06E5,'钢材弹性模量'),
+        ('υ','<i>υ</i>','',0.31,'钢材泊松比'),
+        ('a','<i>a</i>','mm',2000,'加劲板的计算长度','横隔板或刚性横向加劲肋的间距'),
+        ('b','<i>b</i>','mm',1800,'加劲板的计算宽度','腹板或刚性纵向加劲肋的间距'),
+        ('t','<i>t</i>','mm',12,'母板厚度'),
+        ('hl','<i>h</i><sub>l</sub>','mm',90,'纵向加劲肋截面高度'),
+        ('tl','<i>t</i><sub>l</sub>','mm',10,'纵向加劲肋厚度'),
+        ('nl','<i>n</i><sub>l</sub>','',5,'等间距布置纵向加劲肋根数'),
+        ('option','是否有横向加劲肋','',False,'','',{True:'是',False:'否'}),
+        ('ht','<i>h</i><sub>t</sub>','mm',100,'横向加劲肋截面高度'),
+        ('tt','<i>t</i><sub>t</sub>','mm',10,'横向加劲肋厚度'),
+        ('at','<i>a</i><sub>t</sub>','mm',1000,'横向加劲肋间距'),
+    ]
+    __deriveds__ = [
+        ('α','<i>α</i>','',0,'加劲板的长宽比'),
+        ('Il','<i>I</i><sub>l</sub>','mm<sup>4</sup>',0,'纵向加劲肋惯性矩'),
+        ('It','<i>I</i><sub>t</sub>','mm<sup>4</sup>',0,'横向加劲肋惯性矩'),
+        ('D','<i>D</i>','N·mm',0,'单宽板刚度'),
+        ('γl','<i>γ</i><sub>l</sub>','',0,'纵向加劲肋的相对刚度'),
+        ('γl_','<i>γ</i><sub>l</sub><sup>*</sup>','',0,'纵向加劲肋的相对刚度限值'),
+        ('δl','<i>δ</i><sub>l</sub>','',0,'单根纵向加劲肋的截面面积与母板的面积之比'),
+        ('Asl','<i>A</i><sub>sl</sub>','mm<sup>2</sup>',0,'单根纵向加劲肋的截面面积'),
+        ('Asl_min','<i>bt</i>/10<i>n</i>','mm<sup>2</sup>',0,'','单根纵向加劲肋的截面面积限值'),
+        ('γt','<i>γ</i><sub>t</sub>','',0,'横向加劲肋的相对刚度'),
+        ('γt_min','1+<i>nγ</i><sub>l</sub><sup>*</sup>/4/(<i>at</i>/<i>b</i>)','',0,'横向加劲肋的相对刚度'),
+        ('k','<i>k</i>','',0.425,'加劲板的弹性屈曲系数','加劲肋尺寸符合本规范第5.1.5条规定时，可参考附录B计算'),
+    ]
+    __toggles__ = [
+        'option', {True:(),False:('ht','tt','at')},
+    ]
         
     @staticmethod
     def fsolve(E= 2.06E5,υ = 0.31,a = 2000,b = 1400,t = 12,hl = 90,tl = 10,ht = 100,tt = 10,nl = 3,at = 1000):
@@ -164,7 +164,7 @@ class compressive_rib(abacus):
         It = tt*ht**3/12+tt*ht*(ht/2)**2
         D = E*t**3/12/(1-υ**2)
         γl = E*Il/b/D
-        γt = E*It/b/D
+        γt = E*It/a/D
         n = nl+1
         α0 = (1+n*γl)**(1/4) # (5.1.6-5)
         α = a/b
@@ -192,7 +192,7 @@ class compressive_rib(abacus):
 
     def _html(self, digits=2):
         disableds = self.disableds()
-        for attr in self.__inputs__:
+        for attr in self.inputs:
             if hasattr(self, attr) and (not attr in disableds):
                 yield self.format(attr, digits = None)
         yield self.format('D', digits, eq='E·t<sup>3</sup>/12/(1-υ<sup>2</sup>)')
@@ -206,21 +206,30 @@ class compressive_rib(abacus):
         if self.α<=self.α0 else '1/n·((2·n<sup>2</sup>·(1+n·δl)-1)<sup>2</sup>-1)'
         yield self.format('γl_', digits,eq=eq)
         rigid = self.γl >= self.γl_
-        yield '{} {} {}，{}满足刚性加劲肋要求。'.format(
-            self.format('γl', digits,eq='E·Il/b/D'), '≥' if rigid else '&lt;', 
+        yield self.format_conclusion(
+            rigid,
+            self.format('γl', digits,eq='E·Il/b/D'), 
+            '≥' if rigid else '&lt;', 
             self.format('γl_', digits=digits, omit_name=True),
-            '' if rigid else '不')
+            '{}满足刚性加劲肋要求。'.format('' if rigid else '不')
+        )
         ok = self.Asl >= self.Asl_min
-        yield '{} {} {}，{}满足规范要求。'.format(
-            self.format('Asl', digits), '≥' if ok else '&lt;', 
+        yield self.format_conclusion(
+            ok,
+            self.format('Asl', digits), 
+            '≥' if ok else '&lt;', 
             self.format('Asl_min', digits=digits, omit_name=True),
-            '' if ok else '不')
+            '{}满足规范要求。'.format('' if ok else '不')
+        )
         if self.option:
             ok = self.γt >= self.γt_min
-            yield '{} {} {}，{}满足规范要求。'.format(
-                self.format('γt', digits,eq='E·It/b/D'), '≥' if ok else '&lt;', 
+            yield self.format_conclusion(
+                ok,
+                self.format('γt', digits,eq='E·It/a/D'), 
+                '≥' if ok else '&lt;', 
                 self.format('γt_min', digits=digits, omit_name=True),
-                '' if ok else '不')
+                '{}满足规范要求。'.format('' if ok else '不')
+            )
         if rigid:
             yield self.format('k', digits)
         else:
@@ -572,8 +581,8 @@ class stability_bending_compression(abacus):
         'My作用平面内的弯矩单独作用下，考虑约束影响的构件弯扭失稳模态的整体弯扭弹性屈曲弯矩，可采用有限元方法计算'),
         ('Mcrz','<i>M</i><sub>cr,z</sub>','kN·m',0,'整体弯扭弹性屈曲弯矩',
         'Mz作用平面内的弯矩单独作用下，考虑约束影响的构件弯扭失稳模态的整体弯扭弹性屈曲弯矩，可采用有限元方法计算'),
-        ('Ncry','<i>N</i><sub>cr,y</sub>','kN·m',0,'轴心受压构件绕y轴失稳模态的整体稳定欧拉荷载'),
-        ('Ncrz','<i>N</i><sub>cr,z</sub>','kN·m',0,'轴心受压构件绕z轴失稳模态的整体稳定欧拉荷载'),
+        ('Ncry','<i>N</i><sub>cr,y</sub>','kN',0,'轴心受压构件绕y轴失稳模态的整体稳定欧拉荷载'),
+        ('Ncrz','<i>N</i><sub>cr,z</sub>','kN',0,'轴心受压构件绕z轴失稳模态的整体稳定欧拉荷载'),
         ('βmy','<i>β</i><sub>m,y</sub>','',1,'等效弯矩系数','可按表5.3.2-2计算'),
         ('βmz','<i>β</i><sub>m,z</sub>','',1,'等效弯矩系数','可按表5.3.2-2计算'),
         ('α','<i>α</i>','',0.35,'参数','根据附录A表A.0.1-1取值'),
@@ -605,12 +614,12 @@ class stability_bending_compression(abacus):
         fε0 = lambda α,λ: α*(λ-0.2) # (A.0.1-3)
 
         self.validate('positive', 'fy','fd','Ncry','Ncrz','Mcry','Mcrz','Aeff','Wyeff','Wzeff','χy','χz','χLTy','χLTz')
-        self.NRd = self.Aeff*self.fd*1e3 # (5.4.1-2)
-        self.MRdy = self.Wyeff*self.fd*1e3 # (5.4.1-3)
-        self.MRdz = self.Wzeff*self.fd*1e3 # (5.4.1-4)
+        self.NRd = self.Aeff*self.fd*1e3 # (5.4.1-2), kN
+        self.MRdy = self.Wyeff*self.fd*1e3 # (5.4.1-3), kNm
+        self.MRdz = self.Wzeff*self.fd*1e3 # (5.4.1-4), kNm
         
-        self.λLTy = sqrt(self.Wyeff*self.fy/self.Mcry) # (5.3.2-5)
-        self.λLTz = sqrt(self.Wzeff*self.fy/self.Mcrz) # (5.3.2-5)
+        self.λLTy = sqrt(self.Wyeff*self.fy/self.Mcry*1e3) # (5.3.2-5)
+        self.λLTz = sqrt(self.Wzeff*self.fy/self.Mcrz*1e3) # (5.3.2-5)
         self.ε0y = fε0(self.α, self.λLTy)
         self.χLTy = 1 if self.λLTy <=0.2 else fχ(self.λLTy,self.ε0y)
         self.ε0z = fε0(self.α, self.λLTz)
@@ -684,10 +693,10 @@ class web_rib(abacus):
         return η, tmin
 
     @staticmethod
-    def rib_space(a, hw, tw, σ, τ, fvd, C1, C2):
+    def rib_space(a, hw, tw, σ, τ, fvd, C1, C2, C3):
         # (5.3.3) 采用C1、C2代表6个式子中的变化参数
-        feql = lambda a, hw, tw, σ, τ, fvd, C1, C2: (hw/100/tw)**4*((σ/C1)**2+(τ/(C2+58*(hw/a)**2))**2)
-        return feql(a, hw, tw, σ, τ, fvd, C1, C2)
+        feql = lambda a, hw, tw, σ, τ, fvd, C1, C2, C3: (hw/100/tw)**4*((σ/C1)**2+(τ/(C2+C3*(hw/a)**2))**2)
+        return feql(a, hw, tw, σ, τ, fvd, C1, C2, C3)
 
     @staticmethod
     def fIt(hw, tw):
@@ -727,11 +736,17 @@ class web_rib(abacus):
             True:[77,120,187],
             False:[58,90,140]
         }
-        opC3 = [1,0.8,0.64]
+        opC3 = {
+            True:58,
+            False:77
+        }
+        opC4 = [1,0.8,0.64]
         self.C1 = opC1[nl]
-        bl = self.a/self.hw > opC3[nl]
+        bl = self.a/self.hw > opC4[nl]
         self.C2 = opC2[bl][nl]
-        self.eql = self.rib_space(self.a, self.hw, self.tw, self.σ, self.τ, self.fvd, self.C1, self.C2)
+        self.C3 = opC3[bl]
+        self.eql = self.rib_space(self.a, self.hw, self.tw, self.σ, self.τ, self.fvd, 
+        self.C1, self.C2, self.C3)
 
         self.It_min = self.fIt(self.hw, self.tw)
 
@@ -761,7 +776,8 @@ class web_rib(abacus):
         for para in ('σ','τ','a'):
             yield self.format(para, digits)
         ok = self.eql <= 1
-        eq = '(hw/100/tw)<sup>4</sup>·((σ/{})<sup>2</sup>+(τ/({}+58·(hw/a)<sup>2</sup>))<sup>2</sup>)'.format(self.C1,self.C2)
+        eq = '(hw/100/tw)<sup>4</sup>·((σ/{})<sup>2</sup>+(τ/({}+{}·(hw/a)<sup>2</sup>))<sup>2</sup>)'.format(
+            self.C1,self.C2,self.C3)
         yield self.format_conclusion(
             ok,
             self.format('eql', digits,eq=eq), 
@@ -799,121 +815,129 @@ class support_rib(abacus):
     《公路钢结构桥梁设计规范》（JTG D64-2015） 第5.3.4节
     """
     __title__ = '支承加劲肋'
-    __inputs__ = OrderedDict((
-        ('γ0',('<i>γ</i><sub>0</sub>','',1.0,'重要性系数')),
+    __inputs__ = [
+        ('γ0','<i>γ</i><sub>0</sub>','',1.0,'重要性系数'),
         #('steel',('钢材型号','mm','Q345','','',['Q235','Q345'])),
-        ('fcd',('<i>f</i><sub>cd</sub>','MPa',355,'钢材的端面承压强度设计值')),
-        ('fd',('<i>f</i><sub>d</sub>','MPa',275,'钢材的抗拉、抗压、抗弯强度设计值')),
-        ('Rv',('<i>R</i><sub>v</sub>','kN',0,'支座反力设计值')),
-        ('As',('<i>A</i><sub>s</sub>','mm<sup>2</sup>',90,'支承加劲肋面积之和')),
-        ('tw',('<i>t</i><sub>w</sub>','mm',10,'腹板厚度')),
-        ('tf',('<i>t</i><sub>f</sub>','mm',10,'下翼板厚度')),
-        ('tb',('<i>t</i><sub>b</sub>','mm',10,'支座垫板厚度')),
-        ('B',('<i>B</i>','mm',1000,'上支座宽度')),
-        ('ns',('<i>n</i><sub>s</sub>','',2,'支承加劲肋对数')),
-        ('bs',('<i>b</i><sub>s</sub>','mm',250,'支承加劲肋间距')),
-        ))
-    __deriveds__ = OrderedDict((
-        ('Beb',('<i>B</i><sub>eb</sub>','mm',10,'腹板局部承压有效计算宽度')),
-        ('Bev',('<i>B</i><sub>eb</sub>','mm',10,'腹板有效宽度')),
-        ('eql1',('','MPa',0,'')),
-        ('eql2',('','MPa',0,'')),
-        ))
+        ('fcd','<i>f</i><sub>cd</sub>','MPa',355,'钢材的端面承压强度设计值'),
+        ('fd','<i>f</i><sub>d</sub>','MPa',275,'钢材的抗拉、抗压、抗弯强度设计值'),
+        ('Rv','<i>R</i><sub>v</sub>','kN',0,'支座反力设计值'),
+        ('As','<i>A</i><sub>s</sub>','mm<sup>2</sup>',90,'支承加劲肋面积之和'),
+        ('tw','<i>t</i><sub>w</sub>','mm',10,'腹板厚度'),
+        ('tf','<i>t</i><sub>f</sub>','mm',10,'下翼板厚度'),
+        ('tb','<i>t</i><sub>b</sub>','mm',10,'支座垫板厚度'),
+        ('B','<i>B</i>','mm',1000,'上支座宽度'),
+        ('ns','<i>n</i><sub>s</sub>','',2,'支承加劲肋对数'),
+        ('bs','<i>b</i><sub>s</sub>','mm',250,'支承加劲肋间距'),
+    ]
+    __deriveds__ = [
+        ('Beb','<i>B</i><sub>eb</sub>','mm',10,'腹板局部承压有效计算宽度'),
+        ('Bev','<i>B</i><sub>ev</sub>','mm',10,'腹板有效宽度'),
+        ('eql1','','MPa',0,''),
+        ('eql2','','MPa',0,''),
+    ]
 
     def solve(self):
         feql1 = lambda γ0,Rv,As,Beb,tw: γ0*Rv/(As+Beb*tw) # (5.3.4-1)
         feql2 = lambda γ0,Rv,As,Bev,tw: γ0*2*Rv/(As+Bev*tw) # (5.3.4-1)
-        self.Beb = self.B+2*(self.tf+self.tb)
-        self.Bev = (self.ns-1)*self.bs+24*self.tw if self.bs < 42*self.tw else 24*self.ns*self.tw
+        # 规范公式Beb=B+2(tf+tb)有误，应为Beb=B+2tf
+        # self.Beb = self.B+2*(self.tf+self.tb)
+        self.Beb = self.B+2*self.tf
+        self.Bev = (self.ns-1)*self.bs+24*self.tw if self.bs < 24*self.tw else 24*self.ns*self.tw
         self.eql1 = feql1(self.γ0,self.Rv*1e3,self.As,self.Beb,self.tw)
         self.eql2 = feql2(self.γ0,self.Rv*1e3,self.As,self.Bev,self.tw)
 
     def _html(self, digits=2):
-        for para in ('Rv','As','tw','tf','tb','B','ns','bs'):
-            yield self.format(para, digits=None)
+        for param in ('Rv','As','tw','tf','tb','B','ns','bs'):
+            yield self.format(param, digits=None)
         ok = self.eql1 <= self.fcd
+        #yield self.format('Beb', digits, eq='B+2*(tf+tb)')
+        yield self.format('Beb', digits, eq='B+2*tf')
+        yield self.format('Bev', digits, eq='(ns-1)*bs+24*tw' if self.bs < 24*self.tw else '24*ns*tw')
         eq = 'γ0·Rv/(As+Beb·tw)'
-        yield '{} {} {}，{}满足规范要求。'.format(
+        yield self.format_conclusion(
+            ok, 
             self.format('eql1', digits,eq=eq), '≤' if ok else '&gt;', 
             self.format('fcd', digits=digits, omit_name=True),
-            '' if ok else '不')
+            '{}满足规范要求。'.format('' if ok else '不'))
         ok = self.eql2 <= self.fd
         eq = 'γ0·2Rv/(As+Bev·tw)'
-        yield '{} {} {}，{}满足规范要求。'.format(
+        yield self.format_conclusion(
+            ok,
             self.format('eql2', digits,eq=eq), '≤' if ok else '&gt;', 
             self.format('fd', digits=digits, omit_name=True),
-            '' if ok else '不')
+            '{}满足规范要求。'.format('' if ok else '不'))
 
 class diaphragm(abacus):
     """
     横隔板验算
-    《公路钢结构桥梁设计规范》（JTG D64-2015） 第8.5.2节及条文说明
+    《公路钢结构桥梁设计规范》（JTG D64-2015） 第8.5.2节条文说明
     """
     __title__ = '横隔板验算'
-    __inputs__ = OrderedDict((
-        ('E',('<i>E</i>','MPa',2.06E5,'钢材弹性模量')),
-        ('G',('<i>G</i>','MPa',0.79E5,'钢材剪切模量')),
-        ('tu',('<i>t</i><sub>u</sub>','mm',12,'顶板厚度')),
-        ('tl',('<i>t</i><sub>l</sub>','mm',12,'底板厚度')),
-        ('Ac',('<i>A</i><sub>c</sub>','mm<sup>2</sup>',0,'箱梁板壁形心围成的面积')),
-        ('tD',('<i>t</i><sub>D</sub>','mm',20,'横隔板的板厚')),
-        ('Ld',('<i>L</i><sub>d</sub>','mm',2000,'横隔板间距')),
-        ('Bu',('<i>B</i><sub>u</sub>','mm',1000,'横隔板顶部宽度')),
-        ('Bl',('<i>B</i><sub>l</sub>','mm',1000,'横隔板底部宽度')),
-        ('Fu',('<i>F</i><sub>u</sub>','mm<sup>2</sup>',0,'箱梁上顶板截面积','包括加劲肋')),
-        ('Fl',('<i>F</i><sub>l</sub>','mm<sup>2</sup>',0,'箱梁下底板截面积','包括加劲肋')),
-        ('Fh',('<i>F</i><sub>h</sub>','mm<sup>2</sup>',0,'一个腹板的截面积')),
-        ('H',('<i>H</i>','mm',1000,'腹板长度')),
-        ('b1',('<i>b</i><sub>1</sub>','mm',100,'上翼缘宽度')),
-        ('b2',('<i>b</i><sub>2</sub>','mm',100,'下翼缘宽度')),
-        ('option',('横隔板类型','','1','','',{'1':'实腹式','2':'桁架式','3':'框架式'},
-        '开口率ρ<=0.4可视为实腹式；>0.8为桁架式，可简化为仅受轴力的杆件；0.4<ρ<0.8，作框架处理')),
+    __inputs__ = [
+        ('E','<i>E</i>','MPa',2.06E5,'钢材弹性模量'),
+        ('G','<i>G</i>','MPa',0.79E5,'钢材剪切模量'),
+        ('tu','<i>t</i><sub>u</sub>','mm',12,'顶板厚度'),
+        ('tl','<i>t</i><sub>l</sub>','mm',12,'底板厚度'),
+        ('Ac','<i>A</i><sub>c</sub>','mm<sup>2</sup>',0,'箱梁板壁形心围成的面积'),
+        ('tD','<i>t</i><sub>D</sub>','mm',20,'横隔板的板厚'),
+        ('Ld','<i>L</i><sub>d</sub>','mm',2000,'横隔板间距'),
+        ('Bu','<i>B</i><sub>u</sub>','mm',1000,'横隔板顶部宽度'),
+        ('Bl','<i>B</i><sub>l</sub>','mm',1000,'横隔板底部宽度'),
+        ('Fu','<i>F</i><sub>u</sub>','mm<sup>2</sup>',0,'箱梁上顶板截面积','包括加劲肋'),
+        ('Fl','<i>F</i><sub>l</sub>','mm<sup>2</sup>',0,'箱梁下底板截面积','包括加劲肋'),
+        ('Fh','<i>F</i><sub>h</sub>','mm<sup>2</sup>',0,'一个腹板的截面积'),
+        ('H','<i>H</i>','mm',1000,'腹板长度'),
+        ('b1','<i>b</i><sub>1</sub>','mm',100,'上翼缘宽度'),
+        ('b2','<i>b</i><sub>2</sub>','mm',100,'下翼缘宽度'),
+        ('option','横隔板类型','','1','','',{'1':'实腹式','2':'桁架式','3':'框架式'},
+        '开口率ρ<=0.4可视为实腹式；>0.8为桁架式，可简化为仅受轴力的杆件；0.4<ρ<0.8，作框架处理'),
         # 开口率ρ<=0.4可视为实腹式；>0.8为桁架式，可简化为仅受轴力的杆件；0.4<ρ<0.8，作框架处理，考虑轴力和弯矩
         # 吴冲，《现代钢桥》,2008.6，P183
         # ('ρ',('<i>ρ</i>','',0,'开口率',"ρ=sqrt(A'/A)")),
         # 实腹式
         # 桁架式
-        ('shape',('','','X','桁架形状','',{'X':'X形','V':'V形'})),
-        ('Ab',('<i>A</i><sub>b</sub>','mm<sup>2</sup>',0,'单个斜撑的截面积')),
-        ('Lb',('<i>L</i><sub>b</sub>','mm',0,'斜撑的长度')),
+        ('shape','','','X','桁架形状','',{'X':'X形','V':'V形'}),
+        ('Ab','<i>A</i><sub>b</sub>','mm<sup>2</sup>',0,'单个斜撑的截面积'),
+        ('Lb','<i>L</i><sub>b</sub>','mm',0,'斜撑的长度'),
         # 框架式
         # 规范条文说明图8-4中参数的含义：Af--横隔板开口加劲肋面积，Aw--横隔板实际面积(Aw=A-A')
         # 详见：吴冲，《现代钢桥》,2008.6，P185
-        ('β',('<i>β</i>','',0,'开口率修正系数')),
-        ('b',('<i>b</i>','mm',0,'框架的宽度')),
-        ('h',('<i>h</i>','mm',0,'框架的高度')),
-        ('Iu',('<i>I</i><sub>u</sub>','mm<sup>4</sup>',0,'顶板处横隔板简化为框架截面的惯性矩')),
-        ('Il',('<i>I</i><sub>l</sub>','mm<sup>4</sup>',0,'底板处横隔板简化为框架截面的惯性矩')),
-        ('Ih',('<i>I</i><sub>h</sub>','mm<sup>4</sup>',0,'腹板处横隔板简化为框架截面的惯性矩')),
+        ('β','<i>β</i>','',0,'开口率修正系数'),
+        ('b','<i>b</i>','mm',0,'框架的宽度'),
+        ('h','<i>h</i>','mm',0,'框架的高度'),
+        ('Iu','<i>I</i><sub>u</sub>','mm<sup>4</sup>',0,'顶板处横隔板简化为框架截面的惯性矩'),
+        ('Il','<i>I</i><sub>l</sub>','mm<sup>4</sup>',0,'底板处横隔板简化为框架截面的惯性矩'),
+        ('Ih','<i>I</i><sub>h</sub>','mm<sup>4</sup>',0,'腹板处横隔板简化为框架截面的惯性矩'),
         # 应力验算
-        ('Td',('<i>T</i><sub>d</sub>','kN·m',0,'箱梁扭矩设计值')),
-        ('fvd',('<i>f</i><sub>vd</sub>','MPa',160,'钢材的抗剪强度设计值')),
-        ('fd',('<i>f</i><sub>d</sub>','MPa',275,'钢材的强度设计值')),
-        ('A',('<i>A</i>','mm<sup>2</sup>',0,'横隔板面积')),
-        ))
-    __deriveds__ = OrderedDict((
-        ('Ifu',('<i>I</i><sub>fu</sub>','mm<sup>4</sup>',0,'顶板对箱梁对称轴的惯性矩')),
-        ('Ifl',('<i>I</i><sub>fl</sub>','mm<sup>4</sup>',0,'底板对箱梁对称轴的惯性矩')),
-        ('e',('<i>e</i>','mm<sup>3</sup>',0,'')),
-        ('f',('<i>f</i>','mm<sup>3</sup>',0,'')),
-        ('α1',('<i>α</i><sub>1</sub>','mm<sup>2</sup>',0,'')),
-        ('α2',('<i>α</i><sub>2</sub>','mm<sup>2</sup>',0,'')),
-        ('Idw',('<i>I</i><sub>dw</sub>','mm<sup>4</sup>',0,'箱梁截面主扇形惯矩')),
-        ('K',('<i>K</i>','kN/m',0,'横隔板刚度')),
-        ('Kmin',('','kN/m',0,'横隔板最小刚度')),
-        ('τu',('<i>τ</i><sub>u</sub>','MPa',0,'')),
-        ('τh',('<i>τ</i><sub>h</sub>','MPa',0,'')),
-        ('τl',('<i>τ</i><sub>l</sub>','MPa',0,'')),
+        ('Td','<i>T</i><sub>d</sub>','kN·m',0,'箱梁扭矩设计值'),
+        ('fvd','<i>f</i><sub>vd</sub>','MPa',160,'钢材的抗剪强度设计值'),
+        ('fd','<i>f</i><sub>d</sub>','MPa',275,'钢材的强度设计值'),
+        ('A','<i>A</i>','mm<sup>2</sup>',0,'横隔板面积'),
+    ]
+    __deriveds__ = [
+        ('Ifu','<i>I</i><sub>fu</sub>','mm<sup>4</sup>',0,'顶板对箱梁对称轴的惯性矩'),
+        ('Ifl','<i>I</i><sub>fl</sub>','mm<sup>4</sup>',0,'底板对箱梁对称轴的惯性矩'),
+        ('e','<i>e</i>','mm<sup>3</sup>',0,''),
+        ('f','<i>f</i>','mm<sup>3</sup>',0,''),
+        ('α1','<i>α</i><sub>1</sub>','mm<sup>2</sup>',0,''),
+        ('α2','<i>α</i><sub>2</sub>','mm<sup>2</sup>',0,''),
+        ('Idw','<i>I</i><sub>dw</sub>','mm<sup>6</sup>',0,'箱梁截面主扇形惯矩'),
+        ('K','<i>K</i>','N·mm',0,'横隔板刚度'),
+        ('Kmin','','N·mm',0,'横隔板最小刚度'),
+        ('τu','<i>τ</i><sub>u</sub>','MPa',0,''),
+        ('τh','<i>τ</i><sub>h</sub>','MPa',0,''),
+        ('τl','<i>τ</i><sub>l</sub>','MPa',0,''),
         # 桁架式
-        ('Nb',('<i>N</i><sub>b</sub>','kN',0,'桁架斜腹杆内力')),
-        ('σ',('<i>σ</i>','MPa',0,'斜腹杆截面应力')),
-        ))
-    __toggles__ = {
-        'option':{
+        ('Nb','<i>N</i><sub>b</sub>','kN',0,'桁架斜腹杆内力'),
+        ('σ','<i>σ</i>','MPa',0,'斜腹杆截面应力'),
+    ]
+    __toggles__ = [
+        'option', {
             '1':('Ab','Lb','fd','shape','Ab','Lb','β','b','h','Iu','Il','Ih'),
             '2':('tD','β','b','h','Iu','Il','Ih','fvd'),
             '3':('Ac','shape','Ab','Lb','tD','fvd','Td','fd','A')},
-        }
+    ]
+
     @staticmethod
     def fKmin(E,Ld,Ifu,Ifl,Bu,Bl,Fu,Fl,Fh,H,b1,b2):
         # 原公式(8-3)、(8-5)有误
@@ -974,7 +998,7 @@ class diaphragm(abacus):
 
     def _html(self, digits=2):
         disableds = self.disableds()
-        for attr in self.__inputs__:
+        for attr in self.inputs:
             if hasattr(self, attr) and (not attr in disableds):
                 yield self.format(attr, digits = None)
         yield self.format('Ifl',digits,eq='tl*(Bl+2*b2)<sup>3</sup>/12')
@@ -991,36 +1015,50 @@ class diaphragm(abacus):
             eq = '{}·E·Ac<sup>2</sup>·Ab/Lb<sup>3</sup>'.format(8 if self.shape == 'X' else 2)
         elif self.option == '3':
             eq = 'β·48·E·(b/Iu+b/Il+6·h/Ih)/(b<sup>2</sup>/Iu/Il+2·b·h/Iu/Ih+2·b·h/Il/Ih+3·h<sup>2</sup>/Ih<sup>2</sup>)'
-        yield '{} {} {}，{}满足规范要求。'.format(
-            self.format('K', digits,eq=eq), '≥' if ok else '&lt;', 
+        yield self.format_conclusion(
+            ok,
+            self.format('K', digits,eq=eq), 
+            '≥' if ok else '&lt;', 
             self.format('Kmin', digits=digits,eq='20 E Idw/Ld<sup>3</sup>', omit_name=True),
-            '' if ok else '不')
+            '{}满足规范要求。'.format('' if ok else '不')
+        )
         if self.option == '1' or self.option == '2':
             yield '横隔板应力验算'
             yield self.format('Td')
         if self.option == '1':
             ok = self.τu <= self.fvd
-            yield '{} {} {}，{}满足规范要求。'.format(
-                self.format('τu', digits,eq='Bl/Bu Td/2/A/tD'), '≤' if ok else '&gt;', 
+            yield self.format_conclusion(
+                ok,
+                self.format('τu', digits,eq='Bl/Bu Td/2/A/tD'), 
+                '≤' if ok else '&gt;', 
                 self.format('fvd', digits=digits, omit_name=True),
-                '' if ok else '不')
+                '{}满足规范要求。'.format('' if ok else '不')
+            )
             ok = self.τh <= self.fvd
-            yield '{} {} {}，{}满足规范要求。'.format(
+            yield self.format_conclusion(
+                ok,
                 self.format('τh', digits,eq='Td/2/A/tD'), '≤' if ok else '&gt;', 
                 self.format('fvd', digits=digits, omit_name=True),
-                '' if ok else '不')
+                '{}满足规范要求。'.format('' if ok else '不')
+            )
             ok = self.τl <= self.fvd
-            yield '{} {} {}，{}满足规范要求。'.format(
-                self.format('τl', digits,eq='Bu/Bl Td/2/A/tD'), '≤' if ok else '&gt;', 
+            yield self.format_conclusion(
+                ok,
+                self.format('τl', digits,eq='Bu/Bl Td/2/A/tD'), 
+                '≤' if ok else '&gt;', 
                 self.format('fvd', digits=digits, omit_name=True),
-                '' if ok else '不')
+                '{}满足规范要求。'.format('' if ok else '不')
+            )
         elif self.option == '2':
             yield self.format('Nb',eq='Lb/{}/A*Td'.format(4 if self.shape == 'X' else 2))
             ok = self.σ <= self.fd
-            yield '{} {} {}，{}满足规范要求。'.format(
-                self.format('σ', digits,eq='Nb/Ab'), '≤' if ok else '&gt;', 
+            yield self.format_conclusion(
+                ok,
+                self.format('σ', digits,eq='Nb/Ab'), 
+                '≤' if ok else '&gt;', 
                 self.format('fd', digits=digits, omit_name=True),
-                '' if ok else '不')
+                '{}满足规范要求。'.format('' if ok else '不')
+            )
 
 class stability_reduction_factor(abacus):
     """

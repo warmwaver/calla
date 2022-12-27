@@ -152,30 +152,29 @@ class column_strength(abacus):
     《铁路桥涵混凝土结构设计规范》（TB 10092-2017）第6.2.5节
     """
     __title__ = '偏心受压构件强度验算'
-    __inputs__ = OrderedDict([
-        #('option',('选项','','single','','',{'single':'单筋截面','double':'双筋截面'})),
-        ('b',('<i>b</i>','mm',500,'矩形截面宽度')),
-        ('h',('<i>h</i>','mm',1000,'矩形截面高度')),
-        #('h0',('<i>h</i><sub>0</sub>','mm',1000,'截面有效高度')),
-        ('l0',('<i>l</i>0','mm',1000,'构件计算长度')),
-        ('Ec',('<i>E</i><sub>c</sub>','MPa',3.0E4,'混凝土弹性模量')),
-        ('As',('<i>A</i><sub>s</sub>','mm<sup>2</sup>',0,'纵向受拉钢筋面积')),
-        ('As_',('<i>A</i><sub>s</sub><sup>\'</sup>','mm<sup>2</sup>',0,'纵向受压钢筋面积')),
-        ('a',('<i>a</i>','mm',60,'受拉钢筋距边缘距离','受拉区纵向普通钢筋合力点至受拉边缘的距离')),
-        ('a_',('<i>a</i><sup>\'</sup>','mm',60,'受压钢筋距边缘距离','受压区纵向普通钢筋合力点至受拉边缘的距离')),
-        ('n',('<i>n</i>','',1,'钢筋与混凝土模量比值','钢筋的弹性模量与混凝土的变形模量之比')),
-        ('M',('<i>M</i>','kN·m',0,'弯矩')),
-        ('N',('<i>N</i>','kN',0,'轴力')),
-        ('V',('<i>V</i>','kN',0,'剪力')),
-        ('K',('<i>K</i>','',2.0,'系数'))
-        ])
-    __deriveds__ = OrderedDict((
-        #('x',('<i>x</i>','mm',0,'截面受压区高度')),
-        ('σc',('<i>σ</i><sub>c</sub>','MPa',0,'混凝土压应力')),
-        ('σs',('<i>σ</i><sub>s</sub>','MPa',0,'钢筋拉应力')),
-        ('σs_',('<i>σ</i><sub>s</sub><sup>\'</sup>','MPa',0,'钢筋压应力')),
-        ('τ',('<i>τ</i>','MPa',0,'混凝土剪应力')),
-        ))
+    __inputs__ = [
+        ('b','<i>b</i>','m',0.5,'矩形截面宽度'),
+        ('h','<i>h</i>','m',1.0,'矩形截面高度'),
+        ('l0','<i>l</i>0','m',10.0,'构件计算长度'),
+        ('Ec','<i>E</i><sub>c</sub>','MPa',3.0E4,'混凝土弹性模量'),
+        ('As','<i>A</i><sub>s</sub>','mm<sup>2</sup>',0,'纵向受拉钢筋面积'),
+        ('As_','<i>A</i><sub>s</sub><sup>\'</sup>','mm<sup>2</sup>',0,'纵向受压钢筋面积'),
+        ('a','<i>a</i>','mm',60,'受拉钢筋距边缘距离','受拉区纵向普通钢筋合力点至受拉边缘的距离'),
+        ('a_','<i>a</i><sup>\'</sup>','mm',60,'受压钢筋距边缘距离','受压区纵向普通钢筋合力点至受拉边缘的距离'),
+        ('n','<i>n</i>','',1,'钢筋与混凝土模量比值','钢筋的弹性模量与混凝土的变形模量之比'),
+        ('M','<i>M</i>','kN·m',0,'弯矩'),
+        ('N','<i>N</i>','kN',0,'轴力'),
+        ('V','<i>V</i>','kN',0,'剪力'),
+        ('K','<i>K</i>','',2.0,'系数')
+        ]
+    __deriveds__ = [
+        ('α','<i>α</i>','',0,'考虑偏心距对η值的影响系数'),
+        ('η','<i>η</i>','',0,'挠度对偏心距影响的增大系数'),
+        ('σc','<i>σ</i><sub>c</sub>','MPa',0,'混凝土压应力'),
+        ('σs','<i>σ</i><sub>s</sub>','MPa',0,'钢筋拉应力'),
+        ('σs_','<i>σ</i><sub>s</sub><sup>\'</sup>','MPa',0,'钢筋压应力'),
+        ('τ','<i>τ</i>','MPa',0,'混凝土剪应力'),
+    ]
     
     @staticmethod
     def solve_stress(b,h,l0,a,a_,Ec,As,As_,n,M,N,V,K=2.0):
@@ -184,35 +183,37 @@ class column_strength(abacus):
         《铁路桥涵混凝土结构设计规范》(TB 10092-2017）第6.2.5节
         
         Args:
-            b: 截面宽度(mm)
-            h: 截面高度(mm)
+            b: 截面宽度(m)
+            h: 截面高度(m)
             l0: 压杆计算长度(m),两端固定l0=0.5l;一端固定一端铰接l0=0.7l;
                 两端铰接l0=l;一端固定一端自由l0=2l
+            a: 受拉钢筋距边缘距离(m)
+            a_: 受压钢筋距边缘距离(m)
             Ec: 混凝土变形模量(MPa)
-            As: 受拉(或压力较小一侧)钢筋面积(mm^2)
-            As_: 受压钢筋面积(mm^2)
-            M: 弯矩(kNm)
-            N: 轴力(kNm)
+            As: 受拉(或压力较小一侧)钢筋面积(m^2)
+            As_: 受压钢筋面积(m^2)
+            M: 弯矩(MNm)
+            N: 轴力(MN)
             n: 钢筋的弹性模量和混凝土的变形模量之比
-            V: 计算剪力(kN)
+            V: 计算剪力(MN)
         Returns:
             混凝土剪应力
         """
         e0 = M/N #初始偏心(m)
-        α = 0.1/(0.2+e0/h*1E3)+0.16
-        Ic = b*h**3/12 #mm^4
-        η = 1/(1-K*N/(α*pi**2*Ec*Ic/l0**2)*1E9)
-        A0 = n*As+n*As_+b*h #mm^2
-        y1 = (n*As_*a_+n*As*(h-a)+b*h**2/2)/A0 #mm
-        y2 = h-y1 #mm
+        α = 0.1/(0.2+e0/h)+0.16
+        Ic = b*h**3/12 # m^4
+        η = 1/(1-K*N/(α*pi**2*Ec*Ic/l0**2)) # (6.2.5-2)
+        A0 = n*As+n*As_+b*h # m^2
+        y1 = (n*As_*a_+n*As*(h-a)+b*h**2/2)/A0 # m
+        y2 = h-y1 # m
         # 换算截面对重心轴的惯性矩
-        I0_ = b*h**3/12+b*h*(h/2-y1)**2+n*As_*(y1-a_)**2+n*As*(y2-a)**2 #mm^2
-        k1 = I0_/A0/y2 #mm
-        k2 = I0_/A0/y1 #mm
-        e = η*e0 #(m)
+        I0_ = b*h**3/12+b*h*(h/2-y1)**2+n*As_*(y1-a_)**2+n*As*(y2-a)**2 # m^2
+        k1 = I0_/A0/y2 # m
+        k2 = I0_/A0/y1 # m
+        e = η*e0 # m
         # 换算截面对重心轴的面积矩
         Sc = b*h*(h/2-y1)+n*As_*(y1-a_)+n*As*(y2-a)
-        if e<k1*1E-3: #小偏心
+        if e<k1: #小偏心
             I0 = I0_
             W0 = I0/y1
             Ws = I0/(y2-a)
@@ -224,19 +225,35 @@ class column_strength(abacus):
             # 参考双筋矩形梁计算中性轴位置
             x = (-_b+sqrt(_b**2-4*_c))/2
             I0 = b*x**3/3+n*As*(h-x-a)**2+n*As_*(x-a_)**2
-            W0 = I0/x #mm4
-            Ws = I0/(h-a-x) #mm4
-            Ws_ = I0/(x-a_) #mm4        
-        σc = N/A0*1E3+η*M/W0*1E6 #MPa
-        σs = n*(N/A0*1E3-η*M/Ws*1E6) #MPa
-        σs_ = n*(N/A0*1E3+η*M/Ws_*1E6) #MPa
-        τ = V*Sc/b/I0_*1E3 #MPa
+            W0 = I0/x # m4
+            Ws = I0/(h-a-x) # m4
+            Ws_ = I0/(x-a_) # m4        
+        σc = N/A0+η*M/W0 # MPa
+        σs = n*(N/A0-η*M/Ws) #MPa
+        σs_ = n*(N/A0+η*M/Ws_) #MPa
+        τ = V*Sc/b/I0_ #MPa
         #σtp = σc/2-sqrt(σc**2/4+τ**2) #MPa
-        return (σc,σs,σs_,τ) #压正拉负
+        return (σc,σs,σs_,τ,α,η) #压正拉负
 
     def solve(self):
         self.positive_check('As','M','N')
-        self.σc,self.σs,self.σs_,self.τ = self.solve_stress(self.b,self.h,self.l0,self.a,self.a_,self.Ec,self.As,self.As_,self.n,self.M,self.N,self.V,self.K)
+        self.σc,self.σs,self.σs_,self.τ,self.α,self.η = self.solve_stress(
+            self.b,self.h,self.l0,self.a*1e-3,self.a_*1e-3,self.Ec,
+            self.As*1e-6,self.As_*1e-6,self.n,
+            self.M*1e-3,self.N*1e-3,self.V*1e-3,self.K)
+
+    def _html(self, digits = 2):
+        disableds = self.disableds()
+        if hasattr(self, '_inputs_'):
+            for attr in self._inputs_:
+                if hasattr(self, attr) and (not attr in disableds):
+                    yield self.format(attr, digits = None)
+        yield self.format('α', digits, eq='0.1/(0.2+e0/h)+0.16')
+        yield self.format('η', digits, eq='1/(1-K*N/(α*pi<sup>2</sup>*Ec*Ic/l0<sup>2</sup>))')
+        yield self.format('σc', digits, eq='N/A0+η*M/W0')
+        yield self.format('σs', digits, eq='n*(N/A0-η*M/Ws)')
+        yield self.format('σs_', digits, eq='n*(N/A0+η*M/Ws_)')
+        yield self.format('τ', digits, eq='V*Sc/b/I0_')
 
 class crack_width(abacus):
     """

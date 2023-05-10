@@ -27,7 +27,16 @@ print(f.text())
 
 ```python
 __inputs__ = [
-	(parameter, (symbol, unit, default_value, name, description, choices])),
+	(key, symbol, unit, default_value, name, description, [choices]),
+	...
+	]
+```
+其中：key-参数在代码中的命名；symbol-参数的书面符号，使用html格式表示；unit-单位；name-参数名称；description-参数描述；[choices]-参数值的可选项。
+
+例如：
+```python
+__inputs__ = [
+	('fcd','<i>f</i><sub>cd</sub>','N/mm<sup>2</sup>',22.4,'混凝土轴心抗压强度设计值'),
 	...
 	]
 ```
@@ -59,7 +68,7 @@ def html(self, digits=2):
 	return '<p>Write some outputs here.</p>'
 ```
 
-- **\_html\_**：一般情况下，推荐改写\_html()函数而不是html()函数。html()会自动调用\_html()函数生成html格式的输出
+- **\_html()**：一般情况下，推荐改写_html()函数而不是html()函数。html()会自动调用_html()函数生成html格式的输出。在_html()函数中，请使用yield关键字生成每一行输出，输出采用html格式，但无需在最外层使用html元素（例如\<p\>\</p\>）包裹内容，因为html()函数会自动对每行内容使用\<p\>\</p\>进行包裹。
 
 ```python
 def _html(self, digits=2):
@@ -75,4 +84,9 @@ def text(self, digits=2):
 ```
 
 ### 计算类输入参数命名规则
-字母符号尽可能的与规范标准中的一致，下标连写（除非与python关键字冲突，例如<i>a</i><sub>s</sub>，命名为a_s），上标'采用_代替。
+参数命名尽可能的与规范标准中的一致，下标连写，上标'采用\_代替，例如:
+
+<i>f</i><sub>cd</sub>，命名为fcd。
+<i>A</i><sub>s</sub><sup>\'</sup>，命名为As\_。
+
+例外的情况是，参数名与python关键字冲突，例如<i>a</i><sub>s</sub>，按规则命名则会与关键字as冲突，此时可在下标前插入"\_"，因此命名为a\_s。

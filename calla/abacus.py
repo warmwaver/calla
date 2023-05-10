@@ -163,7 +163,7 @@ class abacus:
         return paras
 
     @classmethod
-    def _disableds(cls,**toggles):
+    def _disableds(cls, **toggles):
         """
         Get parameters disabled according to the given toggles.
 
@@ -175,30 +175,63 @@ class abacus:
         r = []
         if not hasattr(cls,'__toggles__'):
             return r
-        for key in cls.__toggles__:
-            # A latter toggle can be diabled by a previous toggle,
-            # together with its' toggle function.
-            if key in r:
-                continue
-            v = None
-            if key in toggles:
-                v = toggles[key]
-            elif hasattr(cls, key):
-                v = getattr(cls, key)
-            elif hasattr(cls, '__inputs__') and hasattr(cls.__inputs__, key)\
-                 and len(cls.__inputs__[key])>2:
-                v = cls.__inputs__[key][2]
-            if v == None:
-                continue
-            choices = cls.__toggles__[key]
-            if v not in choices:
-                continue
-            items = choices[v]
-            if isinstance(items,tuple):
-                for item in items:
-                    r.append(item)
-            else:
-                r.append(items)
+        
+        if isinstance(cls.__toggles__, list):
+            count = int(len(cls.__toggles__)/2)
+            for i in range(count):
+                key = cls.__toggles__[2*i]
+                choices = cls.__toggles__[2*i+1]
+                # if isinstance(key, str) and isinstance(v, dict):
+                #     self._toggles_[key] = v
+                # A latter toggle can be diabled by a previous toggle,
+                # together with its' toggle function.
+                if key in r:
+                    continue
+                v = None
+                if key in toggles:
+                    v = toggles[key]
+                # elif hasattr(cls, key):
+                #     v = getattr(cls, key)
+                # elif hasattr(cls, '__inputs__') and hasattr(cls.__inputs__, key)\
+                #     and len(cls.__inputs__[key])>2:
+                #     v = cls.__inputs__[key][2]
+                if v == None:
+                    continue
+                
+                if v not in choices:
+                    continue
+                items = choices[v]
+                if isinstance(items,tuple):
+                    for item in items:
+                        r.append(item)
+                else:
+                    r.append(items)
+        else:
+            # old format calculator
+            for key in cls.__toggles__:
+                # A latter toggle can be diabled by a previous toggle,
+                # together with its' toggle function.
+                if key in r:
+                    continue
+                v = None
+                if key in toggles:
+                    v = toggles[key]
+                elif hasattr(cls, key):
+                    v = getattr(cls, key)
+                elif hasattr(cls, '__inputs__') and hasattr(cls.__inputs__, key)\
+                    and len(cls.__inputs__[key])>2:
+                    v = cls.__inputs__[key][2]
+                if v == None:
+                    continue
+                choices = cls.__toggles__[key]
+                if v not in choices:
+                    continue
+                items = choices[v]
+                if isinstance(items,tuple):
+                    for item in items:
+                        r.append(item)
+                else:
+                    r.append(items)
         return r
 
     def disableds(self):

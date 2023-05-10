@@ -75,26 +75,28 @@ def secant_method_solve(function, start, end, **kwargs):
         x1 = x2
         count += 1
 
-def query_table(table, rh, ch: int):
+def query_table(table: tuple, row_value: float, col_index: int):
     """
     表格数据插值查询
     Args:
         table: 要查询的数据表格
-        rh: 行表头，为第一列值
-        ch: 列表头，为列索引值
+            格式 ((row_index, data, ...), (row_index, data, ...), ...)
+            row_index为行索引值
+        row_value: 行查询值，float类型
+        col_index: 列索引值，int类型(0, 1, 2, ...)
     """
-    for i in range(len(table)):
-        row = table[i]
-        if rh <= row[0]:
-            return row[ch]
-        if rh < row[0] and i>0:
+    if row_value <= table[0][0]:
+        return table[0][col_index]
+    nrows = len(table)
+    for i in range(1, nrows):
+        if row_value < table[i][0]:
             r1 = table[i-1][0]
-            v1 = table[i-1][ch]
-            r2 = row[0]
-            v2 = row[ch]
-            v = v1 + (rh-r1)*(v2-v1)/(r2-r1)
+            v1 = table[i-1][col_index]
+            r2 = table[i][0]
+            v2 = table[i][col_index]
+            v = v1 + (row_value-r1)*(v2-v1)/(r2-r1)
             return v
-    return table[i][ch]
+    return table[i][col_index]
 
 def test():
     from math import sin,pi

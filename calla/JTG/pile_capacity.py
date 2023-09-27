@@ -13,7 +13,7 @@ __all__ = [
     ]
 
 from collections import OrderedDict
-from calla import abacus, InputError, html
+from calla import abacus, InputError, html, numeric
 from math import pi, tan, isinf
 
 class friction_pile_capacity(abacus):
@@ -242,6 +242,10 @@ class end_bearing_pile_capacity(abacus):
     table_c1 = (0.6,0.5,0.4)
     table_c2 = (0.05,0.04,0.03)
 
+    # 表6.3.7-2 覆盖层土的侧阻力发挥系数ζs
+    # frk: MPa
+    table_6_3_7_2 = ((2, 1.0), (15, 0.8), (30, 0.5), (60, 0.2))
+
     def _get_end_layer_num(self):
         '''获取持力层所在的层号'''
         l = 0
@@ -278,15 +282,7 @@ class end_bearing_pile_capacity(abacus):
 
         endlayer = self._get_end_layer_num()
 
-        frk = self.frk[endlayer]
-        if frk > 2000 and frk < 15000:
-            self.ζs = 0.8
-        elif frk <30000:
-            self.ζs = 0.5
-        elif frk > 30000:
-            self.ζs = 0.2
-        else:
-            self.ζs = 1
+        self.ζs = numeric.query_table(self.table_6_3_7_2, self.frk[endlayer]*1e-3, 1)
         typeγ = type(self.γ2)
         bl = typeγ is list or typeγ is tuple
         ls = 0

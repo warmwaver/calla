@@ -78,6 +78,7 @@ def secant_method_solve(function, start, end, **kwargs):
 def query_table(table: tuple, row_value: float, col_index: int):
     """
     表格数据插值查询
+    使用输入的查询值与表格第一列值对比，插值计算输出值。输出值所在列由col_index指定。
     Args:
         table: 要查询的数据表格
             格式 ((row_index, data, ...), (row_index, data, ...), ...)

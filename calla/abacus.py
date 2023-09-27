@@ -64,40 +64,50 @@ class abacus:
         'alias' is usually in html style that can be displayed better in browser.
         'choices' is optional, valid for multi-select parameters.
         """
-        self._inputs_ = OrderedDict()
-        if hasattr(self, '__inputs__'):
-            if isinstance(self.__inputs__, list):
-                for item in self.__inputs__:
-                    if isinstance(item, tuple) and len(item) > 0:
-                        k = item[0]
-                        v = item[3] if len(item) > 3 else 0
-                        setattr(self, k, v)
-                        # create parameter object with dynamic type
-                        self._inputs_[k] = self.create_param_object(item)
-            else:
-                for k in self.__inputs__:
-                    infos = self.__inputs__[k]
-                    if isinstance(infos, tuple):
-                        self._inputs_[k] = self.para_attrs(k)
-                        if not hasattr(self, k):
-                            v = infos[2] if len(infos) > 2 else 0
-                            setattr(self, k, v)
-
         # initialize toggles
         if hasattr(self, '__toggles__'):
             if isinstance(self.__toggles__, list):
                 self._toggles_ = OrderedDict()
                 count = int(len(self.__toggles__)/2)
                 for i in range(count):
-                    k = self.__toggles__[2*i]
+                    key = self.__toggles__[2*i]
                     v = self.__toggles__[2*i+1]
-                    if isinstance(k, str) and isinstance(v, dict):
-                        self._toggles_[k] = v
+                    if isinstance(key, str) and isinstance(v, dict):
+                        self._toggles_[key] = v
             else:
                 self._toggles_ = self.__toggles__
 
-        # initialize parameters by inputs
-        self.inputs = inputs
+
+        self._inputs_ = OrderedDict()
+        if hasattr(self, '__inputs__'):
+            if isinstance(self.__inputs__, list):
+                for item in self.__inputs__:
+                    if isinstance(item, tuple) and len(item) > 0:
+                        key = item[0]
+                        default_value = item[3] if len(item) > 3 else 0
+                        input_value = inputs[key] if key in inputs else default_value
+                        t = type(default_value)
+                        if t is bool and not isinstance(input_value, bool):
+                            input_value = True if str(input_value) == 'True' else False
+                        setattr(self, key, input_value)
+                        # create parameter object with dynamic type
+                        self._inputs_[key] = self.create_param_object(item)
+            else:
+                for key in self.__inputs__:
+                    infos = self.__inputs__[key]
+                    if isinstance(infos, tuple):
+                        self._inputs_[key] = self.para_attrs(key)
+                        if not hasattr(self, key):
+                            default_value = infos[2] if len(infos) > 2 else 0
+                            input_value = inputs[key] if key in inputs else default_value
+                            t = type(default_value)
+                            if t is bool and not isinstance(input_value, bool):
+                                input_value = True if str(input_value) == 'True' else False
+                            setattr(self, key, input_value)
+
+        # initialize the next base in MRO list, 
+        # for example: class C(abacus, B), B.__init__() will called. 
+        super(abacus, self).__init__()
 
     def _init_deriveds_(self):
         if not hasattr(self, '_deriveds_'):
@@ -148,8 +158,10 @@ class abacus:
                 if key in values:
                     _setvalue(self, key, values[key])
 
+    @property
     def deriveds(self):
         """ Get a dictionary of derived parameters. """
+        self._init_deriveds_()
         return { attr:(getattr(self, attr) if hasattr(self, attr) else 0) for attr in self._deriveds_} if hasattr(self, '__deriveds__') else None
 
     @property
@@ -344,7 +356,7 @@ class abacus:
                     self.replace_by_symbols(eq), value, unit)
         return s
     
-    def formatx(self, *parameters, digits=2, sep='', sep_names=', ', omit_name=True, toggled=True):
+    def formatx(self, *parameters, digits=2, sep='', sep_names=', ', omit_name=True, depends_on_toggle=True):
         """
         Format parameters，choosing diferent format automatically.
         e.g. force N = 100 kN, moment M=100 kN·m, ...
@@ -353,14 +365,14 @@ class abacus:
             sep: seperator between parameter's name and symbol
             sep_names: seperator between parameters' names
             omit_name: format with parameter name or not
-            toggled: if True, visibility is decided by toggles
+            depends_on_toggle: if True, visibility is decided by toggles, which means, won't be print if it's disabled.
         """
         s = ''
         disableds = self.disableds()
         for parameter in parameters:
             if not hasattr(self, parameter):
                 continue
-            if toggled and parameter in disableds:
+            if depends_on_toggle and parameter in disableds:
                 continue
             s += self.format(parameter,digits=digits,sep=sep,omit_name=omit_name)
             s += sep_names
@@ -405,6 +417,7 @@ class abacus:
         return None
 
     # TODO: 不适用于新的初始化格式，需改造
+    # Obsolete: Using create_param_object() instead.
     @classmethod
     def para_attrs(self, parameter):
         """get attributes of parameter"""

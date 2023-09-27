@@ -15,9 +15,8 @@ __all__ = [
 from collections import OrderedDict
 from calla import abacus, InputError, html
 from math import log10, pi, sqrt, ceil
-from calla.JTG import material
+from calla.JTG.material import concrete, materials_util
 
-material_base = material.material_base
 
 class deck_effective_width(abacus):
     """
@@ -319,7 +318,7 @@ class stress_increment(abacus):
         # yield self.format('Pcm', eq='M0/nL/I0L*S0c')
         # yield self.format('Psm', eq='M0/I0L*S0s')
 
-class connector_shear_capacity(abacus):
+class connector_shear_capacity(abacus, materials_util):
     """
     抗剪连接件承载力
     《钢-混凝土组合桥梁设计规范》（GB 50917-2013） 第7.2节
@@ -327,7 +326,7 @@ class connector_shear_capacity(abacus):
     __title__ = '抗剪连接件承载力'
     __inputs__ = OrderedDict((
         ('Astd',('<i>A</i><sub>std</sub>','mm<sup>2</sup>',100,'栓杆的截面面积')),
-        material_base.concrete_item,
+        materials_util.concrete_item,
         ('Ec',('<i>E</i><sub>c</sub>','MPa',3.45e4,'混凝土的弹性模量')),
         ('Es',('<i>E</i><sub>s</sub>','MPa',2.06e5,'栓钉的弹性模量')),
         ('fcu',('<i>f</i><sub>cu</sub>','MPa',50,'混凝土立方体抗压强度','边长为150mm的混凝土立方体抗压强度')),
@@ -341,7 +340,7 @@ class connector_shear_capacity(abacus):
         ('Nvc',('<i>N</i><sub>v</sub><sup>c</sup>','N',0,'栓钉抗剪承载力')),
         ))
     __toggles__ = {
-        'concrete': { key:('fcuk','fcd', 'ftd') if key.startswith('C') else () for key in material_base.concrete_types },
+        'concrete': { key:('fcuk','fcd', 'ftd') if key.startswith('C') else () for key in materials_util.concrete_types },
         }
 
     def solve(self):
@@ -354,7 +353,7 @@ class connector_shear_capacity(abacus):
         self.η = 1.0
         if ratio < 13:
             if self.concrete != '其它':
-                fcuk = material.concrete.fcuk(self.concrete)
+                fcuk = concrete.fcuk(self.concrete)
                 if fcuk <= 40:
                     self.η = 0.021*ld/d+0.73
                 elif fcuk <= 50:
@@ -374,7 +373,7 @@ class connector_shear_capacity(abacus):
         yield self.format('Nvc', omit_name=True, value=self.Nvc2, eq='0.43·η·Astd·√(fcd·Ec)')
         yield self.format('Nvc')
 
-class shear_connector_uls_check(abacus):
+class shear_connector_uls_check(abacus, materials_util):
     """
     抗剪连接件数量计算
     《钢-混凝土组合桥梁设计规范》（GB 50917-2013） 第7.2及7.5节
@@ -382,7 +381,7 @@ class shear_connector_uls_check(abacus):
     __title__ = '抗剪连接件数量'
     __inputs__ = OrderedDict((
         ('Astd',('<i>A</i><sub>std</sub>','mm<sup>2</sup>',100,'栓杆的截面面积')),
-        material_base.concrete_item,
+        materials_util.concrete_item,
         ('Ec',('<i>E</i><sub>c</sub>','MPa',3.45e4,'混凝土的弹性模量')),
         ('Es',('<i>E</i><sub>s</sub>','MPa',2.06e5,'栓钉的弹性模量')),
         ('fcu',('<i>f</i><sub>cu</sub>','MPa',50,'混凝土立方体抗压强度','边长为150mm的混凝土立方体抗压强度')),
@@ -404,7 +403,7 @@ class shear_connector_uls_check(abacus):
         ('nf',('<i>n</i><sub>f</sub>','',0,'抗剪连接件的数目','每个剪跨区段内抗剪连接件的数目')),
         ))
     __toggles__ = {
-        'concrete': { key:('fcuk','fcd', 'ftd') if key.startswith('C') else () for key in material_base.concrete_types },
+        'concrete': { key:('fcuk','fcd', 'ftd') if key.startswith('C') else () for key in materials_util.concrete_types },
         }
 
     def solve(self):
@@ -417,7 +416,7 @@ class shear_connector_uls_check(abacus):
         self.η = 1.0
         if ratio < 13:
             if self.concrete != '其它':
-                fcuk = material.concrete.fcuk(self.concrete)
+                fcuk = concrete.fcuk(self.concrete)
                 if fcuk <= 40:
                     self.η = 0.021*ld/d+0.73
                 elif fcuk <= 50:

@@ -143,9 +143,9 @@ class crack_width(abacus):
         yield '钢筋:'
         yield self.formatx('d', 'As','Ap',digits=None)
         yield '荷载长期效应组合的设计内力:'
-        yield self.formatx('Ml','Nl',toggled=True)
+        yield self.formatx('Ml','Nl',depends_on_toggle=True)
         yield '荷载短期效应组合的设计内力:'
-        yield self.formatx('Ms','Ns',toggled=True)
+        yield self.formatx('Ms','Ns',depends_on_toggle=True)
         yield '材料参数:'
         yield self.format('Es',digits=None)
         yield '系数:'
@@ -173,9 +173,9 @@ class crack_width(abacus):
         yield '钢筋:'
         yield self.formatx('d','As','Ap',digits=None)
         yield '荷载长期效应组合的设计内力:'
-        yield self.formatx('Ml','Nl',toggled=True)
+        yield self.formatx('Ml','Nl',depends_on_toggle=True)
         yield '荷载短期效应组合的设计内力:'
-        yield self.formatx('Ms','Ns',toggled=True)
+        yield self.formatx('Ms','Ns',depends_on_toggle=True)
         yield '材料参数:'
         yield self.format('Es',digits=None)
         yield '系数:'
@@ -288,9 +288,9 @@ class cw_round(abacus):
         yield self.format('d',digits=None)
         yield self.format('As')
         yield '荷载长期效应组合的设计内力:'
-        yield self.formatx('Ml','Nl',toggled=True)
+        yield self.formatx('Ml','Nl',depends_on_toggle=True)
         yield '荷载短期效应组合的设计内力:'
-        yield self.formatx('Ms','Ns',toggled=True)
+        yield self.formatx('Ms','Ns',depends_on_toggle=True)
         yield '材料参数:'
         yield self.formatx('Es')
         yield self.formatx('C1')
@@ -313,9 +313,9 @@ class cw_round(abacus):
         yield self.format('d',digits=None)
         yield self.format('As',digits)
         yield '荷载长期效应组合的设计内力:'
-        yield self.formatx('Ml','Nl',toggled=True)
+        yield self.formatx('Ml','Nl',depends_on_toggle=True)
         yield '荷载短期效应组合的设计内力:'
-        yield self.formatx('Ms','Ns',toggled=True)
+        yield self.formatx('Ms','Ns',depends_on_toggle=True)
         yield '材料参数:'
         yield '钢筋弹性模量: Es = {} MPa'.format(self.Es)
         yield '钢筋表面形状系数: C<sub>1</sub> = {:.3f}'.format(self.C1)

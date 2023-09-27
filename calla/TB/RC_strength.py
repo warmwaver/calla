@@ -197,12 +197,17 @@ class column_strength(abacus):
             n: 钢筋的弹性模量和混凝土的变形模量之比
             V: 计算剪力(MN)
         Returns:
-            混凝土剪应力
+            σc: 混凝土压应力(MPa)
+            σs: 钢筋拉应力(MPa)
+            σs_: 钢筋压应力(MPa)
+            τ: 混凝土剪应力(MPa)
+            α: 考虑偏心距对η值的影响系数
+            η: 挠度对偏心距影响的增大系数
         """
         e0 = M/N #初始偏心(m)
         α = 0.1/(0.2+e0/h)+0.16
         Ic = b*h**3/12 # m^4
-        η = 1/(1-K*N/(α*pi**2*Ec*Ic/l0**2)) # (6.2.5-2)
+        η = 1/(1-K*N/(α*pi**2*Ec*1e3*Ic/l0**2)) # (6.2.5-2)
         A0 = n*As+n*As_+b*h # m^2
         y1 = (n*As_*a_+n*As*(h-a)+b*h**2/2)/A0 # m
         y2 = h-y1 # m
@@ -228,10 +233,10 @@ class column_strength(abacus):
             W0 = I0/x # m4
             Ws = I0/(h-a-x) # m4
             Ws_ = I0/(x-a_) # m4        
-        σc = N/A0+η*M/W0 # MPa
-        σs = n*(N/A0-η*M/Ws) #MPa
-        σs_ = n*(N/A0+η*M/Ws_) #MPa
-        τ = V*Sc/b/I0_ #MPa
+        σc = (N/A0+η*M/W0)*1e-3 # MPa (6.2.5-1)
+        σs = n*(N/A0-η*M/Ws)*1e-3 #MPa
+        σs_ = n*(N/A0+η*M/Ws_)*1e-3 #MPa
+        τ = V*Sc/b/I0_*1e-3 #MPa
         #σtp = σc/2-sqrt(σc**2/4+τ**2) #MPa
         return (σc,σs,σs_,τ,α,η) #压正拉负
 

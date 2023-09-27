@@ -6,7 +6,6 @@ __all__ = [
     'crack_width',
     ]
 
-from collections import OrderedDict
 from math import pi
 from calla import abacus, InputError
 
@@ -14,6 +13,9 @@ class crack_width(abacus):
     """
     钢筋混凝土构件及B类预应力混凝土构件裂缝宽度计算
     《公路钢筋混凝土及预应力混凝土桥涵设计规范》（JTG 3362-2018）第6.4节
+
+    参考文献：
+    [1] 魏巍巍, 贡金鑫, 李龙, 圆形截面钢筋混凝土构件裂缝宽度的计算, 水利水运工程学报, 2008.3
     """
     __title__ = '裂缝宽度'
     __inputs__ = [
@@ -155,11 +157,21 @@ class crack_width(abacus):
         return (σss, e, z)
     
     def f_σss_rect(self):
+        '''计算矩形截面钢筋应力'''
         if self.force_type == 'BD':
             self.σss=self.f_σss_BD(self.Ms,self.As,self.h0)
-        elif self.force_type == 'EC':
+        elif self.force_type == 'EC':            
+            faw = lambda b,h,bf,hf,bf_,hf_:\
+                (bf*hf**2/2+b*(h-hf-hf_)*(h+hf-hf_)/2+bf_*hf_*(h-hf_/2))/(bf*hf+b*(h-hf-hf_)+bf_*hf_)
+
+            hw = faw(self.b,self.h,self.bf,self.hf,self.bf_,self.hf_)
+            self.ys = hw - self.a_s
+            self.ys_ = self.h - hw - self.as_
+
             self.eql = self.e0/self.h # 6.4.3: e0/h<0.55时可不进行裂缝宽度计算
-            self.ηs = self.f_ηs(self.e0,self.l0,self.h,self.h0)
+            self.ηs = self._ηs = self.f_ηs(self.e0,self.l0,self.h,self.h0)
+            if self.l0/self.h <= 14: # 详见规范参数释义
+                self.ηs = 1.0
             self.es = self.ηs*self.e0+self.ys
             self.γf_=(self.bf_-self.b)*self.hf_/self.b/self.h0
             self.z = (0.87-0.12*(1-self.γf_)*(self.h0/self.es)**2)*self.h0
@@ -168,13 +180,13 @@ class crack_width(abacus):
                 self.z = zmax
             self.σss=self.Ns*1e3*(self.es-self.z)/self.As/self.z
         elif self.force_type == 'ET':
-            self.ηs = self.f_ηs(self.e0,self.l0,self.h,self.h0)
-            self.es_ = self.ηs*self.e0+self.ys_
+            # self.ηs = self.f_ηs(self.e0,self.l0,self.h,self.h0)
+            self.es_ = self.e0+self.ys_ # self.ηs*self.e0+self.ys_
             self.σss=self.f_σss_ET(self.Ns,self.es_,self.As,self.h0,self.as_)
         elif self.force_type == 'AT':
             self.σss=self.f_σss_AT(self.Ns,self.As)
         else:
-            raise Exception('不支持的受力类型"{}"'.format(self.force_type))
+            raise InputError(self, 'force_type', '不支持的受力类型')
         return self.σss
     
     def solve_Wcr(self):
@@ -188,6 +200,14 @@ class crack_width(abacus):
             self.h0 = self.h - self.a_s
             if self.h0 <= 0:
                 raise InputError(self, 'h', '应 &gt; 0') if self.h<=0 else InputError(self, 'a_s', '应小于截面高度')
+
+            self._has_tensile_flange = self.bf > 0 and self.hf > 0
+            if not self._has_tensile_flange: # 受拉区无翼缘
+                self.bf = self.hf = 0
+            self._has_compressive_flange = self.bf_ > 0 and self.hf_ > 0
+            if not self._has_compressive_flange: # 受压区无翼缘
+                self.bf_  = self.hf_ = 0
+
             # 矩形、T 形和I 形截面的钢筋混凝土构件
             if self.force_type == 'AT':
                 if self.bf < self.b and self.bf != 0:
@@ -204,6 +224,7 @@ class crack_width(abacus):
             self.σss = self.f_σss_rect()
         elif self.case == 'round':
             # 圆形截面偏心受压构件钢筋应力按公式(6.4.4-9)、(6.4.4-10)计算
+            # 计算公式的推导参考文献[1]
             self.validate('positive', 'r')
             # if self.force_type == 'BD' or self.Ns == 0: # 受弯构件
             #     raise InputError(self, 'Ns','JTG规范不支持圆形截面受弯构件裂缝宽度计算')
@@ -216,39 +237,64 @@ class crack_width(abacus):
             # self.ηs = self.f_ηs(self.e0,self.l0,2*self.r,2*self.r-self.a_s)
 
             self.ρ = self.As/pi/self.r**2 # (6.4.5-5)
-            if self.Ns > 0 and self.Ms >0:
-                # self.ρte,self.r1,self.β,self.ρ=self.f_ρte_round(self.As, self.r, self.ηs, self.e0, self.a_s)
-                self.ηs = self.f_ηs(self.e0,self.l0,2*self.r,2*self.r-self.a_s)
-                self.β = (0.4+2.5*self.ρ)*(1+0.353*(self.ηs*self.e0/self.r)**-2) # (6.4.5-4)
-            else:
-                self.β = 0.4+2.5*self.ρ # (6.4.5-4)
-            
             self.r1 = self.r-2*self.a_s # (6.4.5-3)
-            self.ρte = self.β*self.As/pi/(self.r**2-self.r1**2) # (6.4.5-2)
 
+            # if self.Ns > 0 and self.Ms >0:
+            #     # self.ρte,self.r1,self.β,self.ρ=self.f_ρte_round(self.As, self.r, self.ηs, self.e0, self.a_s)
+            #     self.ηs = self.f_ηs(self.e0,self.l0,2*self.r,2*self.r-self.a_s) if self.e0 > 0 else 1.0
+            #     self.β = (0.4+2.5*self.ρ)*(1+0.353*(self.ηs*self.e0/self.r)**-2) # (6.4.5-4)
+            # else:
+            #     self.β = 0.4+2.5*self.ρ # (6.4.5-4)
+            
+            fβ = lambda ρ, ηs, e0, r: (0.4+2.5*ρ)*(1+0.353*(ηs*e0/r)**-2)
 
-            if self.force_type == 'BD' or self.Ns == 0: # 受弯构件
+            if self.force_type == 'BD':
+                # 受弯构件
+                self.β = 0.4+2.5*self.ρ # (6.4.5-4), e0->∞
                 # 规范没给出受弯的计算公式，根据公式(6.4.4-9)、(6.4.4-10)推导，用Ms/e0替换Ns
-                # 受弯构件：σss = 0.6/(0.45r+0.26rs)*Ms/As
+                # 得到受弯构件钢筋应力：σss = 0.6/(0.45r+0.26rs)*Ms/As
                 fσss_BD = lambda r,rs,Ms,As:0.6/(0.45*r+0.26*rs)*Ms/As
                 self.σss = fσss_BD(self.r,self.rs,self.Ms*1e6,self.As)
-            elif self.force_type == 'EC': # 偏心受压
+
+            elif self.force_type == 'EC':
+                # 偏心受压
                 if not (self.Ns>0 and self.Ms> 0):
                     raise InputError(self, 'Ms', 'Ns和Ms必须为正')
                 self.eql = self.e0/self.r # 6.4.3: e0/r<0.55时可不进行裂缝宽度计算
-                self.ηs = self.f_ηs(self.e0,self.l0,2*self.r,2*self.r-self.a_s)
+                self.ηs = self._ηs = self.f_ηs(self.e0,self.l0,2*self.r,2*self.r-self.a_s)
+                if self.l0/2/self.r <= 14: # 详见规范参数释义
+                    self.ηs = 1.0
+                self.β = fβ(self.ρ, self.ηs, self.e0, self.r)
                 self.σss = self.f_σss_round(
                     self.l0,self.r,self.rs,self.As,self.a_s,self.Ns*1e3,self.e0,self.ηs)
+
             elif self.force_type == 'ET':
+                # 偏心受拉
+                # self.ηs = self._ηs = self.f_ηs(self.e0,self.l0,2*self.r,2*self.r-self.a_s) #TODO:确定是否需要改为1
+                self.ηs = self._ηs = 1.0
+                β1 = fβ(self.ρ, self.ηs, self.e0, self.r) # 大偏心受拉，参考文献[1]2.1节
+                β2 = 1/(1+2*self.e0/self.rs) # 小偏心受拉，参考文献[1]2.2节
+                # 规范没有给出圆形截面偏心受拉构件判断大、小偏心的标准(TODO)
+                # 根据不利原则选取较小的配筋率影响系数
+                self.β = β1 if β1 < β2 else β2
                 # 规范没给出偏心受拉构件的计算公式，根据公式(6.4.4-9)、(6.4.4-10)推导，
-                # 偏心受拉构件：σss = (f+1)Ns/As+Ns/As = (0.6*(ηs*e0/r-0.1)**3/(0.45+0.26*rs/r)/(ηs*e0/r+0.2)**2+2)*Ns/As
-                self.ηs = 1.0
+                # 偏心受拉构件钢筋应力：
+                # σss = (f+1)Ns/As+Ns/As = (0.6*(ηs*e0/r-0.1)**3/(0.45+0.26*rs/r)/(ηs*e0/r+0.2)**2+2)*Ns/As
+                
                 self.σss = self.f_σss_round_et(
                     self.l0,self.r,self.rs,self.As,self.a_s,abs(self.Ns)*1e3,self.e0, self.ηs)
-            elif self.force_type == 'AT': # 轴心受拉
+
+            elif self.force_type == 'AT':
+                # 轴心受拉
+                self.β = 1 # 参考文献[1]2.2节
                 self.σss = self.Ns*1e3/self.As
+
             else:
                 raise InputError('force_type', '不支持的类型')
+
+            fρte = lambda β, As, r, r1: β*As/pi/(r**2-r1**2) # (6.4.5-2)
+            self.ρte = fρte(self.β, self.As, self.r, self.r1)
+
         elif self.case == 'ps':
             # B类预应力混凝土受弯构件
             self.validate('positive', 'Np0')
@@ -301,6 +347,7 @@ class crack_width(abacus):
         elif self.force_type == 'BD' or self.case == 'ps':
             self.positive_check('Ms')
             self.C2=1+0.5*self.Ml/self.Ms
+            self.e0 = 0
         # 计算
         if self.option == 'review':
             self.positive_check('As')
@@ -313,9 +360,9 @@ class crack_width(abacus):
     def _html_wmax(self,digits=2):
         if self.case != 'ps':
             yield '作用准永久组合的内力设计值:'
-            yield self.formatx('Ml','Nl',toggled=True)
+            yield self.formatx('Ml','Nl',depends_on_toggle=True)
             yield '作用频遇组合的内力设计值:'
-            yield self.formatx('Ms','Ns',toggled=True)
+            yield self.formatx('Ms','Ns',depends_on_toggle=True)
         yield '系数:'
         yield self.formatx('C1', 'C2', 'C3', digits=digits)
         yield '钢筋:'
@@ -333,15 +380,21 @@ class crack_width(abacus):
             yield self.format('Ate',eq='2*a_s*{}'.format('bf' if self.bf>0 else 'b'))
             eq = 'β·As/π/(r<sup>2</sup>-r<sub>1</sub><sup>2</sup>)' if self.case == 'round' else 'As/Ate'
             yield '{}{}'.format(
-                self.format('ρte',eq=eq, value=self._ρte, digits = 3),
+                self.format('ρte', digits if digits>2 else 3,eq=eq, value=self._ρte),
                 '，超出0.01~0.1范围，故取{}。'.format(self.format('ρte', omit_name=True, digits = 2))\
                     if self._ρte > 0.1 or self._ρte < 0.01 else ''
                 )
             yield self.format('force_type')
-            if self.force_type == 'EC' or self.force_type == 'ET':
-                yield self.format('e0',digits=digits)
-                yield self.format('ηs',digits=digits)
+            
             if self.force_type == 'EC':
+                yield self.format('e0',digits=digits)
+                yield '{}{}'.format(
+                    self.format('ηs',digits, eq='1+1/(4000*e0/h0)*(l0/h)<sup>2</sup>', value=self._ηs),
+                    '' if self.l0/self.h>14 else '，由于{} &lt; 14， 故取{}。'.format(
+                        self.replace_by_symbols('l0/h'),
+                        self.format('ηs', digits, omit_name=True)
+                        )
+                )
                 ok = self.eql <= 0.55
                 if ok:
                     yield '{} &le; 0.55, 可不进行裂缝宽度计算。'.format(self.format('eql',digits, eq='e0/h'))
@@ -351,7 +404,9 @@ class crack_width(abacus):
                 yield self.format('z',eq='(0.87-0.12·(1-γf_)·(h0/es)<sup>2</sup>)·h0',digits=digits,omit_name=True)
                 yield self.format('es',eq='ηs·e0+ys',digits=digits,omit_name=True)
             elif self.force_type == 'ET':
+                yield self.format('e0',digits=digits)
                 yield self.format('es_',eq='ηs·e0+ys_',digits=digits,omit_name=True)
+
             eq = 'Ns/As' if self.force_type=='AT' else 'Ms/0.87/As/h0' \
             if self.force_type=='BD' else "Ns·es_/As/(h0-as_)" \
             if self.force_type=='ET' else 'Ns·(es-z)/As/z'
@@ -364,7 +419,13 @@ class crack_width(abacus):
                 if ok:
                     yield '{} &le; 0.55, 可不进行裂缝宽度计算。'.format(self.format('eql',digits, eq='e0/r'))
                     return
-                yield self.format('ηs',digits=digits)
+                yield '{}{}'.format(
+                    self.format('ηs',digits, eq='1+1/(4000*e0/h0)*(l0/h)<sup>2</sup>', value=self._ηs),
+                    '' if self.l0/self.h>14 else '，由于{} &lt; 14， 故取{}。'.format(
+                        self.replace_by_symbols('l0/2/r'),
+                        self.format('ηs', digits, omit_name=True)
+                        )
+                )
             eq = '0.6·(ηs·e0/r-0.1)<sup>3</sup>/(0.45+0.26·rs/r)/(ηs·e0/r+0.2)<sup>2</sup>·Ns/As' if self.Ns > 0 \
                 else '(0.6*(ηs*e0/r-0.1)**3/(0.45+0.26*rs/r)/(ηs*e0/r+0.2)**2+2)*Ns/As' if self.Ns <0 \
                 else '0.6/(0.45·r+0.26·rs)·Ms/As' if self.force_type == 'BD' \
@@ -378,13 +439,11 @@ class crack_width(abacus):
             eq = '(M-Np0·(z-ep))/(Ap+As)/z'
         else:
             raise InputError(self, 'case', '不支持的参数值')
+
         yield self.format('σss',eq=eq, digits=digits)
         ok = self.Wcr<self.wlim or abs(self.Wcr-self.wlim)<0.001
         if self.σss <= 0:
             yield '故全截面处于受压状态。'
-            # yield '{} {} {}，{}满足规范要求。'.format(
-            # self.format('Wcr', value=0), '≤' if ok else '&gt;',
-            # self.format('wlim', omit_name=True), '' if ok else '不')
             yield self.format_conclusion(
                 ok,
                 self.format('Wcr', value=0),
@@ -393,14 +452,9 @@ class crack_width(abacus):
                 '{}满足规范要求。'.format('' if ok else '不')
             )
         else:
-            # wcr = self.para_attrs('Wcr')
-            # yield self.format('Wcr', eq='C1·C2·C3·σss/Es·(c+d)/(0.36+1.7·ρte)',digits=digits)
-            # yield '{} {} {}，{}{}满足规范要求。'.format(
-            #     wcr.symbol, '≤' if ok else '&gt;',
-            #     self.format('wlim', omit_name=True), wcr.name, '' if ok else '不')
             yield self.format_conclusion(
                 ok,
-                self.format('Wcr', eq='C1·C2·C3·σss/Es·(c+d)/(0.36+1.7·ρte)',digits=digits+1),
+                self.format('Wcr', digits if digits>2 else 3, eq='C1·C2·C3·σss/Es·(c+d)/(0.36+1.7·ρte)'),
                 '≤' if ok else '&gt;',
                 self.format('wlim', omit_name=True),
                 '{}满足规范要求。'.format('' if ok else '不')
@@ -414,9 +468,9 @@ class crack_width(abacus):
         yield '钢筋:'
         yield self.formatx('d','As','Ap',digits=None)
         yield '荷载长期效应组合的设计内力:'
-        yield self.formatx('Ml','Nl',toggled=True)
+        yield self.formatx('Ml','Nl',depends_on_toggle=True)
         yield '荷载短期效应组合的设计内力:'
-        yield self.formatx('Ms','Ns',toggled=True)
+        yield self.formatx('Ms','Ns',depends_on_toggle=True)
         yield '材料参数:'
         yield self.format('Es',digits=None)
         yield '系数:'
@@ -425,33 +479,7 @@ class crack_width(abacus):
         yield self.format('ρte', eq=eq, digits=3)
         yield self.format('σss')
         yield self.format('As',digits)
-
-def _test1():
-    f = crack_width(
-        option='design',force_type='BD',Es=200000.0,d=25,b=500,h=1000,h0=900,bf=0,hf=0,bf_=0,hf_=0,
-        As=124540,Ap=0,Ml=0,Ms=12120,wlim=0.2,C1=1.0,C3=1.0)
-    f.solve()
-    print(f.text())
-
-def _test2():
-    f = crack_width(
-        section='round',force_type='EC',As=20*490.9,Ns=1000,Ms=800,
-        l=6000,l0=2.1*6000,r=800,a_s=100,fcuk=40,C1=1,Es=2.0e5,d=25,c=70)
-    f.solve()
-    print(f.text())
-
-def _test3():
-    f = crack_width(
-        wlim=0.15,Ml=3689.9,l0=0,b=2500,a_s=90,force_type='EC',option='review',
-        Ms=3689.9,bf_=0,c=50,ys=0,C1=1,section='rect',C3=1,Ns=27787,h=2500,Nl=27787,
-        Ap=0,as_=0,d=2**0.5*32,hf=0,Es=200000,hf_=0,ys_=0,r=500,As=2*25*804.2,l=0,bf=0)
-    f.solve()
-    print(f.text())
-
         
 if __name__ == '__main__':
     import doctest
     doctest.testmod()
-    _test1()
-    _test2()
-    _test3()

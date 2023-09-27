@@ -9,9 +9,10 @@ __all__ = [
     'punching_capacity',
     ]
 
-from collections import OrderedDict
 from math import pi, sin, cos, tan, atan
 from calla import abacus, InputError, html
+from calla.JTG.material import concrete, materials_util
+
 
 class pile_vertical_force(abacus):
     """
@@ -19,17 +20,17 @@ class pile_vertical_force(abacus):
     《公路钢筋混凝土及预应力混凝土桥涵设计规范》（JTG 3362-2018）第8.5.1节
     """
     __title__ = '桩基承台单桩竖向力'
-    __inputs__ = OrderedDict((
-        ('Fd',('<i>F</i><sub>d</sub>','kN',0,'承台底竖向力设计值','由承台底面以上的作用组合产生的竖向力设计值')),
-        ('Mxd',('<i>M</i><sub>xd</sub>','kN·m',0,'承台底弯矩设计值','由承台底面以上的作用组合绕通过桩群形心的x轴的弯矩设计值')),
-        ('Myd',('<i>M</i><sub>yd</sub>','kN·m',0,'承台底弯矩设计值','由承台底面以上的作用组合绕通过桩群形心的y轴的弯矩设计值')),
-        ('xi',('<i>x</i><sub>i</sub>','m',[-1.5, 1.5],'第i根桩中心至y轴的距离','多个桩的值用逗号分开，示例(-1.5, 1.5)')),
-        ('yi',('<i>y</i><sub>i</sub>','m',[-1.5, 1.5],'第i根桩中心至x轴的距离','多个桩的值用逗号分开，示例(-1.5, 1.5)')),
-        ))
-    __deriveds__ = OrderedDict((
-        ('Nid',('<i>N</i><sub>id</sub>','kN',0,'第i根桩作用于承台底面的竖向力设计值')),
-        ('Nids',('<b><i>N</i><sub>id(x,y)</sub></b>','kN',0,'桩竖向力设计值数组')),
-        ))
+    __inputs__ = [
+        ('Fd','<i>F</i><sub>d</sub>','kN',0,'承台底竖向力设计值','由承台底面以上的作用组合产生的竖向力设计值'),
+        ('Mxd','<i>M</i><sub>xd</sub>','kN·m',0,'承台底弯矩设计值','由承台底面以上的作用组合绕通过桩群形心的x轴的弯矩设计值'),
+        ('Myd','<i>M</i><sub>yd</sub>','kN·m',0,'承台底弯矩设计值','由承台底面以上的作用组合绕通过桩群形心的y轴的弯矩设计值'),
+        ('xi','<i>x</i><sub>i</sub>','m',[-1.5, 1.5],'第i根桩中心至y轴的距离','多个桩的值用逗号分开，示例(-1.5, 1.5)'),
+        ('yi','<i>y</i><sub>i</sub>','m',[-1.5, 1.5],'第i根桩中心至x轴的距离','多个桩的值用逗号分开，示例(-1.5, 1.5)'),
+    ]
+    __deriveds__ = [
+        ('Nid','<i>N</i><sub>id</sub>','kN',0,'第i根桩作用于承台底面的竖向力设计值'),
+        ('Nids','<b><i>N</i><sub>id(x,y)</sub></b>','kN',0,'桩竖向力设计值数组'),
+    ]
 
     def solve(self):
         if not (isinstance(self.xi, tuple) or isinstance(self.xi, list)):
@@ -56,63 +57,82 @@ class pile_vertical_force(abacus):
         self.nx = nx
         self.ny = ny
 
-class bearing_capacity(abacus):
+class bearing_capacity(abacus, materials_util):
     """
     按拉压杆模型验算桩基承台极限承载力
     《公路钢筋混凝土及预应力混凝土桥涵设计规范》（JTG 3362-2018）第8.5.4节
     """
     __title__ = '拉压杆模型计算承台承载力'
-    __inputs__ = OrderedDict((
-        ('γ0',('<i>γ</i><sub>0</sub>','',1.0,'重要性系数')),
-        ('ni',('<i>n</i><sub>i</sub>','',2,'第i排桩的根数','仅输入需要计算的单个桩值，不接受多个值')),
-        ('Nimax',('<i>N</i><sub>i,max</sub>','kN',0,'第i排桩最大单桩竖向力设计值')),
-        # ('dc',('','mm',0,'桩中距')),
-        # ('a',('<i>a</i>','mm',0,'平边桩中心距承台边缘距离','平行于计算截面的边桩中心距承台边缘距离')),
-        # ('D',('<i>D</i>','mm',0,'桩边长或桩直径')),
-        ('bs',('<i>b</i><sub>s</sub>','mm',0,'压杆计算宽度','按第8.5.2条计算，桩中距不大于3倍桩径时取承台全宽；否则取bs=2a+3D(n-1)')),
-        ('xi',('<i>x</i><sub>i</sub>','mm',1500,'桩中心至墩台边缘的距离','第i排桩中心至墩台边缘的距离，仅输入需要计算的单个桩值，不接受多个值')),
-        ('b',('<i>b</i>','mm',500,'桩的支撑面计算宽度','方形截面取截面边长，圆形截面取直径的0.8倍')),
-        ('s',('<i>s</i>','mm',100,'拉杆钢筋的顶层钢筋中心至承台底的距离')),
-        ('d',('<i>d</i>','mm',25,'拉杆钢筋直径','当采用不同直径的钢筋时，d取加权平均值')),
-        ('As',('<i>A</i><sub>s</sub>','mm<sup>2</sup>',0,'受拉钢筋面积','在压杆计算宽度bs(拉杆计算宽度)范围内拉杆钢筋截面面积')),
-        ('Es',('<i>E</i><sub>s</sub>','MPa',2.0E5,'钢筋弹性模量')),
-        ('fsd',('<i>f</i><sub>sd</sub>','MPa',330,'钢筋抗拉强度设计值')),
-        ('fcd',('<i>f</i><sub>cd</sub>','MPa',13.8,'混凝土轴心抗压强度设计值')),
-        # ('ftd',('<i>f</i><sub>td</sub>','MPa',1.39,'混凝土轴心抗拉强度设计值')),
-        ('βc',('<i>β</i><sub>c</sub>','mm',1.3,'与混凝土强度等级有关参数','对C25~C50取1.30，C55~C80取1.35')),
-        # ('h',('<i>h</i>','mm',1500,'承台高度')),
-        ('h0',('<i>h</i><sub>0</sub>','mm',1400,'承台有效高度')),
-        # ('D',('<i>D</i>','mm',800,'桩边长或桩直径')),
-        ))
-    __deriveds__ = OrderedDict((
-        ('Nid',('<i>N</i><sub>id</sub>','kN',0,'承台底竖向力设计值','由承台底面以上的作用组合产生的竖向力设计值')),
-        ('a',('<i>a</i>','mm',0,'压杆中线与承台顶面的交点至墩台边缘的距离')),
-        ('t',('<i>t</i>','mm',25,'压杆计算高度')),
-        ('ε1',('<i>ε</i><sub>1</sub>','',0,'系数')),
-        ('θi',('<i>θ</i><sub>i</sub>','Rad',0,'斜压杆与拉杆之间的夹角')),
-        ('fced',('<i>f</i><sub>ced</sub>','MPa',0,'混凝土压杆的等效抗压强度设计值')),
-        ('Cid',('<i>C</i><sub>id</sub>','kN',1.0,'压杆内力设计值')),
-        ('γ0Cid',('','kN',0,'')),
-        ('Ciu',('<i>C</i><sub>iu</sub>','kN',1.0,'压杆承载力')),
-        ('Tid',('<i>T</i><sub>id</sub>','kN',1.0,'拉杆内力设计值')),
-        ('γ0Tid',('','kN',0,'')),
-        ('Tiu',('<i>T</i><sub>iu</sub>','kN',1.0,'拉杆承载力')),
-        ))
+    __inputs__ = [
+        ('γ0','<i>γ</i><sub>0</sub>','',1.0,'重要性系数'),
+        ('ni','<i>n</i><sub>i</sub>','',2,'第i排桩的根数','仅输入需要计算的单个桩值，不接受多个值'),
+        ('Nimax','<i>N</i><sub>i,max</sub>','kN',0,'第i排桩最大单桩竖向力设计值'),
+        # ('dc','','mm',0,'桩中距'),
+        # ('a','<i>a</i>','mm',0,'平边桩中心距承台边缘距离','平行于计算截面的边桩中心距承台边缘距离'),
+        # ('D','<i>D</i>','mm',0,'桩边长或桩直径'),
+        ('bs','<i>b</i><sub>s</sub>','mm',0,'压杆计算宽度','按第8.5.2条计算，桩中距不大于3倍桩径时取承台全宽；否则取bs=2a+3D(n-1)'),
+        ('xi','<i>x</i><sub>i</sub>','mm',1500,'桩中心至墩台边缘的距离','第i排桩中心至墩台边缘的距离，仅输入需要计算的单个桩值，不接受多个值'),
+        ('b','<i>b</i>','mm',500,'桩的支撑面计算宽度','方形截面取截面边长，圆形截面取直径的0.8倍'),
+        ('h0','<i>h</i><sub>0</sub>','mm',1400,'承台有效高度'),
+        materials_util.rebar_input,
+        ('s','<i>s</i>','mm',100,'拉杆钢筋的顶层钢筋中心至承台底的距离'),
+        ('d','<i>d</i>','mm',25,'拉杆钢筋直径','当采用不同直径的钢筋时，d取加权平均值'),
+        ('As','<i>A</i><sub>s</sub>','mm<sup>2</sup>',0,'受拉钢筋面积','在压杆计算宽度bs(拉杆计算宽度)范围内拉杆钢筋截面面积'),
+        ('Es','<i>E</i><sub>s</sub>','MPa',2.0E5,'钢筋弹性模量'),
+        ('fsd','<i>f</i><sub>sd</sub>','MPa',330,'钢筋抗拉强度设计值'),
+        materials_util.concrete_input,
+        ('fcd','<i>f</i><sub>cd</sub>','MPa',13.8,'混凝土轴心抗压强度设计值'),
+        # ('ftd','<i>f</i><sub>td</sub>','MPa',1.39,'混凝土轴心抗拉强度设计值'),
+        ('βc','<i>β</i><sub>c</sub>','',1.3,'与混凝土强度等级有关参数','对C25~C50取1.30，C55~C80取1.35'),
+        # ('h','<i>h</i>','mm',1500,'承台高度'),
+        # ('D','<i>D</i>','mm',800,'桩边长或桩直径'),
+    ]
+    __deriveds__ = [
+        ('Nid','<i>N</i><sub>id</sub>','kN',0,'承台底竖向力设计值','由承台底面以上的作用组合产生的竖向力设计值'),
+        ('a','<i>a</i>','mm',0,'压杆中线与承台顶面的交点至墩台边缘的距离'),
+        ('t','<i>t</i>','mm',25,'压杆计算高度'),
+        ('ha','<i>h</i><sub>a</sub>','mm',0,''),
+        ('ε1','<i>ε</i><sub>1</sub>','',0,'系数'),
+        ('θi','<i>θ</i><sub>i</sub>','Rad',0,'斜压杆与拉杆之间的夹角'),
+        ('fced','<i>f</i><sub>ced</sub>','MPa',0,'混凝土压杆的等效抗压强度设计值'),
+        ('Cid','<i>C</i><sub>id</sub>','kN',1.0,'压杆内力设计值'),
+        ('γ0Cid','','kN',0,''),
+        ('Ciu','<i>C</i><sub>iu</sub>','kN',1.0,'压杆承载力'),
+        ('Tid','<i>T</i><sub>id</sub>','kN',1.0,'拉杆内力设计值'),
+        ('γ0Tid','','kN',0,''),
+        ('Tiu','<i>T</i><sub>iu</sub>','kN',1.0,'拉杆承载力'),
+    ]
+    __toggles__ = [
+        # 'concrete', materials_util.material_toggles['concrete'],
+        'concrete', { key:('fcuk','fcd', 'ftd', 'βc') if key.startswith('C') else () for key in materials_util.concrete_types },
+        'rebar', materials_util.material_toggles['rebar'],
+    ]
 
     @staticmethod
     def capacity(s, d, b, θi, Tid, As, Es, fcd, bs, βc):
         ha = s + 6*d
         t = b*sin(θi)+ha*cos(θi)
         ε1 = Tid/As/Es+(Tid/As/Es+0.002)/tan(θi)**2
-        fced = βc*fcd/(0.8+170*ε1)
-        _fced = 0.85*βc*fcd
-        if fced > _fced:
-            fced = _fced
+        fced = _fced = βc*fcd/(0.8+170*ε1)
+        _fced_ = 0.85*βc*fcd
+        if fced > _fced_:
+            fced = _fced_
         Ciu = t*bs*fced
-        return (Ciu, fced, ε1, t, ha)
+        return (Ciu, fced, _fced, ε1, t, ha)
 
     def solve(self):
         self.positive_check('As')
+        self.adjust_params()
+        if isinstance(self.concrete, str) and self.concrete.startswith('C'):
+            fcuk = concrete.fcuk(self.concrete)
+            if fcuk >= 25 and fcuk <= 50:
+                # if self.βc != 1.3:
+                #     warnings.warn('依据规范附录B，对C25~C50混凝土，βc取值为1.3')
+                self.βc = 1.3
+            if fcuk >= 55 and fcuk <= 80:
+                # if self.βc != 1.35:
+                #     warnings.warn('依据规范附录B，对C55~C80混凝土，βc取值为1.35')
+                self.βc = 1.35
 
         # 按拉压杆模型计算承载力（8.5.4条）
         self.Nid = self.ni*self.Nimax
@@ -123,16 +143,28 @@ class bearing_capacity(abacus):
         self.γ0Cid = self.γ0*self.Cid
         self.γ0Tid = self.γ0*self.Tid
         # self.bs = 2*self.a+3*self.D*(n-1)
-        Ciu, self.fced, self.ε1, self.t, self.ha = self.capacity(
+        Ciu, self.fced, self._fced, self.ε1, self.t, self.ha = self.capacity(
             self.s, self.d, self.b, self.θi, self.Tid*1e3, self.As, self.Es, self.fcd, self.bs, self.βc)
         self.Ciu = Ciu/1e3
         self.Tiu = self.fsd*self.As/1e3
 
     def _html(self, digits=2):
-        for para in self.inputs:
-            yield self.format(para, digits=None)
-        for para in ('ha','t','ε1','fced','Cid'):
-            yield self.format(para, digits)
+        for param in self.inputs:
+            yield self.format(param, digits=None)
+        yield self.format('Nid', digits, eq='ni*Nimax')
+        yield self.format('a', digits, eq='0.15*h0')
+        yield self.format('θi', digits, eq='atan(h0/(a+xi))')
+        yield self.format('ha', digits, eq='s+6d')
+        yield self.format('t', digits, eq='b*sin(θi)+ha*cos(θi)')
+        yield self.format('ε1', digits, eq='Tid/As/Es+(Tid/As/Es+0.002)*cot(θi)<sup>2</sup>')
+        yield '{}{}'.format(
+            self.format('fced', digits, value=self._fced, eq='βc*fcd/(0.8+170*ε1)'),
+            ' > 0.85*self.βc*self.fcd，故取{}。'.format(
+                self.format('fced', digits, omit_name=True))\
+                if self._fced > 0.85*self.βc*self.fcd else ''
+            )
+        self.format('Cid', digits, eq='Nid/sin(θi)')
+        
         ok = self.γ0Cid <= self.Ciu
         yield '{} {} {}，{}满足规范要求。'.format(
             self.format('γ0Cid', digits, eq='γ0 Cid'), '&le;' if ok else '&gt;', 
@@ -151,18 +183,18 @@ class punching_capacity(abacus):
     《公路钢筋混凝土及预应力混凝土桥涵设计规范》（JTG 3362-2018）第8.5.5节
     """
     __title__ = '承台冲切承载力'
-    __inputs__ = OrderedDict((
-        ('option',('计算选项','','down','','',{'down':'柱或墩台向下冲切','up_corner':'角桩向上冲切','up_side':'边桩向上冲切'})),
-        ('γ0',('<i>γ</i><sub>0</sub>','',1.0,'重要性系数')),
-        ('ftd',('<i>f</i><sub>td</sub>','MPa',1.39,'混凝土轴心抗拉强度设计值')),
-        ('ax',('<i>a</i><sub>x</sub>','mm',1000,'桩边缘至相应柱或墩台边缘的水平距离','平行于x轴方向')),
-        ('ay',('<i>a</i><sub>y</sub>','mm',1000,'桩边缘至相应柱或墩台边缘的水平距离','平行于y轴方向')),
-        ('bx',('<i>b</i><sub>x</sub>','mm',1000,'边长','平行于x轴方向')),
-        ('by',('<i>b</i><sub>y</sub>','mm',1000,'边长','平行于y轴方向')),
-        ('bp',('<i>b</i><sub>p</sub>','mm',1000,'方桩的边长')),
-        ('h0',('<i>h</i><sub>0</sub>','mm',1400,'承台有效高度')),
-        ('Fld',('<i>F</i><sub>ld</sub>','kN',0,'承台底竖向力设计值','由承台底面以上的作用组合产生的竖向力设计值')),
-        ))
+    __inputs__ = [
+        ('option','计算选项','','down','','',{'down':'柱或墩台向下冲切','up_corner':'角桩向上冲切','up_side':'边桩向上冲切'}),
+        ('γ0','<i>γ</i><sub>0</sub>','',1.0,'重要性系数'),
+        ('ftd','<i>f</i><sub>td</sub>','MPa',1.39,'混凝土轴心抗拉强度设计值'),
+        ('ax','<i>a</i><sub>x</sub>','mm',1000,'桩边缘至相应柱或墩台边缘的水平距离','平行于x轴方向'),
+        ('ay','<i>a</i><sub>y</sub>','mm',1000,'桩边缘至相应柱或墩台边缘的水平距离','平行于y轴方向'),
+        ('bx','<i>b</i><sub>x</sub>','mm',1000,'边长','平行于x轴方向'),
+        ('by','<i>b</i><sub>y</sub>','mm',1000,'边长','平行于y轴方向'),
+        ('bp','<i>b</i><sub>p</sub>','mm',1000,'方桩的边长'),
+        ('h0','<i>h</i><sub>0</sub>','mm',1400,'承台有效高度'),
+        ('Fld','<i>F</i><sub>ld</sub>','kN',0,'承台底竖向力设计值','由承台底面以上的作用组合产生的竖向力设计值'),
+    ]
     __deriveds__ = [
         ('αpx','<i>α</i><sub>px</sub>','mm',0,'与冲跨比λx对应的冲切承载力系数'),
         ('αpy','<i>α</i><sub>py</sub>','mm',0,'与冲跨比λy对应的冲切承载力系数'),
@@ -171,9 +203,9 @@ class punching_capacity(abacus):
         ('Flu','<i>F</i><sub>lu</sub>','kN',0,'冲切承载力'),
         ('γ0Fld','','kN',0,'')
         ]
-    __toggles__ = {
-        'option':{'down':('bp'),'up_corner':('bp'),'up_side':('by','ay')},
-        }
+    __toggles__ = [
+        'option', {'down':('bp'),'up_corner':('bp'),'up_side':('by','ay')},
+    ]
 
     # 1 柱或墩台向下冲切
     @staticmethod
@@ -211,20 +243,16 @@ class punching_capacity(abacus):
     
     def _html(self, digits=2):
         disableds = self.disableds()
-        for attr in self.__inputs__:
+        for attr in self._inputs_:
             if hasattr(self, attr) and (not attr in disableds):
                 yield self.format(attr, digits = None)
         eq = '0.6·ftd·h0·(2·αpx·(by+ay)+2·αpy·(bx+ax))' if self.option == 'down'\
         else '0.6·ftd·h0·(αpx_·(by+ay/2)+αpy_·(bx+ax/2))' if self.option == 'up_corner' \
         else '0.6·ftd·h0·(αpx_·(bp+h0)+0.667·(2·bx+ax))'
         yield self.format('Flu', eq=eq)
-        fld = self.para_attrs('Fld')
+        
         self.γ0Fld = self.γ0*self.Fld
         ok = self.γ0Fld <= self.Flu
-        # yield '{1} = {2:.{0}f} {3} {4} {5}，{6}满足规范要求。'.format(
-        #     digits, self.replace_by_symbols('γ0·Fld'), γ0Fld, fld.unit,
-        #     '≤' if ok else '&gt;', self.para_attrs('Flu').symbol,
-        #     '' if ok else '不')
         yield self.format_conclusion(
             ok,
             self.format('γ0Fld',digits,eq='γ0·Fld'),

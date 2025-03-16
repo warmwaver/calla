@@ -34,8 +34,16 @@ def binary_search_solve(function, start, end, **kwargs):
             x0 = x
             f0 = f
 
+
 def iteration_method_solve(function, start, **kwargs):
-    """牛顿法求解非线性方程"""
+    """
+    迭代法求解非线性方程
+
+    Args:
+        function: 待求解的方程迭代式，x1=function(x0, **kwargs)
+        start: 方程根的初始值
+        kwargs: 方程中的其余参数
+    """
     count = 0
     x0 = start
     toleration = 1e-3
@@ -44,12 +52,36 @@ def iteration_method_solve(function, start, **kwargs):
         # --test--
         # print(count, x0, x1, sep='\t')
         # --------
-        if abs(x1-x0)<=abs(x0)*toleration: # abs((x1-x0)/x0)<1e-3:
+        if abs(x1-x0) <= abs(x0)*toleration:  # abs((x1-x0)/x0)<1e-3:
             return x1
-        if count>100:
+        if count > 100:
             raise NumericError('No real solution.')
         x0 = x1
         count += 1
+
+
+def newton_iteration_solve(f, df, start, **kwargs):
+    """
+    牛顿迭代法求解非线性方程
+
+    Args:
+        f: 待求解的方程，f(x, **kwargs) = 0
+        df: 方程的微分（differential of f）
+        start: 方程根的初始值
+        kwargs: 方程中的其余参数
+    """
+    count = 0
+    x0 = start
+    toleration = 1e-3
+    while True:
+        x1 = x0 - f(x0, **kwargs)/df(x0, **kwargs)
+        if abs(x1-x0) <= abs(x0)*toleration:
+            return x1
+        if count > 100:
+            raise NumericError('No real solution.')
+        x0 = x1
+        count += 1
+
 
 def secant_method_solve(function, start, end, **kwargs):
     """

@@ -16,6 +16,7 @@ from collections import OrderedDict
 from calla import abacus, InputError, html, numeric
 from math import pi, tan, isinf
 
+
 class friction_pile_capacity(abacus):
     """
     钻孔灌注桩（摩擦桩）轴向受压承载力计算
@@ -200,6 +201,7 @@ class friction_pile_capacity(abacus):
             yield '承载力富余量{:.1f}%。'.format((self.K-1)*100)
         return
 
+
 class end_bearing_pile_capacity(abacus):
     """
     端承桩轴向受压承载力计算
@@ -324,7 +326,7 @@ class end_bearing_pile_capacity(abacus):
             table_c1 = [0.8*c1 for c1 in table_c1]
             table_c2 = [0.8*c1 for c1 in table_c2]
         # 表5.3.4附注第3条
-        if '中风化' in self.layers[endlayer]:
+        if '中风化' in str(self.layers[endlayer]):
             table_c1 = [0.75*c1 for c1 in table_c1]
             table_c2 = [0.75*c1 for c1 in table_c2]
         ls = 0
@@ -403,6 +405,7 @@ class end_bearing_pile_capacity(abacus):
         if ok:
             yield '承载力富余量{:.1f}%。'.format((self.K-1)*100)
         return
+
 
 class tensile_pile_capacity(abacus):
     """
@@ -499,6 +502,7 @@ class tensile_pile_capacity(abacus):
         #     yield '（安全系数{:.2f}）'.format(self.K)
         return
 
+
 # 附录L.0.8表格数据
 tableL08 = (
     (0, 1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1),
@@ -530,6 +534,7 @@ tableL08 = (
     (3.5,-2.92799,-1.27172,2.46304,4.97982,-4.98062,-6.70806,-3.58647,1.27018,-3.91921,-9.54367,-10.34040,-5.85402,1.07408,-6.78895,-13.69240,-13.82610 ),
     (4,-5.85333,-5.94097,-0.92677,4.54780,-6.53316,-12.15810,-10.60840,-3.76647,-1.61428,-11.73066,-17.91860,-15.07550,9.24368,-0.35762,-15.61050,-23.14040 ),
     )
+
 
 class pile_width(abacus):
     """
@@ -581,6 +586,7 @@ class pile_width(abacus):
         yield self.format('k', digits, eq=eq)
         eq = 'k*kf*(d+1)' if self.d >=1 else 'k*kf*(1.5*d+0.5)'
         yield self.format('b1', digits, eq=eq)
+
 
 class pile_effects(abacus):
     """
@@ -816,7 +822,8 @@ class pile_effects(abacus):
         t = self.Forces
         t.insert(0, ['桩深(m)','弯矩M','剪力Q'])
         yield html.table2html(t, digits)
-    
+
+
 class pile_group_effects_pier(abacus):
     """
     按m法计算多排桩（群桩）作用力
@@ -824,53 +831,53 @@ class pile_group_effects_pier(abacus):
     《公路桥涵地基与基础设计规范》（JTG 3363-2019） 附录L.0.6
     """
     __title__ = '多排桩作用效应'
-    __inputs__ = OrderedDict((
-        ('d',('<i>d</i>','m',1.0,'桩径或垂直于水平外力作用方向桩的宽度')),
-        ('h',('<i>h</i>','m',20,'桩长')),
-        ('l0',('<i>l</i><sub>0</sub>','m',1.0,'桩顶高出地面或局部冲刷线的长度','不小于0')),
-        ('h2',('<i>h</i><sub>2</sub>','m',10,'柱高')),
-        ('hc',('<i>h</i><sub>c</sub>','m',0,'承台底面埋深','承台底面埋入地面或局部冲刷线下的深度')),
-        ('kf',('<i>k</i><sub>f</sub>','',0.9,'桩形状换算系数','圆形或圆端形取0.9；矩形取1.0')),
-        ('Ec',('<i>E</i><sub>c</sub>','MPa',3.0E4,'混凝土抗压弹性模量')),
-        ('m',('<i>m</i>','kN/m<sup>4</sup>',5000,'非岩石地基水平向抗力系数的比例系数',
-        '缺乏试验资料时按表P.0.2-1查用')),
-        ('C0',('<i>C</i><sub>0</sub>','kN/m<sup>3</sup>',300000,'桩端地基竖向抗力系数',
-        '非岩石地基C0=m0*h, h≥10；岩石地基查表P.0.2-2')),
-        ('P',('<i>P</i>','kN',0,'承台底面竖直力','荷载作用于承台底面原点处的竖直力')),
-        ('H',('<i>H</i>','kN',0,'承台底面水平力','荷载作用于承台底面原点处的水平力')),
-        ('M',('<i>M</i>','kN·m',0,'承台底面弯矩','荷载作用于承台底面原点处的弯矩')),
-        ('bottom_fixed',('桩底嵌固','',False,'', '', {True:'是',False:'否'})),
-        ('xi',('<i>x</i><sub>i</sub>','m',[-1.5, 1.5],'第i排桩至承台中心的距离')),
-        ('Ki',('<i>K</i><sub>i</sub>','',[2, 2],'第i排桩根数')),
-        ('ξ',('<i>ξ</i>','',1,'系数','端承桩=1;对于摩擦桩(或摩擦支承管桩)，打入或振动下沉时=2/3;钻(挖)孔时=1/2')),
-        ('ψ',('<i>ψ</i>','',1,'土层平均内摩擦角','桩所穿过土层的平均内摩擦角')),
-        ))
-    __deriveds__ = OrderedDict((
-        ('L1',('<i>L</i><sub>1</sub>','m',2.0,'平行于水平力作用方向的桩间净距')),
-        ('n',('<i>n</i>','',2,'平行于水平力作用方向的一排桩的桩数','')),
-        ('b2',('<i>b</i><sub>2</sub>','',1.0,'系数',
-        '与平行于水平力作用方向的一排桩的桩数n有关的系数, n=1时取1.0；n=2时取0.6；n=3时取0.5；n=4时取0.45')),
-        #('h1_P01',('<i>h</i><sub>1</sub>','m',1.0,'地面或局部冲刷线以下桩的计算埋入深度','可取3(d+1)但不大于h')),
-        ('α',('<i>α</i>','m<sup>-1</sup>',0,'桩的变形系数')),
-        ('b1',('<i>b</i><sub>1</sub>','m',20,'桩的计算宽度')),
-        ('kh',('<i>k</i><sub>h</sub>','',1.0,'土抗力对变形的影响系数')),
-        ('x0',('<i>x</i><sub>0</sub>','m',0,'水平位移')),
-        ('φ0',('<i>φ</i><sub>0</sub>','rad',0,'转角')),
-        ('S',('<i>S</i>','m',0,'桩底面中心距')),
-        ('γcc',('<i>γ</i><sub>cc</sub>','kN/m',0,'承台产生竖向单位位移时，桩顶竖向反力之和')),
-        ('γaa',('<i>γ</i><sub>aa</sub>','kN/m',0,'承台产生水平向单位位移时，桩顶水平反力之和')),
-        ('γaβ',('<i>γ</i><sub>aβ</sub>','kN/rad',0,'承台绕原点0产生单位转角，桩顶水平反力之和')),
-        ('γβa',('<i>γ</i><sub>βa</sub>','kN·m/m',0,'水平方向产生单位位移时，桩柱顶反弯矩之和')),
-        ('γββ',('<i>γ</i><sub>ββ</sub>','kN·m/rad',0,'承台发生单位转角时，桩顶反弯矩之和')),
-        ('c',('<i>c</i>','m',0,'承台竖直位移')),
-        ('a',('<i>a</i>','m',0,'承台水平位移')),
-        ('β',('<i>β</i>','rad',0,'承台转角')),
-        ('Ni',('<i>N</i><sub>i</sub>','kN',0,'桩顶轴向力')),
-        ('Qi',('<i>Q</i><sub>i</sub>','kN',0,'桩顶剪力')),
-        ('Mi',('<i>M</i><sub>i</sub>','kN·m',0,'桩顶弯矩')),
-        ('H0',('<i>H</i><sub>0</sub>','kN',0,'桩基地面处水平力')),
-        ('M0',('<i>M</i><sub>0</sub>','kN·m',0,'桩基地面处弯矩')),
-        ))
+    __inputs__ = [
+        ('d', '<i>d</i>','m',1.0,'桩径或垂直于水平外力作用方向桩的宽度'),
+        ('h', '<i>h</i>','m',20,'桩长'),
+        ('l0', '<i>l</i><sub>0</sub>','m',1.0,'桩顶高出地面或局部冲刷线的长度','不小于0'),
+        ('h2', '<i>h</i><sub>2</sub>','m',10,'柱高'),
+        ('hc', '<i>h</i><sub>c</sub>','m',0,'承台底面埋深','承台底面埋入地面或局部冲刷线下的深度'),
+        ('kf', '<i>k</i><sub>f</sub>','',0.9,'桩形状换算系数','圆形或圆端形取0.9；矩形取1.0'),
+        ('Ec', '<i>E</i><sub>c</sub>','MPa',3.0E4,'混凝土抗压弹性模量'),
+        ('m', '<i>m</i>','kN/m<sup>4</sup>',5000,'非岩石地基水平向抗力系数的比例系数',
+        '缺乏试验资料时按表P.0.2-1查用'),
+        ('C0', '<i>C</i><sub>0</sub>','kN/m<sup>3</sup>',300000,'桩端地基竖向抗力系数',
+        '非岩石地基C0=m0*h, h≥10；岩石地基查表P.0.2-2'),
+        ('P', '<i>P</i>','kN',0,'承台底面竖直力','荷载作用于承台底面原点处的竖直力'),
+        ('H', '<i>H</i>','kN',0,'承台底面水平力','荷载作用于承台底面原点处的水平力'),
+        ('M', '<i>M</i>','kN·m',0,'承台底面弯矩','荷载作用于承台底面原点处的弯矩'),
+        ('bottom_fixed', '桩底嵌固','',False,'', '', {True:'是',False:'否'}),
+        ('xi', '<i>x</i><sub>i</sub>','m',[-1.5, 1.5],'第i排桩至承台中心的距离', '输入多个值，逗号分隔'),
+        ('Ki', '<i>K</i><sub>i</sub>','',[2, 2],'第i排桩根数', '输入多个值，逗号分隔'),
+        ('ξ', '<i>ξ</i>','',1,'系数','端承桩=1;对于摩擦桩(或摩擦支承管桩)，打入或振动下沉时=2/3;钻(挖)孔时=1/2'),
+        ('ψ', '<i>ψ</i>','',1,'土层平均内摩擦角','桩所穿过土层的平均内摩擦角'),
+    ]
+    __deriveds__ = [
+        ('L1', '<i>L</i><sub>1</sub>','m',2.0,'平行于水平力作用方向的桩间净距'),
+        ('n', '<i>n</i>','',2,'平行于水平力作用方向的一排桩的桩数',''),
+        ('b2', '<i>b</i><sub>2</sub>','',1.0,'系数',
+        '与平行于水平力作用方向的一排桩的桩数n有关的系数, n=1时取1.0；n=2时取0.6；n=3时取0.5；n=4时取0.45'),
+        #('h1_P01', '<i>h</i><sub>1</sub>','m',1.0,'地面或局部冲刷线以下桩的计算埋入深度','可取3(d+1)但不大于h'),
+        ('α', '<i>α</i>','m<sup>-1</sup>',0,'桩的变形系数'),
+        ('b1', '<i>b</i><sub>1</sub>','m',20,'桩的计算宽度'),
+        ('kh', '<i>k</i><sub>h</sub>','',1.0,'土抗力对变形的影响系数'),
+        ('x0', '<i>x</i><sub>0</sub>','m',0,'水平位移'),
+        ('φ0', '<i>φ</i><sub>0</sub>','rad',0,'转角'),
+        ('S', '<i>S</i>','m',0,'桩底面中心距'),
+        ('γcc', '<i>γ</i><sub>cc</sub>','kN/m',0,'承台产生竖向单位位移时，桩顶竖向反力之和'),
+        ('γaa', '<i>γ</i><sub>aa</sub>','kN/m',0,'承台产生水平向单位位移时，桩顶水平反力之和'),
+        ('γaβ', '<i>γ</i><sub>aβ</sub>','kN/rad',0,'承台绕原点0产生单位转角，桩顶水平反力之和'),
+        ('γβa', '<i>γ</i><sub>βa</sub>','kN·m/m',0,'水平方向产生单位位移时，桩柱顶反弯矩之和'),
+        ('γββ', '<i>γ</i><sub>ββ</sub>','kN·m/rad',0,'承台发生单位转角时，桩顶反弯矩之和'),
+        ('c', '<i>c</i>','m',0,'承台竖直位移'),
+        ('a', '<i>a</i>','m',0,'承台水平位移'),
+        ('β', '<i>β</i>','rad',0,'承台转角'),
+        ('Ni', '<i>N</i><sub>i</sub>','kN',0,'桩顶轴向力'),
+        ('Qi', '<i>Q</i><sub>i</sub>','kN',0,'桩顶剪力'),
+        ('Mi', '<i>M</i><sub>i</sub>','kN·m',0,'桩顶弯矩'),
+        ('H0', '<i>H</i><sub>0</sub>','kN',0,'桩基地面处水平力'),
+        ('M0', '<i>M</i><sub>0</sub>','kN·m',0,'桩基地面处弯矩'),
+    ]
 
     @staticmethod
     def f_b1(k, kf, d):
@@ -890,6 +897,10 @@ class pile_group_effects_pier(abacus):
         return α**3*E*I*(x0*A4+φ0/α*B4+M0*C4/(α**2*E*I)+H0*D4/(α**3*E*I))
 
     def _solve(self):
+        if not isinstance(self.xi, list | tuple):
+            raise InputError(self, 'xi', '应为列表，例如[-1.5, 1.5]')
+        if not isinstance(self.Ki, list | tuple):
+            raise InputError(self, 'Ki', '应为整数列表，例如[2, 2]')
         d=self.d; h=self.h; hc=self.hc; l0=self.l0; kf=self.kf
         Ec=self.Ec*1e3; I =self.I; I0=self.I0; m=self.m; C0=self.C0
         bottom_fixed=self.bottom_fixed; ξ=self.ξ
@@ -984,6 +995,8 @@ class pile_group_effects_pier(abacus):
         elif isinstance(self.Ki, (tuple, list)):
             if len(self.Ki) != self.n:
                 raise InputError(self, 'Ki', '数目与xi不对应')
+        else:
+            raise InputError(self, 'Ki', '不支持的数据类型')
 
         self.npiles = sum(self.Ki) # 总桩数
         if self.npiles <= 0:
@@ -992,6 +1005,7 @@ class pile_group_effects_pier(abacus):
         if self.ξ <= 0:
             self.ξ = 1 if self.bottom_fixed else 0.5
         self._solve()
+
 
 def _test1():
     from math import pi

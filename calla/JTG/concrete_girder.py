@@ -7,9 +7,9 @@ __all__ = [
     'effective_width',
     ]
 
-from collections import OrderedDict
-from calla import abacus, InputError, html
-from math import pi, sqrt
+
+from calla import abacus, InputError
+
 
 class effective_width(abacus):
     """
@@ -18,50 +18,50 @@ class effective_width(abacus):
     """
     __title__ = '混凝土梁翼缘有效宽度'
     __inputs__ = [
-        ('section', '','','I', '截面形状','',{'I':'T形或I形', 'box':'箱形'}),
-        ('beam_type','','','simple','梁类别','',{'simple':'简支梁','continuous':'连续梁','cantilever':'悬臂梁'}),
-        ('location','','','middle_span','截面位置','',{
-            'side_span':'边跨','middle_span':'中跨','side_support':'边支点','middle_support':'中支点'}),
-        ('da','','m',0,'相邻两梁的平均间距'),
-        ('b','<i>b</i>','m',0,'腹板宽度'),
-        ('bh','<i>b</i><sub>h</sub>','m',0,'承托长度'),
-        ('hf_','<i>h</i><sub>f</sub><sup>\'</sup>','m',0,'受压翼缘悬出板的厚度'),
-        ('hh','<i>h</i><sub>h</sub>','m',0,'承托根部厚度'),
-        ('ha_o','','m',0,'外侧悬臂板平均厚度'),
-        ('bm_o','','m',0,'外侧悬臂板实际宽度'),
-        ('bi','<i>b</i><sub>i</sub>','m',0,'腹板两侧上、下翼缘实际宽度'),
-        ('l','<i>l</i>','m',0,'计算跨径'),
-        ('l1','<i>l</i><sub>1</sub>','m',0,'支点左侧跨径'),
-        ('l2','<i>l</i><sub>2</sub>','m',0,'支点右侧跨径'),
-        ('h','<i>h</i>','m',0,'梁高'),
+        ('section', '', '', 'I', '截面形状', '', {'I': 'T形或I形', 'box': '箱形'}),
+        ('beam_type', '', '', 'simple', '梁类别', '', {'simple': '简支梁', 'continuous': '连续梁', 'cantilever': '悬臂梁'}),
+        ('location', '', '', 'middle_span', '截面位置', '', {
+            'side_span': '边跨', 'middle_span': '中跨', 'side_support': '边支点', 'middle_support': '中支点'}),
+        ('da', '', 'm', 0, '相邻两梁的平均间距'),
+        ('b', '<i>b</i>', 'm', 0, '腹板宽度'),
+        ('bh', '<i>b</i><sub>h</sub>', 'm', 0, '承托长度'),
+        ('hf_', '<i>h</i><sub>f</sub><sup>\'</sup>', 'm', 0, '受压翼缘悬出板的厚度'),
+        ('hh', '<i>h</i><sub>h</sub>', 'm', 0, '承托根部厚度'),
+        ('ha_o', '', 'm', 0, '外侧悬臂板平均厚度'),
+        ('bm_o', '', 'm', 0, '外侧悬臂板实际宽度'),
+        ('bi', '<i>b</i><sub>i</sub>', 'm', 0, '腹板两侧上、下翼缘实际宽度'),
+        ('l', '<i>l</i>', 'm', 0, '计算跨径'),
+        ('l1', '<i>l</i><sub>1</sub>', 'm', 0, '支点左侧跨径'),
+        ('l2', '<i>l</i><sub>2</sub>', 'm', 0, '支点右侧跨径'),
+        ('h', '<i>h</i>', 'm', 0, '梁高'),
     ]
     __deriveds__ = [
-        ('bfi','','m',0,'内梁翼缘有效宽度'),
-        ('bfo','','m',0,'外梁翼缘有效宽度'),
-        ('li','<i>l</i><sub>i</sub>','m',0,'理论跨径'),
-        ('ρf','<i>ρ</i><sub>f</sub>','',0,'有效宽度计算系数'),
-        ('ρs','<i>ρ</i><sub>s</sub>','',0,'有效宽度计算系数'),
-        ('bmif','<i>b</i><sub>mi</sub>','m',0,'翼缘有效宽度','腹板两侧上、下翼缘有效宽度'),
-        ('bmis','<i>b</i><sub>mi</sub>','m',0,'翼缘有效宽度','腹板两侧上、下翼缘有效宽度'),
+        ('bfi', '', 'm', 0, '内梁翼缘有效宽度'),
+        ('bfo', '', 'm', 0, '外梁翼缘有效宽度'),
+        ('li', '<i>l</i><sub>i</sub>', 'm', 0, '理论跨径'),
+        ('ρf', '<i>ρ</i><sub>f</sub>', '', 0, '有效宽度计算系数'),
+        ('ρs', '<i>ρ</i><sub>s</sub>', '', 0, '有效宽度计算系数'),
+        ('bmif', '<i>b</i><sub>mi</sub>', 'm', 0, '翼缘有效宽度', '腹板两侧上、下翼缘有效宽度'),
+        ('bmis', '<i>b</i><sub>mi</sub>', 'm', 0, '翼缘有效宽度', '腹板两侧上、下翼缘有效宽度'),
     ]
     __toggles__ = {
-        'section':{
-            'I':('bi','h'),
-            'box':('da','b','bh','hf_','hh','ha_o','bm_o')
+        'section': {
+            'I': ('bi', 'h'),
+            'box': ('da', 'b', 'bh', 'hf_', 'hh', 'ha_o', 'bm_o')
         },
-        'beam_type':{
-            'simple':('location','l1','l2'), 
-            'continuous':(), 
-            'cantilever':('location','l1','l2')
+        'beam_type': {
+            'simple': ('location', 'l1', 'l2'),
+            'continuous': (),
+            'cantilever': ('location', 'l1', 'l2')
         },
-        'location':{
-            'side_span':('l1','l2'),
-            'middle_span':('l1','l2'),
-            'side_support':('l1','l2'),
-            'middle_support':('l'),
+        'location': {
+            'side_span': ('l1', 'l2'),
+            'middle_span': ('l1', 'l2'),
+            'side_support': ('l1', 'l2'),
+            'middle_support': ('l'),
         },
-        }
-    
+    }
+
     def solve(self):
         if self.location == 'middle_support':
             self.validate('positive', 'l1', 'l2')
@@ -133,8 +133,7 @@ class effective_width(abacus):
         elif self.section == 'box':
             yield self.format('bi', digits)
             eq = '0.8*l' if (self.location == 'side_span' or self.location == 'side_support') else\
-                '0.6*l' if self.location == 'middle_span' else\
-                    '0.2*(l1+l2)'
+                '0.6*l' if self.location == 'middle_span' else '0.2*(l1+l2)'
             yield self.format('li', digits, eq=eq)
             b1 = b2 = False
             if self.beam_type == 'simple':

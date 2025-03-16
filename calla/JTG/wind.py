@@ -92,8 +92,10 @@ class wind_reference_speed(abacus):
         self.validate('positive','B', 'H', 'Z')
         self.validate('non-negative','βd')
         U10 = self.U10
-        self.R = 'R1' if U10>32.6 else 'R2' if U10>24.5 else 'R3'
+        self.R = 'R1' if U10 > 32.6 else 'R2' if U10 > 24.5 else 'R3'
         self.kf = self._kf[self.R]
+        if self.地表类别 not in self._kc:
+            raise InputError(self, '地表类别', '地表类别超出有效范围')
         self.kc = self._kc[self.地表类别]
         self.α0 = self._α0[self.地表类别]
         # 先按公式计算，有效范围1≤kh≤1.77

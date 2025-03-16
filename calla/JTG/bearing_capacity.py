@@ -17,7 +17,6 @@ __all__ = [
     'local_pressure',
 ]
 
-from collections import OrderedDict
 from math import pi, sin, sqrt
 
 from calla import InputError, SolvingError, abacus, numeric
@@ -99,48 +98,50 @@ class fc_rect(abacus, materials_util):
     《公路钢筋混凝土及预应力混凝土桥涵设计规范》（JTG 3362-2018）第5.2.2节
     """
     __title__ = "矩形或倒T形截面受弯承载力"
-    __inputs__ = OrderedDict((
-        ('option', ('选项', '', 'design', '', '', {'review': '截面复核', 'design': '截面设计'})),
-        ('γ0', ('<i>γ</i><sub>0</sub>', '', 1.1, '重要性系数')),
-        materials_util.concrete_item,
-        ('fcd', ('<i>f</i><sub>cd</sub>', 'MPa', 16.7, '混凝土轴心抗压强度设计值')),
-        ('fcuk', ('<i>f</i><sub>cu,k</sub>', 'MPa', 35, '混凝土立方体抗压强度标准值', '取混凝土标号')),
-        ('Es', ('<i>E</i><sub>s</sub>', 'MPa', 2.0E5, '钢筋弹性模量')),
-        ('b', ('<i>b</i>', 'mm', 500, '截面宽度', '矩形截面宽度或T形截面腹板宽度')),
-        ('h', ('<i>h</i>', 'mm', 1000, '矩形截面高度')),
-        materials_util.rebar_item,
-        ('fsd', ('<i>f</i><sub>sd</sub>', 'MPa', 330, '钢筋抗拉强度设计值')),
-        ('As', ('<i>A</i><sub>s</sub>', 'mm<sup>2</sup>', 0, '受拉钢筋面积')),
-        ('a_s', ('<i>a</i><sub>s</sub>', 'mm', 60, '受拉区纵向普通钢筋合力点至受拉边缘的距离')),
-        ('fsd_', ('<i>f</i><sub>sd</sub><sup>\'</sup>', 'MPa', 330, '受压区普通钢筋抗压强度设计值')),
-        ('As_', ('<i>A</i><sub>s</sub><sup>\'</sup>', 'mm<sup>2</sup>', 0, '受压区钢筋面积', '受压区纵向普通钢筋的截面面积')),
-        ('as_', ('<i>a</i><sub>s</sub><sup>\'</sup>', 'mm', 30, '受压钢筋合力点边距', '受压区纵向普通钢筋合力点至截面受压边缘的距离')),
-        materials_util.ps_item,
-        ('fpd', ('<i>f</i><sub>pd</sub>', 'MPa', 1320, '受拉区预应力筋抗压强度设计值')),
-        ('Ap', ('<i>A</i><sub>p</sub>', 'mm<sup>2</sup>', 0, '受拉区预应力筋面积', '受压区纵向预应力筋的截面面积')),
-        ('ap', ('<i>a</i><sub>p</sub>', 'mm', 150, '受拉预应力筋合力点边距', '受压区纵向预应力筋合力点至截面受压边缘的距离')),
-        ('fpd_', ('<i>f</i><sub>pd</sub><sup>\'</sup>', 'MPa', 1320, '受压区预应力筋抗压强度设计值')),
-        ('Ap_', ('<i>A</i><sub>p</sub><sup>\'</sup>', 'mm<sup>2</sup>', 0, '受压区预应力筋面积', '受压区纵向预应力筋的截面面积')),
-        ('ap_', ('<i>a</i><sub>p</sub><sup>\'</sup>', 'mm', 150, '受压预应力筋合力点边距', '受压区纵向预应力筋合力点至截面受压边缘的距离')),
-        ('σp0_', ('<i>σ</i><sub>p0</sub><sup>\'</sup>', 'MPa', 0, '预应力筋应力', '受压区纵向预应力筋合力点处混凝土法向应力等于零时的预应力筋应力，按6.1.6条计算')),
-        ('Md', ('<i>M</i><sub>d</sub>', 'kN·m', 600, '弯矩组合设计值')),
-    ))
-    __deriveds__ = OrderedDict((
-        ('h0', ('<i>h</i><sub>0</sub>', 'mm', 900, '截面有效高度')),
-        ('a', ('<i>a</i>', 'mm', 60, '受拉区纵向普通钢筋和预应力钢筋合力点至受拉边缘的距离')),
-        ('a_', ('<i>a</i><sup>\'</sup>', 'mm', 60, '受压区纵向普通钢筋和预应力钢筋合力点至受压边缘的距离')),
-        ('σs', ('<i>σ</i><sub>s</sub>', 'MPa', 0, '受拉钢筋等效应力')),
-        ('x', ('<i>x</i>', 'mm', 0, '截面受压区高度')),
-        ('xb', ('<i>x</i><sub>b</sub>', 'mm', 0, '界限受压区高度')),
-        ('ξb', ('<i>ξ</i><sub>b</sub>', '', 0, '相对界限受压区高度')),
-        ('eql', ('', 'kN·m', 0, '')),
-        ('xmin', ('', 'mm', 0, '')),
-        ('Mu', ('', 'kN·m', 0, '正截面抗弯承载力设计值')),
-    ))
-    __toggles__ = {
-        'option': {'review': (), 'design': ('As', 'fsd_', 'As_', 'as_', 'ps', 'fpd', 'Ap', 'ap', 'fpd_', 'Ap_', 'ap_', 'σp0_')},
-    }
-    __toggles__.update(materials_util.material_toggles)
+    __inputs__ = [
+        ('option', '选项', '', 'design', '', '', {'review': '截面复核', 'design': '截面设计'}),
+        ('γ0', '<i>γ</i><sub>0</sub>', '', 1.1, '重要性系数'),
+        materials_util.concrete_input,
+        ('fcd', '<i>f</i><sub>cd</sub>', 'MPa', 16.7, '混凝土轴心抗压强度设计值'),
+        ('fcuk', '<i>f</i><sub>cu,k</sub>', 'MPa', 35, '混凝土立方体抗压强度标准值', '取混凝土标号'),
+        ('Es', '<i>E</i><sub>s</sub>', 'MPa', 2.0E5, '钢筋弹性模量'),
+        ('b', '<i>b</i>', 'mm', 500, '截面宽度', '矩形截面宽度或T形截面腹板宽度'),
+        ('h', '<i>h</i>', 'mm', 1000, '矩形截面高度'),
+        materials_util.rebar_input,
+        ('fsd', '<i>f</i><sub>sd</sub>', 'MPa', 330, '钢筋抗拉强度设计值'),
+        ('As', '<i>A</i><sub>s</sub>', 'mm<sup>2</sup>', 0, '受拉钢筋面积'),
+        ('a_s', '<i>a</i><sub>s</sub>', 'mm', 60, '受拉区纵向普通钢筋合力点至受拉边缘的距离'),
+        ('fsd_', '<i>f</i><sub>sd</sub><sup>\'</sup>', 'MPa', 330, '受压区普通钢筋抗压强度设计值'),
+        ('As_', '<i>A</i><sub>s</sub><sup>\'</sup>', 'mm<sup>2</sup>', 0, '受压区钢筋面积', '受压区纵向普通钢筋的截面面积'),
+        ('as_', '<i>a</i><sub>s</sub><sup>\'</sup>', 'mm', 30, '受压钢筋合力点边距', '受压区纵向普通钢筋合力点至截面受压边缘的距离'),
+        materials_util.ps_input,
+        ('fpd', '<i>f</i><sub>pd</sub>', 'MPa', 1320, '受拉区预应力筋抗压强度设计值'),
+        ('Ap', '<i>A</i><sub>p</sub>', 'mm<sup>2</sup>', 0, '受拉区预应力筋面积', '受压区纵向预应力筋的截面面积'),
+        ('ap', '<i>a</i><sub>p</sub>', 'mm', 150, '受拉预应力筋合力点边距', '受压区纵向预应力筋合力点至截面受压边缘的距离'),
+        ('fpd_', '<i>f</i><sub>pd</sub><sup>\'</sup>', 'MPa', 1320, '受压区预应力筋抗压强度设计值'),
+        ('Ap_', '<i>A</i><sub>p</sub><sup>\'</sup>', 'mm<sup>2</sup>', 0, '受压区预应力筋面积', '受压区纵向预应力筋的截面面积'),
+        ('ap_', '<i>a</i><sub>p</sub><sup>\'</sup>', 'mm', 150, '受压预应力筋合力点边距', '受压区纵向预应力筋合力点至截面受压边缘的距离'),
+        ('σp0_', '<i>σ</i><sub>p0</sub><sup>\'</sup>', 'MPa', 0, '预应力筋应力', '受压区纵向预应力筋合力点处混凝土法向应力等于零时的预应力筋应力，按6.1.6条计算'),
+        ('Md', '<i>M</i><sub>d</sub>', 'kN·m', 600, '弯矩组合设计值'),
+    ]
+    __deriveds__ = [
+        ('h0', '<i>h</i><sub>0</sub>', 'mm', 900, '截面有效高度'),
+        ('a', '<i>a</i>', 'mm', 60, '受拉区纵向普通钢筋和预应力钢筋合力点至受拉边缘的距离'),
+        ('a_', '<i>a</i><sup>\'</sup>', 'mm', 60, '受压区纵向普通钢筋和预应力钢筋合力点至受压边缘的距离'),
+        ('σs', '<i>σ</i><sub>s</sub>', 'MPa', 0, '受拉钢筋等效应力'),
+        ('x', '<i>x</i>', 'mm', 0, '截面受压区高度'),
+        ('xb', '<i>x</i><sub>b</sub>', 'mm', 0, '界限受压区高度'),
+        ('ξb', '<i>ξ</i><sub>b</sub>', '', 0, '相对界限受压区高度'),
+        ('eql', '', 'kN·m', 0, ''),
+        ('xmin', '', 'mm', 0, ''),
+        ('Mu', '', 'kN·m', 0, '正截面抗弯承载力设计值'),
+    ]
+    __toggles__ = [
+        'option', {'review': (), 'design': ('As', 'fsd_', 'As_', 'as_', 'ps', 'fpd', 'Ap', 'ap', 'fpd_', 'Ap_', 'ap_', 'σp0_')},
+        'concrete', materials_util.material_toggles['concrete'],
+        'rebar', materials_util.material_toggles['rebar'],
+        'ps', materials_util.material_toggles['ps'],
+    ]
 
     @staticmethod
     def fMu(fcd, b, x, h0, fsd_, As_, as_, σp0_, fpd_, Ap_, ap_):
@@ -305,8 +306,7 @@ class fc_rect(abacus, materials_util):
                 else:
                     yield '{0} &gt; ξb*h = {1:.0f} mm，'.format(self.format('x'), self.xb)
                     yield '需增大截面尺寸，或提高混凝土强度，或增加钢筋层数'
-                    attrs = self.para_attrs('As')
-                    yield '{2}: As = {0:.0f} {1} (超筋)'.format(self.As, attrs.unit, attrs.name)
+                    yield '{}(超筋)'.format(self.format('As', digits))
         else:
             yield '弯矩无法平衡，需增大截面尺寸'
 
@@ -317,38 +317,41 @@ class fc_T(fc_rect, materials_util):
     《公路钢筋混凝土及预应力混凝土桥涵设计规范》（JTG 3362-2018）第5.2.3节
     """
     __title__ = "T形或I形截面受弯承载力"
-    __inputs__ = OrderedDict((
+    __inputs__ = [
         # ('option',('选项','','design','','',{'review':'计算承载力','design':'计算钢筋面积'})),
-        ('γ0', ('<i>γ</i><sub>0</sub>', '', 1.1, '重要性系数')),
-        materials_util.concrete_item,
-        ('fcd', ('<i>f</i><sub>cd</sub>', 'MPa', 16.7, '混凝土轴心抗压强度设计值')),
-        ('fcuk', ('<i>f</i><sub>cu,k</sub>', 'MPa', 35, '混凝土立方体抗压强度标准值', '取混凝土标号')),
-        ('Es', ('<i>E</i><sub>s</sub>', 'MPa', 2.0E5, '钢筋弹性模量')),
-        ('b', ('<i>b</i>', 'mm', 500, 'T形截面腹板宽度')),
-        ('bf_', ('<i>b</i><sub>f</sub><sup>\'</sup>', 'mm', 1000, '受压区翼缘计算宽度')),
-        ('hf_', ('<i>h</i><sub>f</sub><sup>\'</sup>', 'mm', 200, '受压区翼缘计算高度')),
-        ('h', ('<i>h</i>', 'mm', 1000, '截面高度')),
-        # ('h0',('<i>h</i><sub>0</sub>','mm',900,'截面有效高度')),
-        materials_util.rebar_item,
-        ('fsd', ('<i>f</i><sub>sd</sub>', 'MPa', 360, '钢筋抗拉强度设计值')),
-        ('As', ('<i>A</i><sub>s</sub>', 'mm<sup>2</sup>', 0, '受拉钢筋面积')),
-        ('a_s', ('<i>a</i><sub>s</sub>', 'mm', 60, '受拉区纵向普通钢筋合力点至受拉边缘的距离')),
-        ('fsd_', ('<i>f</i><sub>sd</sub><sup>\'</sup>', 'MPa', 360, '受压区普通钢筋抗压强度设计值')),
-        ('As_', ('<i>A</i><sub>s</sub><sup>\'</sup>', 'mm<sup>2</sup>', 0, '受压区钢筋面积', '受压区纵向普通钢筋的截面面积')),
-        ('as_', ('<i>a</i><sub>s</sub><sup>\'</sup>', 'mm', 30, '受压钢筋合力点边距', '受压区纵向普通钢筋合力点至截面受压边缘的距离')),
-        materials_util.ps_item,
-        ('fpd', ('<i>f</i><sub>pd</sub>', 'MPa', 1320, '受拉区预应力筋抗压强度设计值')),
-        ('Ap', ('<i>A</i><sub>p</sub>', 'mm<sup>2</sup>', 0, '受拉区预应力筋面积', '受压区纵向预应力筋的截面面积')),
-        ('ap', ('<i>a</i><sub>p</sub>', 'mm', 150, '受拉预应力筋合力点边距', '受压区纵向预应力筋合力点至截面受压边缘的距离')),
-        ('fpd_', ('<i>f</i><sub>pd</sub><sup>\'</sup>', 'MPa', 1320, '受压区预应力筋抗压强度设计值')),
-        ('Ap_', ('<i>A</i><sub>p</sub><sup>\'</sup>', 'mm<sup>2</sup>', 0, '受压区预应力筋面积', '受压区纵向预应力筋的截面面积')),
-        ('ap_', ('<i>a</i><sub>p</sub><sup>\'</sup>', 'mm', 150, '受压预应力筋合力点边距', '受压区纵向预应力筋合力点至截面受压边缘的距离')),
-        ('σp0_', ('<i>σ</i><sub>p0</sub><sup>\'</sup>', 'MPa', 0, '预应力筋应力', '受压区纵向预应力筋合力点处混凝土法向应力等于零时的预应力筋应力')),
-        ('Md', ('<i>M</i><sub>d</sub>', 'kN·m', 600, '弯矩组合设计值')),
-    ))
-    __toggles__ = {
-    }
-    __toggles__.update(materials_util.material_toggles)
+        ('γ0', '<i>γ</i><sub>0</sub>', '', 1.1, '重要性系数'),
+        materials_util.concrete_input,
+        ('fcd', '<i>f</i><sub>cd</sub>', 'MPa', 16.7, '混凝土轴心抗压强度设计值'),
+        ('fcuk', '<i>f</i><sub>cu,k</sub>', 'MPa', 35, '混凝土立方体抗压强度标准值', '取混凝土标号'),
+        ('Es', '<i>E</i><sub>s</sub>', 'MPa', 2.0E5, '钢筋弹性模量'),
+        ('b', '<i>b</i>', 'mm', 500, 'T形截面腹板宽度'),
+        ('bf_', '<i>b</i><sub>f</sub><sup>\'</sup>', 'mm', 1000, '受压区翼缘计算宽度'),
+        ('hf_', '<i>h</i><sub>f</sub><sup>\'</sup>', 'mm', 200, '受压区翼缘计算高度'),
+        ('h', '<i>h</i>', 'mm', 1000, '截面高度'),
+        # ('h0',('<i>h</i><sub>0</sub>','mm',900,'截面有效高度'),
+        materials_util.rebar_input,
+        ('fsd', '<i>f</i><sub>sd</sub>', 'MPa', 360, '钢筋抗拉强度设计值'),
+        ('As', '<i>A</i><sub>s</sub>', 'mm<sup>2</sup>', 0, '受拉钢筋面积'),
+        ('a_s', '<i>a</i><sub>s</sub>', 'mm', 60, '受拉区纵向普通钢筋合力点至受拉边缘的距离'),
+        ('fsd_', '<i>f</i><sub>sd</sub><sup>\'</sup>', 'MPa', 360, '受压区普通钢筋抗压强度设计值'),
+        ('As_', '<i>A</i><sub>s</sub><sup>\'</sup>', 'mm<sup>2</sup>', 0, '受压区钢筋面积', '受压区纵向普通钢筋的截面面积'),
+        ('as_', '<i>a</i><sub>s</sub><sup>\'</sup>', 'mm', 30, '受压钢筋合力点边距', '受压区纵向普通钢筋合力点至截面受压边缘的距离'),
+        materials_util.ps_input,
+        ('fpd', '<i>f</i><sub>pd</sub>', 'MPa', 1320, '受拉区预应力筋抗压强度设计值'),
+        ('Ap', '<i>A</i><sub>p</sub>', 'mm<sup>2</sup>', 0, '受拉区预应力筋面积', '受压区纵向预应力筋的截面面积'),
+        ('ap', '<i>a</i><sub>p</sub>', 'mm', 150, '受拉预应力筋合力点边距', '受压区纵向预应力筋合力点至截面受压边缘的距离'),
+        ('fpd_', '<i>f</i><sub>pd</sub><sup>\'</sup>', 'MPa', 1320, '受压区预应力筋抗压强度设计值'),
+        ('Ap_', '<i>A</i><sub>p</sub><sup>\'</sup>', 'mm<sup>2</sup>', 0, '受压区预应力筋面积', '受压区纵向预应力筋的截面面积'),
+        ('ap_', '<i>a</i><sub>p</sub><sup>\'</sup>', 'mm', 150, '受压预应力筋合力点边距', '受压区纵向预应力筋合力点至截面受压边缘的距离'),
+        ('σp0_', '<i>σ</i><sub>p0</sub><sup>\'</sup>', 'MPa', 0, '预应力筋应力', '受压区纵向预应力筋合力点处混凝土法向应力等于零时的预应力筋应力'),
+        ('Md', '<i>M</i><sub>d</sub>', 'kN·m', 600, '弯矩组合设计值'),
+    ]
+    __toggles__ = [
+        'concrete', materials_util.material_toggles['concrete'],
+        'rebar', materials_util.material_toggles['rebar'],
+        'ps', materials_util.material_toggles['ps'],
+    ]
+    
     # 判别计算是否与矩形截面相同
     _same_as_rect = True
 
@@ -435,7 +438,7 @@ class fc_T(fc_rect, materials_util):
         yield self.replace_by_symbols(
             'fsd*As+fpd*Ap {} fcd*bf_*hf_+fsd_*As_-(σp0_-fpd_)*Ap_'.format('&le;' if self._same_as_rect else '&gt;'))
         if self._same_as_rect:
-            yield '按宽度为{}的矩形截面计算，按式(5.2.2-2)计算受压区高度。'.format(self.para_attrs('bf_').symbol)
+            yield '按宽度为{}的矩形截面计算，按式(5.2.2-2)计算受压区高度。'.format(self.replace_by_symbols('bf_'))
             yield self.replace_by_symbols('fsd*As+fpd*Ap = fcd*bf_*x+fsd_*As_+(fpd_-σp0_)*Ap_')
         else:
             yield '不符合式(5.2.3-1)的条件，按式(5.2.3-3)计算受压区高度。'
@@ -480,24 +483,24 @@ class axial_compression(abacus):
     《公路钢筋混凝土及预应力混凝土桥涵设计规范》（JTG 3362-2018）第5.3.1节
     """
     __title__ = '轴心受压承载力'
-    __inputs__ = OrderedDict((
-        ('γ0', ('<i>γ</i><sub>0</sub>', '', 1.0, '重要性系数')),
-        ('Nd', ('<i>N</i><sub>d</sub>', 'kN', 1000, '轴力设计值')),
-        ('b', ('<i>b</i>', 'mm', 500, '矩形截面的短边尺寸')),
-        ('r', ('<i>r</i>', 'mm', 0, '圆形截面的半径')),
-        ('i', ('<i>i</i>', 'mm', 0, '截面的最小回转半径')),
-        ('l0', ('<i>l</i><sub>0</sub>', 'mm', 1000, '构件的计算长度', '对钢筋混凝土柱可按本规范第6.2.20 条的规定取用')),
-        ('A', ('<i>A</i>', 'mm<sup>2</sup>', 0, '构件截面面积')),
-        ('fcd', ('<i>f</i><sub>cd</sub>', 'MPa', 18.4, '混凝土轴心抗压强度设计值')),
-        ('fsd_', ('<i>f</i><sub>sd</sub><sup>\'</sup>', 'MPa', 330, '受压区普通钢筋抗压强度设计值')),
-        ('As_', ('<i>A</i><sub>s</sub><sup>\'</sup>', 'mm<sup>2</sup>', 0, '受压区钢筋面积', '受压区纵向普通钢筋的截面面积')),
-    ))
-    __deriveds__ = OrderedDict((
-        ('φ', ('<i>φ</i>', '', 0, '稳定系数')),
-        ('Nud', ('', 'kN', 0, '抗压承载力')),
-        ('轴压比', ('轴压比', '', 0)),
-        ('eql', ('', 'kN', 0, '')),
-    ))
+    __inputs__ = [
+        ('γ0', '<i>γ</i><sub>0</sub>', '', 1.0, '重要性系数'),
+        ('Nd', '<i>N</i><sub>d</sub>', 'kN', 1000, '轴力设计值'),
+        ('b', '<i>b</i>', 'mm', 500, '矩形截面的短边尺寸'),
+        ('r', '<i>r</i>', 'mm', 0, '圆形截面的半径'),
+        ('i', '<i>i</i>', 'mm', 0, '截面的最小回转半径'),
+        ('l0', '<i>l</i><sub>0</sub>', 'mm', 1000, '构件的计算长度', '对钢筋混凝土柱可按本规范第6.2.20 条的规定取用'),
+        ('A', '<i>A</i>', 'mm<sup>2</sup>', 0, '构件截面面积'),
+        ('fcd', '<i>f</i><sub>cd</sub>', 'MPa', 18.4, '混凝土轴心抗压强度设计值'),
+        ('fsd_', '<i>f</i><sub>sd</sub><sup>\'</sup>', 'MPa', 330, '受压区普通钢筋抗压强度设计值'),
+        ('As_', '<i>A</i><sub>s</sub><sup>\'</sup>', 'mm<sup>2</sup>', 0, '受压区钢筋面积', '受压区纵向普通钢筋的截面面积'),
+    ]
+    __deriveds__ = [
+        ('φ', '<i>φ</i>', '', 0, '稳定系数'),
+        ('Nud', '', 'kN', 0, '抗压承载力'),
+        ('轴压比', '轴压比', '', 0),
+        ('eql', '', 'kN', 0, ''),
+    ]
 
     @staticmethod
     def index(array, value):
@@ -578,71 +581,73 @@ class eccentric_compression(gb_eccentric_compression, materials_util):
     《公路钢筋混凝土及预应力混凝土桥涵设计规范》（JTG 3362-2018）第5.3.4节
     """
     __title__ = '矩形截面偏心受压承载力'
-    __inputs__ = OrderedDict((
-        ('option', ('选项', '', 'design', '', '', {'review': '截面复核', 'design': '截面设计'})),
-        ('symmetrical', ('对称配筋', '', False, '', '', {True: '是', False: '否'})),
-        ('Asp_known', ('已知受压钢筋面积', '', False, '', '', {True: '是', False: '否'})),
-        ('γ0', ('<i>γ</i><sub>0</sub>', '', 1.1, '重要性系数')),
-        ('Nd', ('<i>N</i><sub>d</sub>', 'kN', 1000, '轴向力设计值')),
-        ('Md', ('<i>M</i><sub>d</sub>', 'kN·m', 600, '弯矩设计值')),
-        materials_util.concrete_item,
-        ('fcd', ('<i>f</i><sub>cd</sub>', 'MPa', 16.7, '混凝土轴心抗压强度设计值')),
-        ('fcuk', ('<i>f</i><sub>cu,k</sub>', 'MPa', 35, '混凝土立方体抗压强度标准值', '取混凝土标号')),
-        ('b', ('<i>b</i>', 'mm', 500, '矩形截面宽度')),
-        ('h', ('<i>h</i>', 'mm', 1000, '矩形截面高度')),
-        ('l0', ('<i>l</i><sub>0</sub>', 'mm', 0, '构件的计算长度', '可近似取偏心受压构件相应主轴方向上下支撑点之间的距离')),
-        materials_util.rebar_item,
-        ('fsk', ('<i>f</i><sub>sk</sub>', 'MPa', 400, '钢筋抗拉强度标准值')),
-        ('fsd', ('<i>f</i><sub>sd</sub>', 'MPa', 360, '钢筋抗拉强度设计值')),
-        ('As', ('<i>A</i><sub>s</sub>', 'mm<sup>2</sup>', 0, '受拉钢筋面积')),
-        ('a_s', ('<i>a</i><sub>s</sub>', 'mm', 60, '受拉区纵向普通钢筋合力点至受拉边缘的距离')),
-        ('fsd_', ('<i>f</i><sub>sd</sub><sup>\'</sup>', 'MPa', 360, '钢筋抗压强度设计值')),
-        ('As_', ('<i>A</i><sub>s</sub><sup>\'</sup>', 'mm<sup>2</sup>', 0, '受压区钢筋面积', '受压区纵向普通钢筋的截面面积')),
-        ('as_', ('<i>a</i><sub>s</sub><sup>\'</sup>', 'mm', 60, '受压区纵向钢筋合力点至受压边缘的距离')),
-        materials_util.ps_item,
-        ('fpd', ('<i>f</i><sub>pd</sub>', 'MPa', 1320, '受拉区预应力筋抗压强度设计值')),
-        ('σp0', ('<i>σ</i><sub>p0</sub>', 'MPa', 1320, '受拉预应力钢筋初始应力', '截面受拉区纵向预应力钢筋合力点处混凝土法向应力等于零时，预应力钢筋中的应力')),
-        ('Ap', ('<i>A</i><sub>p</sub>', 'mm<sup>2</sup>', 0, '受拉预应力筋面积')),
-        ('ap', ('<i>a</i><sub>p</sub>', 'mm', 200, '受拉区纵向预应力筋合力点至受拉边缘的距离')),
-        ('fpd_', ('<i>f</i><sub>pd</sub><sup>\'</sup>', 'MPa', 1320, '受压区预应力筋抗压强度设计值')),
-        ('σp0_', ('<i>σ</i><sub>p0</sub><sup>\'</sup>', 'MPa', 1320, '受压预应力钢筋初始应力', '截面受压区纵向预应力钢筋合力点处混凝土法向应力等于零时，预应力钢筋中的应力')),
-        ('Ap_', ('<i>A</i><sub>p</sub><sup>\'</sup>', 'mm<sup>2</sup>', 0, '受压预应力筋面积')),
-        ('ap_', ('<i>a</i><sub>p</sub><sup>\'</sup>', 'mm', 200, '受压区纵向预应力筋合力点至受压边缘的距离')),
-        ('Es', ('<i>E</i><sub>s</sub>', 'MPa', 2E5, '钢筋弹性模量')),
-        ('Ep', ('<i>E</i><sub>p</sub>', 'MPa', 1.95E5, '预应力钢筋弹性模量')),
-    ))
-    __deriveds__ = OrderedDict((
-        ('h0', ('<i>h</i><sub>0</sub>', 'mm', 0, '截面有效高度')),
-        ('A', ('<i>A</i>', 'mm<sup>2</sup>', 0, '构件截面面积')),
-        ('i', ('<i>i</i>', 'mm', 0, '截面回转半径')),
-        ('ζc', ('<i>ζ</i><sub>c</sub>', '', 1, '截面曲率修正系数', '当计算值大于1.0时取1.O')),
-        ('ηns', ('<i>η</i><sub>ns</sub>', '', 1, '弯矩增大系数')),
-        ('Cm', ('<i>C</i><sub>m</sub>', '', 0.7, '构件端截面偏心距调节系数')),
-        ('a', ('<i>a</i>', 'mm', 0, '纵向受拉普通钢筋和受拉预应力筋的合力点至截面近边缘的距离')),
-        ('ea', ('<i>e</i><sub>a</sub>', 'mm', 20, '附加偏心距')),
-        ('e0', ('<i>e</i><sub>0</sub>', 'mm', 0, '轴向压力对截面重心的偏心距', 'e0=Md/Nd')),
-        # ('ei',('<i>e</i><sub>i</sub>','mm',20,'初始偏心距')),
-        ('e', ('<i>e</i>', 'mm', 0, '轴向压力作用点至截面受拉边或受压较小边纵向钢筋As和Ap合力点的距离')),
-        ('ζ1', ('<i>ζ</i><sub>1</sub>', '', 0, '荷载偏心率对截面曲率的影响系数')),
-        ('ζ2', ('<i>ζ</i><sub>2</sub>', '', 0, '构件长细比对截面曲率的影响系数')),
-        ('x', ('<i>x</i>', 'mm', 0, '截面受压区高度')),
-        ('xb', ('<i>x</i><sub>b</sub>', 'mm', 0, '截面界限受压区高度')),
-        ('ξ', ('<i>ξ</i>', '', 0, '相对受压区高度')),
-        ('ξb', ('<i>ξ</i><sub>b</sub>', '', 0, '相对界限受压区高度')),
-        ('Nu', ('<i>N</i><sub>u</sub>', 'kN', 0, '截面受压承载力')),
-        ('Mu', ('<i>M</i><sub>u</sub>', 'kN·m', 0, '截面受弯承载力')),
-        ('γ0Nd', ('', 'kN', 0, '')),
-        ('γ0Md', ('', 'kN·m', 0, '')),
-        ('σs', ('<i>σ</i><sub>s</sub>', '', 0, '')),
-        ('σp', ('<i>σ</i><sub>p</sub>', '', 0, '')),
-        ('eqr', ('', 'mm', 0, ''))
-    ))
-    __toggles__ = OrderedDict((
-        ('option', {'review': ('Asp_known'), 'design': ('As')}),
-        ('symmetrical', {True: ('As_', 'as_', 'Asp_known'), False: ()}),
-        ('Asp_known', {True: (), False: ('As_')}),
-    ))
-    __toggles__.update(materials_util.material_toggles)
+    __inputs__ = [
+        ('option', '选项', '', 'design', '', '', {'review': '截面复核', 'design': '截面设计'}),
+        ('symmetrical', '对称配筋', '', False, '', '', {True: '是', False: '否'}),
+        ('Asp_known', '已知受压钢筋面积', '', False, '', '', {True: '是', False: '否'}),
+        ('γ0', '<i>γ</i><sub>0</sub>', '', 1.1, '重要性系数'),
+        ('Nd', '<i>N</i><sub>d</sub>', 'kN', 1000, '轴向力设计值'),
+        ('Md', '<i>M</i><sub>d</sub>', 'kN·m', 600, '弯矩设计值'),
+        materials_util.concrete_input,
+        ('fcd', '<i>f</i><sub>cd</sub>', 'MPa', 16.7, '混凝土轴心抗压强度设计值'),
+        ('fcuk', '<i>f</i><sub>cu,k</sub>', 'MPa', 35, '混凝土立方体抗压强度标准值', '取混凝土标号'),
+        ('b', '<i>b</i>', 'mm', 500, '矩形截面宽度'),
+        ('h', '<i>h</i>', 'mm', 1000, '矩形截面高度'),
+        ('l0', '<i>l</i><sub>0</sub>', 'mm', 0, '构件的计算长度', '可近似取偏心受压构件相应主轴方向上下支撑点之间的距离'),
+        materials_util.rebar_input,
+        ('fsk', '<i>f</i><sub>sk</sub>', 'MPa', 400, '钢筋抗拉强度标准值'),
+        ('fsd', '<i>f</i><sub>sd</sub>', 'MPa', 360, '钢筋抗拉强度设计值'),
+        ('As', '<i>A</i><sub>s</sub>', 'mm<sup>2</sup>', 0, '受拉钢筋面积'),
+        ('a_s', '<i>a</i><sub>s</sub>', 'mm', 60, '受拉区纵向普通钢筋合力点至受拉边缘的距离'),
+        ('fsd_', '<i>f</i><sub>sd</sub><sup>\'</sup>', 'MPa', 360, '钢筋抗压强度设计值'),
+        ('As_', '<i>A</i><sub>s</sub><sup>\'</sup>', 'mm<sup>2</sup>', 0, '受压区钢筋面积', '受压区纵向普通钢筋的截面面积'),
+        ('as_', '<i>a</i><sub>s</sub><sup>\'</sup>', 'mm', 60, '受压区纵向钢筋合力点至受压边缘的距离'),
+        materials_util.ps_input,
+        ('fpd', '<i>f</i><sub>pd</sub>', 'MPa', 1320, '受拉区预应力筋抗压强度设计值'),
+        ('σp0', '<i>σ</i><sub>p0</sub>', 'MPa', 1320, '受拉预应力钢筋初始应力', '截面受拉区纵向预应力钢筋合力点处混凝土法向应力等于零时，预应力钢筋中的应力'),
+        ('Ap', '<i>A</i><sub>p</sub>', 'mm<sup>2</sup>', 0, '受拉预应力筋面积'),
+        ('ap', '<i>a</i><sub>p</sub>', 'mm', 200, '受拉区纵向预应力筋合力点至受拉边缘的距离'),
+        ('fpd_', '<i>f</i><sub>pd</sub><sup>\'</sup>', 'MPa', 1320, '受压区预应力筋抗压强度设计值'),
+        ('σp0_', '<i>σ</i><sub>p0</sub><sup>\'</sup>', 'MPa', 1320, '受压预应力钢筋初始应力', '截面受压区纵向预应力钢筋合力点处混凝土法向应力等于零时，预应力钢筋中的应力'),
+        ('Ap_', '<i>A</i><sub>p</sub><sup>\'</sup>', 'mm<sup>2</sup>', 0, '受压预应力筋面积'),
+        ('ap_', '<i>a</i><sub>p</sub><sup>\'</sup>', 'mm', 200, '受压区纵向预应力筋合力点至受压边缘的距离'),
+        ('Es', '<i>E</i><sub>s</sub>', 'MPa', 2E5, '钢筋弹性模量'),
+        ('Ep', '<i>E</i><sub>p</sub>', 'MPa', 1.95E5, '预应力钢筋弹性模量'),
+    ]
+    __deriveds__ = [
+        ('h0', '<i>h</i><sub>0</sub>', 'mm', 0, '截面有效高度'),
+        ('A', '<i>A</i>', 'mm<sup>2</sup>', 0, '构件截面面积'),
+        ('i', '<i>i</i>', 'mm', 0, '截面回转半径'),
+        ('ζc', '<i>ζ</i><sub>c</sub>', '', 1, '截面曲率修正系数', '当计算值大于1.0时取1.O'),
+        ('ηns', '<i>η</i><sub>ns</sub>', '', 1, '弯矩增大系数'),
+        ('Cm', '<i>C</i><sub>m</sub>', '', 0.7, '构件端截面偏心距调节系数'),
+        ('a', '<i>a</i>', 'mm', 0, '纵向受拉普通钢筋和受拉预应力筋的合力点至截面近边缘的距离'),
+        ('ea', '<i>e</i><sub>a</sub>', 'mm', 20, '附加偏心距'),
+        ('e0', '<i>e</i><sub>0</sub>', 'mm', 0, '轴向压力对截面重心的偏心距', 'e0=Md/Nd'),
+        # ('ei',('<i>e</i><sub>i</sub>','mm',20,'初始偏心距'),
+        ('e', '<i>e</i>', 'mm', 0, '轴向压力作用点至截面受拉边或受压较小边纵向钢筋As和Ap合力点的距离'),
+        ('ζ1', '<i>ζ</i><sub>1</sub>', '', 0, '荷载偏心率对截面曲率的影响系数'),
+        ('ζ2', '<i>ζ</i><sub>2</sub>', '', 0, '构件长细比对截面曲率的影响系数'),
+        ('x', '<i>x</i>', 'mm', 0, '截面受压区高度'),
+        ('xb', '<i>x</i><sub>b</sub>', 'mm', 0, '截面界限受压区高度'),
+        ('ξ', '<i>ξ</i>', '', 0, '相对受压区高度'),
+        ('ξb', '<i>ξ</i><sub>b</sub>', '', 0, '相对界限受压区高度'),
+        ('Nu', '<i>N</i><sub>u</sub>', 'kN', 0, '截面受压承载力'),
+        ('Mu', '<i>M</i><sub>u</sub>', 'kN·m', 0, '截面受弯承载力'),
+        ('γ0Nd', '', 'kN', 0, ''),
+        ('γ0Md', '', 'kN·m', 0, ''),
+        ('σs', '<i>σ</i><sub>s</sub>', '', 0, ''),
+        ('σp', '<i>σ</i><sub>p</sub>', '', 0, ''),
+        ('eqr', '', 'mm', 0, '')
+    ]
+    __toggles__ = [
+        'option', {'review': ('Asp_known'), 'design': ('As')},
+        'symmetrical', {True: ('As_', 'as_', 'Asp_known'), False: ()},
+        'Asp_known', {True: (), False: ('As_')},
+        'concrete', materials_util.material_toggles['concrete'],
+        'rebar', materials_util.material_toggles['rebar'],
+        'ps', materials_util.material_toggles['ps'],
+    ]
 
     # (5.3.4-1) 与GB 相同
     # @staticmethod
@@ -966,13 +971,12 @@ class eccentric_compression_Ishape(eccentric_compression):
     《公路钢筋混凝土及预应力混凝土桥涵设计规范》（JTG 3362-2018）第5.3.5节
     """
     __title__ = "I形截面偏心受压承载力"
-    __inputs__ = OrderedDict((
-        ('bf', ('<i>b</i><sub>f</sub>', 'mm', 0, '受拉翼缘宽度')),
-        ('hf', ('<i>h</i><sub>f</sub>', 'mm', 0, '受拉翼缘厚度')),
-        ('bf_', ('<i>b</i><sub>f</sub><sup>\'</sup>', 'mm', 0, '受压翼缘宽度')),
-        ('hf_', ('<i>h</i><sub>f</sub><sup>\'</sup>', 'mm', 0, '受压翼缘厚度')),
-    ))
-    __inputs__.update(eccentric_compression.__inputs__)
+    __inputs__ = [
+        ('bf', '<i>b</i><sub>f</sub>', 'mm', 0, '受拉翼缘宽度'),
+        ('hf', '<i>h</i><sub>f</sub>', 'mm', 0, '受拉翼缘厚度'),
+        ('bf_', '<i>b</i><sub>f</sub><sup>\'</sup>', 'mm', 0, '受压翼缘宽度'),
+        ('hf_', '<i>h</i><sub>f</sub><sup>\'</sup>', 'mm', 0, '受压翼缘厚度'),
+    ] + eccentric_compression.__inputs__
 
     @staticmethod
     def fNu(fcd, b, h, bf, hf, bf_, hf_, x, fsd_, As_, σs, As, σp0_, fpd_, Ap_, σp, Ap):
@@ -1332,18 +1336,18 @@ class axial_tension(abacus):
     《公路钢筋混凝土及预应力混凝土桥涵设计规范》（JTG 3362-2018）第5.4.1节
     """
     __title__ = '轴心受拉承载力'
-    __inputs__ = OrderedDict((
-        ('γ0', ('<i>γ</i><sub>0</sub>', '', 1.1, '重要性系数')),
-        ('Nd', ('<i>N</i><sub>d</sub>', 'kN', 1000, '轴力设计值')),
-        # ('A',('<i>A</i>','mm<sup>2</sup>',500*500,'构件截面面积')),
-        ('fsd', ('<i>f</i><sub>sd</sub>', 'MPa', 330, '普通钢筋抗压强度设计值')),
-        ('As', ('<i>A</i><sub>s</sub>', 'mm<sup>2</sup>', 60, '钢筋面积', '普通钢筋的全部截面面积')),
-    ))
-    __deriveds__ = OrderedDict((
-        ('φ', ('<i>φ</i>', '', 0, '稳定系数')),
-        ('Nud', ('', 'kN', 0, '抗压承载力')),
-        ('eql', ('', 'kN', 0, '')),
-    ))
+    __inputs__ = [
+        ('γ0', '<i>γ</i><sub>0</sub>', '', 1.1, '重要性系数'),
+        ('Nd', '<i>N</i><sub>d</sub>', 'kN', 1000, '轴力设计值'),
+        # ('A',('<i>A</i>','mm<sup>2</sup>',500*500,'构件截面面积'),
+        ('fsd', '<i>f</i><sub>sd</sub>', 'MPa', 330, '普通钢筋抗压强度设计值'),
+        ('As', '<i>A</i><sub>s</sub>', 'mm<sup>2</sup>', 60, '钢筋面积', '普通钢筋的全部截面面积'),
+    ]
+    __deriveds__ = [
+        ('φ', '<i>φ</i>', '', 0, '稳定系数'),
+        ('Nud', '', 'kN', 0, '抗压承载力'),
+        ('eql', '', 'kN', 0, ''),
+    ]
 
     def solve(self):
         self.Nu = self.fsd*self.As*1e-3
@@ -1366,60 +1370,63 @@ class eccentric_tension(abacus, materials_util):
     《公路钢筋混凝土及预应力混凝土桥涵设计规范》（JTG 3362-2018）第5.4.2节
     """
     __title__ = '矩形截面偏心受拉承载力'
-    __inputs__ = OrderedDict((
-        ('γ0', ('<i>γ</i><sub>0</sub>', '', 1.0, '重要性系数')),
-        ('Nd', ('<i>N</i><sub>d</sub>', 'kN', 1000, '轴力设计值')),
-        ('Md', ('<i>M</i><sub>d</sub>', 'kN·m', 600, '弯矩设计值')),
-        materials_util.concrete_item,
-        ('fcd', ('<i>f</i><sub>cd</sub>', 'MPa', 16.7, '混凝土轴心抗压强度设计值')),
-        ('fcuk', ('<i>f</i><sub>cu,k</sub>', 'MPa', 35, '混凝土立方体抗压强度标准值', '取混凝土标号')),
-        ('b', ('<i>b</i>', 'mm', 500, '矩形截面宽度')),
-        ('h', ('<i>h</i>', 'mm', 1000, '矩形截面高度')),
-        ('fsd', ('<i>f</i><sub>sd</sub>', 'MPa', 330, '受压区普通钢筋抗压强度设计值')),
-        ('As', ('<i>A</i><sub>s</sub>', 'mm<sup>2</sup>', 60, '受压区钢筋面积', '受压区纵向普通钢筋的截面面积')),
-        materials_util.rebar_item,
-        ('fsk', ('<i>f</i><sub>sk</sub>', 'MPa', 400, '钢筋抗拉强度标准值')),
-        ('fsd', ('<i>f</i><sub>sd</sub>', 'MPa', 360, '钢筋抗拉强度设计值')),
-        ('As', ('<i>A</i><sub>s</sub>', 'mm<sup>2</sup>', 0, '受拉钢筋面积')),
-        ('a_s', ('<i>a</i><sub>s</sub>', 'mm', 60, '受拉区纵向普通钢筋合力点至受拉边缘的距离')),
-        ('fsd_', ('<i>f</i><sub>sd</sub><sup>\'</sup>', 'MPa', 360, '钢筋抗压强度设计值')),
-        ('As_', ('<i>A</i><sub>s</sub><sup>\'</sup>', 'mm<sup>2</sup>', 0, '受压区钢筋面积', '受压区纵向普通钢筋的截面面积')),
-        ('as_', ('<i>a</i><sub>s</sub><sup>\'</sup>', 'mm', 60, '受压区纵向钢筋合力点至受压边缘的距离')),
-        materials_util.ps_item,
-        ('fpd', ('<i>f</i><sub>pd</sub>', 'MPa', 1320, '受拉区预应力筋抗压强度设计值')),
-        ('σp0', ('<i>σ</i><sub>p0</sub>', 'MPa', 1320, '受拉预应力钢筋初始应力', '截面受拉区纵向预应力钢筋合力点处混凝土法向应力等于零时，预应力钢筋中的应力')),
-        ('Ap', ('<i>A</i><sub>p</sub>', 'mm<sup>2</sup>', 0, '受拉预应力筋面积')),
-        ('ap', ('<i>a</i><sub>p</sub>', 'mm', 200, '受拉区纵向预应力筋合力点至受拉边缘的距离')),
-        ('fpd_', ('<i>f</i><sub>pd</sub><sup>\'</sup>', 'MPa', 1320, '受压区预应力筋抗压强度设计值')),
-        ('σp0_', ('<i>σ</i><sub>p0</sub><sup>\'</sup>', 'MPa', 1320, '受压预应力钢筋初始应力', '截面受压区纵向预应力钢筋合力点处混凝土法向应力等于零时，预应力钢筋中的应力')),
-        ('Ap_', ('<i>A</i><sub>p</sub><sup>\'</sup>', 'mm<sup>2</sup>', 0, '受压预应力筋面积')),
-        ('ap_', ('<i>a</i><sub>p</sub><sup>\'</sup>', 'mm', 200, '受压区纵向预应力筋合力点至受压边缘的距离')),
-        ('Es', ('<i>E</i><sub>s</sub>', 'MPa', 2E5, '钢筋弹性模量')),
-        ('Ep', ('<i>E</i><sub>p</sub>', 'MPa', 1.95E5, '预应力钢筋弹性模量')),
-    ))
-    __deriveds__ = OrderedDict((
-        ('a', ('<i>a</i>', 'mm', 0, '纵向受拉普通钢筋和受拉预应力筋的合力点至截面近边缘的距离')),
-        ('a_', ('<i>a</i><sup>\'</sup>', 'mm', 0, '纵向受压普通钢筋和受压预应力筋的合力点至截面近边缘的距离')),
-        ('e0', ('<i>e</i><sub>0</sub>', 'mm', 0, '轴向拉力对截面重心的偏心距', 'e0=Md/Nd')),
-        ('e', ('<i>e</i>', 'mm', 0, '轴向拉力作用点至截面受拉边或受压较小边纵向钢筋As和Ap合力点的距离')),
-        ('e_', ('<i>e</i><sup>\'</sup>', 'mm', 0, '轴向拉力作用点至截面受压边或受拉较小边纵向钢筋As和Ap合力点的距离')),
-        ('es_', ('<i>e</i><sub>s</sub><sup>\'</sup>', 'mm', 0, '轴向拉力作用点至截面受压边或受拉较小边纵向钢筋As的距离')),
-        ('φ', ('<i>φ</i>', '', 0, '稳定系数')),
-        ('x', ('<i>x</i>', 'mm', 0, '截面受压区高度')),
-        ('xb', ('<i>x</i><sub>b</sub>', 'mm', 0, '截面界限受压区高度')),
-        ('Nu', ('<i>N</i><sub>u</sub>', 'kN', 0, '截面受压承载力')),
-        ('Mu', ('', 'kN·m', 0, '截面受弯承载力')),
-        ('Mu_', ('', 'kN·m', 0, '截面受弯承载力')),
-        ('Nud', ('', 'kN', 0, '抗拉承载力')),
-        ('γ0Nd', ('', 'kN', 0, '')),
-        ('γ0Nde', ('', 'kN·m', 0, '')),
-        ('γ0Nde_', ('', 'kN·m', 0, '')),
-        ('γ0Md', ('', 'kN·m', 0, '')),
-        ('eqr', ('', 'mm', 0, ''))
-    ))
-    __toggles__ = OrderedDict((
-    ))
-    __toggles__.update(materials_util.material_toggles)
+    __inputs__ = [
+        ('γ0', '<i>γ</i><sub>0</sub>', '', 1.0, '重要性系数'),
+        ('Nd', '<i>N</i><sub>d</sub>', 'kN', 1000, '轴力设计值'),
+        ('Md', '<i>M</i><sub>d</sub>', 'kN·m', 600, '弯矩设计值'),
+        materials_util.concrete_input,
+        ('fcd', '<i>f</i><sub>cd</sub>', 'MPa', 16.7, '混凝土轴心抗压强度设计值'),
+        ('fcuk', '<i>f</i><sub>cu,k</sub>', 'MPa', 35, '混凝土立方体抗压强度标准值', '取混凝土标号'),
+        ('b', '<i>b</i>', 'mm', 500, '矩形截面宽度'),
+        ('h', '<i>h</i>', 'mm', 1000, '矩形截面高度'),
+        ('fsd', '<i>f</i><sub>sd</sub>', 'MPa', 330, '受压区普通钢筋抗压强度设计值'),
+        ('As', '<i>A</i><sub>s</sub>', 'mm<sup>2</sup>', 60, '受压区钢筋面积', '受压区纵向普通钢筋的截面面积'),
+        materials_util.rebar_input,
+        ('fsk', '<i>f</i><sub>sk</sub>', 'MPa', 400, '钢筋抗拉强度标准值'),
+        ('fsd', '<i>f</i><sub>sd</sub>', 'MPa', 360, '钢筋抗拉强度设计值'),
+        ('As', '<i>A</i><sub>s</sub>', 'mm<sup>2</sup>', 0, '受拉钢筋面积'),
+        ('a_s', '<i>a</i><sub>s</sub>', 'mm', 60, '受拉区纵向普通钢筋合力点至受拉边缘的距离'),
+        ('fsd_', '<i>f</i><sub>sd</sub><sup>\'</sup>', 'MPa', 360, '钢筋抗压强度设计值'),
+        ('As_', '<i>A</i><sub>s</sub><sup>\'</sup>', 'mm<sup>2</sup>', 0, '受压区钢筋面积', '受压区纵向普通钢筋的截面面积'),
+        ('as_', '<i>a</i><sub>s</sub><sup>\'</sup>', 'mm', 60, '受压区纵向钢筋合力点至受压边缘的距离'),
+        materials_util.ps_input,
+        ('fpd', '<i>f</i><sub>pd</sub>', 'MPa', 1320, '受拉区预应力筋抗压强度设计值'),
+        ('σp0', '<i>σ</i><sub>p0</sub>', 'MPa', 1320, '受拉预应力钢筋初始应力', '截面受拉区纵向预应力钢筋合力点处混凝土法向应力等于零时，预应力钢筋中的应力'),
+        ('Ap', '<i>A</i><sub>p</sub>', 'mm<sup>2</sup>', 0, '受拉预应力筋面积'),
+        ('ap', '<i>a</i><sub>p</sub>', 'mm', 200, '受拉区纵向预应力筋合力点至受拉边缘的距离'),
+        ('fpd_', '<i>f</i><sub>pd</sub><sup>\'</sup>', 'MPa', 1320, '受压区预应力筋抗压强度设计值'),
+        ('σp0_', '<i>σ</i><sub>p0</sub><sup>\'</sup>', 'MPa', 1320, '受压预应力钢筋初始应力', '截面受压区纵向预应力钢筋合力点处混凝土法向应力等于零时，预应力钢筋中的应力'),
+        ('Ap_', '<i>A</i><sub>p</sub><sup>\'</sup>', 'mm<sup>2</sup>', 0, '受压预应力筋面积'),
+        ('ap_', '<i>a</i><sub>p</sub><sup>\'</sup>', 'mm', 200, '受压区纵向预应力筋合力点至受压边缘的距离'),
+        ('Es', '<i>E</i><sub>s</sub>', 'MPa', 2E5, '钢筋弹性模量'),
+        ('Ep', '<i>E</i><sub>p</sub>', 'MPa', 1.95E5, '预应力钢筋弹性模量'),
+    ]
+    __deriveds__ = [
+        ('h0', '<i>h</i><sub>0</sub>', 'mm', 0, '截面有效高度'),
+        ('a', '<i>a</i>', 'mm', 0, '纵向受拉普通钢筋和受拉预应力筋的合力点至截面近边缘的距离'),
+        ('a_', '<i>a</i><sup>\'</sup>', 'mm', 0, '纵向受压普通钢筋和受压预应力筋的合力点至截面近边缘的距离'),
+        ('e0', '<i>e</i><sub>0</sub>', 'mm', 0, '轴向拉力对截面重心的偏心距', 'e0=Md/Nd'),
+        ('e', '<i>e</i>', 'mm', 0, '轴向拉力作用点至截面受拉边或受压较小边纵向钢筋As和Ap合力点的距离'),
+        ('e_', '<i>e</i><sup>\'</sup>', 'mm', 0, '轴向拉力作用点至截面受压边或受拉较小边纵向钢筋As和Ap合力点的距离'),
+        ('es_', '<i>e</i><sub>s</sub><sup>\'</sup>', 'mm', 0, '轴向拉力作用点至截面受压边或受拉较小边纵向钢筋As的距离'),
+        ('φ', '<i>φ</i>', '', 0, '稳定系数'),
+        ('x', '<i>x</i>', 'mm', 0, '截面受压区高度'),
+        ('xb', '<i>x</i><sub>b</sub>', 'mm', 0, '截面界限受压区高度'),
+        ('Nu', '<i>N</i><sub>u</sub>', 'kN', 0, '截面受压承载力'),
+        ('Mu', '', 'kN·m', 0, '截面受弯承载力'),
+        ('Mu_', '', 'kN·m', 0, '截面受弯承载力'),
+        ('Nud', '', 'kN', 0, '抗拉承载力'),
+        ('γ0Nd', '', 'kN', 0, ''),
+        ('γ0Nde', '', 'kN·m', 0, ''),
+        ('γ0Nde_', '', 'kN·m', 0, ''),
+        ('γ0Md', '', 'kN·m', 0, ''),
+        ('eqr', '', 'mm', 0, '')
+    ]
+    __toggles__ = [
+        'concrete', materials_util.material_toggles['concrete'],
+        'rebar', materials_util.material_toggles['rebar'],
+        'ps', materials_util.material_toggles['ps'],
+    ]
 
     @staticmethod
     def f_Nu(fcd, b, x, fsd, As, fsd_, As_, fpd, Ap, fpd_, σp0_, Ap_):
@@ -1431,28 +1438,42 @@ class eccentric_tension(abacus, materials_util):
         ''' (5.4.2-4) 与 (5.3.4-2)相同'''
         return fcd*b*x*(h0-x/2)+fsd_*As_*(h0-as_)+(fpd_-σp0_)*Ap_*(h0-ap_)
 
+    @staticmethod
+    def solve_x(fcd, b, h0, fsd, As, fsd_, As_, as_, fpd, Ap, fpd_, σp0_, Ap_, ap_, e):
+        '''
+        以偏心距e为已知量，联立方程(5.4.2-3)和(5.4.2-4)求解x，即：
+        Nu = fsd*As+fpd*Ap-fsd_*As_-(fpd_-σp0_)*Ap_-fcd*b*x
+        Nu*e = fcd*b*x*(h0-x/2)+fsd_*As_*(h0-as_)+(fpd_-σp0_)*Ap_*(h0-ap_)
+        '''
+        a = 0.5*fcd*b
+        b = -fcd*b*(e+h0)
+        c = (fsd*As+fpd*Ap-fsd_*As_-(fpd_-σp0_)*Ap_)*e-(fsd_*As_*(h0-as_)+(fpd_-σp0_)*Ap_*(h0-ap_))
+        x1 = (-b-sqrt(b**2-4*a*c))/2/a
+        x2 = (-b+sqrt(b**2-4*a*c))/2/a
+        return (x1, x2)
+
     def solve(self):
-        self.validate('positive', 'b', 'h', 'Nd')
+        self.validate('positive', 'b', 'h', 'As', 'Nd')
         self.adjust_params()
         b = self.b
         h = self.h
-        Nd = self.Nd
-        Md = self.Md
+        # Nd = self.Nd*1e3  # N
+        # Md = self.Md*1e6  # N*mm
         fcd = self.fcd
         fsd = self.fsd
         As = self.As
-        a_s = self.a_s
+        # a_s = self.a_s
         fsd_ = self.fsd_
         As_ = self.As_
         as_ = self.as_
         fpd = self.fpd
         Ap = self.Ap
-        ap = self.ap
+        # ap = self.ap
         fpd_ = self.fpd_
         Ap_ = self.Ap_
         ap_ = self.ap_
         σp0_ = self.σp0_
-        e0 = Md/Nd*1e3
+        e0 = self.Md/self.Nd*1e3  # mm
         a = self.a_s if self.Ap <= 0 else (self.As*self.a_s+self.Ap*self.ap)/(self.As+self.Ap)
         a_ = self.as_ if self.Ap_ <= 0 else (self.As_*self.as_+self.Ap_*self.ap_)/(self.As_+self.Ap_)
         e = e0 - (h/2-a)
@@ -1461,18 +1482,27 @@ class eccentric_tension(abacus, materials_util):
         h0_ = h - a_
         self.large_eccentric = e > 0  # not (e < 0 and e > -(h-a-a_))
         if not self.large_eccentric:  # 小偏心受拉
-            self.γ0Nde = self.γ0*Nd*(-e)*1e-3
-            self.γ0Nde_ = self.γ0*Nd*e_*1e-3
+            self.γ0Nde = self.γ0*self.Nd*(-e)*1e-3
+            self.γ0Nde_ = self.γ0*self.Nd*e_*1e-3
             Mu = fsd*As_*(h0-as_)+fpd*Ap_*(h0-ap_)
             Mu_ = fsd*As*(h0_-as_)+fpd*Ap_*(h0-ap_)
             self.Mu = Mu*1e-6  # kNm
             self.Mu_ = Mu_*1e-6  # kNm
         else:  # 大偏心受拉
-            self.γ0Nd = self.γ0*Nd
-            x = (fsd*As+fpd*Ap-fsd_*As_-(fpd_-σp0_)*Ap_-self.γ0Nd)/(fcd*b)
+            # 以偏心距e为已知量，联立方程(5.4.2-3)和(5.4.2-4)求解x
+            try:
+                x1, x2 = self.solve_x(fcd, b, h0, fsd, As, fsd_, As_, as_, fpd, Ap, fpd_, σp0_, Ap_, ap_, e)
+            except ValueError:
+                raise SolvingError('{}无解，请检查相关输入参数。'.format(self.replace_by_symbols('x')))
+            x = x1 if x1 > 0 and x1 < h else x2 if x2 > 0 and x2 < h else None
+            if x is None:
+                raise SolvingError('{}无有效解，请检查相关输入参数。'.format(self.replace_by_symbols('x')))
+            self.γ0Nd = self.γ0*self.Nd  # kN
+            # # 以N为已知量，根据方程(5.4.2-3)求解x
+            # x = (fsd*As+fpd*Ap-fsd_*As_-(fpd_-σp0_)*Ap_-self.γ0Nd*1e3)/(fcd*b)  # mm
             self.Nu = self.f_Nu(fcd, b, x, fsd, As, fsd_, As_, fpd, Ap, fpd_, σp0_, Ap_)*1e-3  # kN
             self.Mu = self.f_Mu(fcd, b, x, h0, fsd_, As_, as_, fpd_, σp0_, Ap_, Ap, ap_)*1e-6  # kNm
-            self.γ0Nde = self.γ0*Nd*e*1e-3
+            self.γ0Nde = self.γ0*self.Nd*e*1e-3  # kNm
             self.ξ = x/h0
             self.ξb = f_ξb(fcd, fsd)  # TODO: 增加预应力计算
             self.xb = self.ξb*h0
@@ -1523,26 +1553,43 @@ class eccentric_tension(abacus, materials_util):
             for param in ('fpd', 'σp0', 'Ap', 'ap', 'fpd_', 'σp0_', 'Ap_', 'ap_', 'Ep'):
                 yield self.format(param, digits)
         yield self.format('e0', digits=digits)
-        yield self.format('e', digits=digits, value=abs(self.e))
-        yield '按{}偏心受拉构件计算'.format('大' if self.large_eccentric else '小')
+        yield '{} {} 0，故按{}偏心受拉构件计算。'.format(
+            self.format('e', digits=digits, value=abs(self.e)),
+            '&gt;' if self.large_eccentric else '&le;',
+            '大' if self.large_eccentric else '小')
         if not self.large_eccentric:
             ok = self.γ0Nde < self.Mu
-            yield '{} {} {}，{}满足规范要求。'.format(
+            yield self.format_conclusion(
+                ok,
                 self.format('γ0Nde', digits=digits, eq='γ0*Nd*e'),
                 '&le;' if ok else '&gt;',
                 self.format('Mu', digits=digits, omit_name=True, eq='fsd*As_*(h0-as_)+fpd*Ap_*(h0-ap_)'),
-                '' if ok else '不')
+                '{}满足规范要求。'.format('' if ok else '不')
+            )
             ok = self.γ0Nde_ < self.Mu_
-            yield '{} {} {}，{}满足规范要求。'.format(
+            yield self.format_conclusion(
+                ok,
                 self.format('γ0Nde_', digits=digits, eq='γ0*Nd*e_'),
                 '&le;' if ok else '&gt;',
                 self.format('Mu_', digits=digits, omit_name=True, eq='fsd*As*(h0_-as_)+fpd*Ap_*(h0-ap_)'),
-                '' if ok else '不')
+                '{}满足规范要求。'.format('' if ok else '不')
+            )
         else:
             yield self.format('xb', digits)
-            yield '对式(5.4.2-3)两边取等计算得：'
+            # yield '对规范公式(5.4.2-3)两边取等计算得：{}'.format(
+            #     self.format('x', digits, eq='(fsd As+fpd Ap-fsd_ As_-(fpd_-σp0_) Ap_-γ0 Nd)/(fcd b)')
+            #     )
+            yield '以偏心距为已知量，联立方程(5.4.2-3)和(5.4.2-4)求解得：{}。'.format(
+                self.format('x', digits)
+                )
             ok = self.x < self.xb
-            yield '{} {} {}'.format(self.format('x', digits), '&lt;' if ok else '&gt;', self.format('xb', omit_name=True))
+            yield self.format_conclusion(
+                ok,
+                self.format('x', digits, omit_name=True),
+                '&lt;' if ok else '&gt;',
+                self.format('xb', digits, omit_name=True),
+                '{}满足规范公式(5.2.2-3)要求。'.format('' if ok else '不')
+                )
 
             ok = True
             # 在承载力计算中，若考虑截面受压较大边的纵向受压钢筋时，受压区高度应符合公式
@@ -1552,12 +1599,12 @@ class eccentric_tension(abacus, materials_util):
                 if self.ps != '无' and self.Ap_ > 0 and self.σp_ > 0:
                     self.eqr = 2*self.a_
                     ok = self.x >= self.eqr
-                    yield '{} {} {}，{}满足规范公式(5.2.2-4)要求{}。'.format(
-                        self.format('x'),
+                    yield self.format_conclusion(
+                        ok,
+                        self.format('x', digits, omit_name=True),
                         '&ge;' if ok else '&lt;',
                         self.format('eqr', omit_name=True, eq='2a_'),
-                        '' if ok else '不',
-                        ''  # if ok else '，需按5.2.4条要求验算'
+                        '{}满足规范公式(5.2.2-4)要求。'.format('' if ok else '不')
                     )
                     if not ok:
                         # 第5.3.6节，在偏心受压构件正截面抗压承载力计算中，当考虑截面受压较大边的纵向受压钢
@@ -1568,11 +1615,12 @@ class eccentric_tension(abacus, materials_util):
                         # fpd*Ap*(h-ap-as_)+fsd*As*(h-a_s-as_)-(fpd_-σp0_)*Ap_*(ap_-as_)
                         yield '按式(5.2.4-1)要求进行承载力计算。'
                         ok = self.γ0Md <= self.Mu
-                        yield '{} {} {}，{}满足规范公式(5.2.4-1)要求。'.format(
+                        yield self.format_conclusion(
+                            ok,
                             self.format('γ0Md', digits, omit_name=True, eq='γ0 Nd e_'),
                             '&le;' if ok else '&gt;',
                             self.format('Mu', omit_name=True, eq='fpd*Ap*(h-ap-a_)+fsd*As*(h-a_s-a_)'),
-                            '' if ok else '不'
+                            '{}满足规范公式(5.2.4-1)要求。'.format('' if ok else '不')
                         )
                         return
                 # 当受压区仅配纵向普通钢筋，或配有普通钢筋和预应力钢筋且预应力钢筋受拉即
@@ -1580,12 +1628,13 @@ class eccentric_tension(abacus, materials_util):
                 elif (self.ps == '无' or self.Ap_ <= 0) or (self.ps != '无' and self.Ap_ > 0 and self.σp_ < 0):
                     self.eqr = 2*self.as_
                     ok = self.x >= self.eqr
-                    yield '{} {} {}，{}满足规范公式(5.2.2-5)要求{}。'.format(
-                        self.format('x'),
+                    yield self.format_conclusion(
+                        ok,
+                        self.format('x', digits, omit_name=True),
                         '&ge;' if ok else '&lt;',
                         self.format('eqr', omit_name=True, eq='2as_'),
-                        '' if ok else '不',
-                        ''  # if ok else '，需按5.2.4条要求验算'
+                        '{}满足规范公式(5.2.2-5)要求。'.format('' if ok else '不')
+                        # ''  if ok else '，需按5.2.4条要求验算'
                     )
                     if not ok:
                         # 第5.3.6节，在偏心受压构件正截面抗压承载力计算中，当考虑截面受压较大边的纵向受压钢
@@ -1595,27 +1644,33 @@ class eccentric_tension(abacus, materials_util):
                         # γ0*Md≤fpd*Ap*(h-ap-a')+fsd*As*(h-as-a_)
                         yield '按式(5.2.4-2)要求进行承载力计算。'
                         ok = self.γ0Md <= self.Mu
-                        yield '{} {} {}，{}满足规范公式(5.2.4-2)要求。'.format(
+                        yield self.format_conclusion(
+                            ok,
                             self.format('γ0Md', digits, omit_name=True, eq='γ0 Nd es_'),
                             '&le;' if ok else '&gt;',
-                            self.format('Mu', omit_name=True, eq='fpd*Ap*(h-ap-as_)+fsd*As*(h-a_s-as_)-(fpd_-σp0_)*Ap_*(ap_-as_)'),
-                            '' if ok else '不'
+                            self.format('Mu', omit_name=True,
+                                        eq='fpd*Ap*(h-ap-as_)+fsd*As*(h-a_s-as_)-(fpd_-σp0_)*Ap_*(ap_-as_)'),
+                            '{}满足规范公式(5.2.4-2)要求。'.format('' if ok else '不')
                         )
                         return
             if ok:
-                # ok = self.γ0Nd <= self.Nu
-                # yield '{} {} {}，{}满足规范式(5.4.2-4)要求。'.format(
-                #     self.format('γ0Nd',digits=digits,eq='γ0*Nd'),
-                #     '&le;' if ok else '&gt;',
-                #     self.format('Nu',digits=digits,omit_name=True, eq='fsd*As+fpd*Ap-fsd_*As_-(fpd_-σp0_)*Ap_-fcd*b*x'),
-                #     '' if ok else '不')
+                ok = self.γ0Nd <= self.Nu
+                yield self.format_conclusion(
+                    ok,
+                    self.format('γ0Nd', digits=digits, eq='γ0*Nd'),
+                    '&le;' if ok else '&gt;',
+                    self.format('Nu', digits=digits, omit_name=True, eq='fsd*As+fpd*Ap-fsd_*As_-(fpd_-σp0_)*Ap_-fcd*b*x'),
+                    '{}满足规范式(5.4.2-4)要求。'.format('' if ok else '不')
+                )
                 ok = self.γ0Nde <= self.Mu
-                yield '{} {} {}，{}满足规范式(5.4.2-4)要求。'.format(
+                yield self.format_conclusion(
+                    ok,
                     self.format('γ0Nde', digits=digits, eq='γ0*Nd*e'),
                     '&le;' if ok else '&gt;',
                     self.format('Mu', digits=digits, omit_name=True,
                                 eq='fcd*b*x*(h0-x/2)+fsd_*As_*(h0-as_)+(fpd_-σp0_)*Ap_*(h0-ap_)'),
-                    '' if ok else '不')
+                    '{}满足规范式(5.4.2-4)要求。'.format('' if ok else '不')
+                )
 
 
 class bc_round(abacus, materials_util):
@@ -1629,39 +1684,39 @@ class bc_round(abacus, materials_util):
     (0.36192235669386447, 2792645006.937993)
     """
     __title__ = '圆形截面承载力'
-    __inputs__ = OrderedDict((
-        ('option', ('选项', '', 'design', '', '', {'review': '截面复核', 'design': '截面设计'})),
-        ('γ0', ('<i>γ</i><sub>0</sub>', '', 1.0, '重要性系数')),
-        materials_util.concrete_item,
-        ('fcd', ('<i>f</i><sub>cd</sub>', 'N/mm<sup>2</sup>', 22.4, '混凝土轴心抗压强度设计值')),
-        materials_util.rebar_item,
-        ('fsd', ('<i>f</i><sub>sd</sub>', 'N/mm<sup>2</sup>', 330, '普通钢筋抗拉强度设计值')),
-        # ('fsd_',('<i>f</i><sub>sd</sub><sup>\'</sup>','N/mm<sup>2</sup>',330,'普通钢筋抗压强度设计值')),
-        # ('Es',('<i>E</i><sub>s</sub>','MPa',2.0E5,'钢筋弹性模量')),
-        ('r', ('<i>r</i>', 'mm', 800, '圆形截面的半径')),
-        ('rs', ('<i>r</i><sub>s</sub>', 'mm', 700, '纵向普通钢筋重心所在圆周的半径')),
-        ('l0', ('<i>l</i><sub>0</sub>', 'mm', 1000, '构件计算长度')),
-        ('Nd', ('<i>N</i><sub>d</sub>', 'kN', 1000.0, '轴力设计值')),
-        ('Md', ('<i>M</i><sub>d</sub>', 'kN·m', 100.0, '弯矩设计值')),
-        # ('εcu',('<i>ε</i><sub>cu</sub>','mm',0.0033,'混凝土极限压应变')),
-        ('As', ('<i>A</i><sub>s</sub>', 'mm<sup>2</sup>', 0, '全截面钢筋面积')),
-    ))
-    __deriveds__ = OrderedDict((
-        ('e0', ('<i>e</i><sub>0</sub>', 'mm', 0, '轴向压力对截面重心的偏心距')),
-        ('h0', ('<i>h</i><sub>0</sub>', 'mm', 0, '截面有效高度')),
-        ('h', ('<i>h</i>', 'mm', 0, '截面高度')),
-        ('ζ1', ('<i>ζ</i><sub>1</sub>', '', 0, '荷载偏心率对截面曲率的影响系数')),
-        ('ζ2', ('<i>ζ</i><sub>2</sub>', '', 0, '构件长细比对截面曲率的影响系数')),
-        ('η', ('<i>η</i>', '', 0, '偏心距增大系数')),
-        # ('ρ',('<i>ρ</i>','',0,'纵向钢筋配筋率','ρ=As/πr^2')),
-        ('A', ('<i>A</i>', 'mm<sup>2</sup>', 0, '圆形截面面积')),
-        ('α', ('<i>α</i>', '', 0, '受压区域圆心角与2π的比值')),
-        ('Nud', ('<i>N</i><sub>ud</sub>', 'kN', 0, '', '正截面抗压承载力设计值')),
-        ('Mud', ('<i>M</i><sub>ud</sub>', 'kN·m', 0, '', '正截面抗弯承载力设计值')),
-        ('Asmin', ('<i>A</i><sub>s,min</sub>', 'mm<sup>2</sup>', 0, '', '全截面最小钢筋面积')),
-        ('eql1', ('', 'kN', 0, '')),
-        ('eql2', ('', 'kN·m', 0, '')),
-    ))
+    __inputs__ = [
+        ('option', '选项', '', 'design', '', '', {'review': '截面复核', 'design': '截面设计'}),
+        ('γ0', '<i>γ</i><sub>0</sub>', '', 1.0, '重要性系数'),
+        materials_util.concrete_input,
+        ('fcd', '<i>f</i><sub>cd</sub>', 'N/mm<sup>2</sup>', 22.4, '混凝土轴心抗压强度设计值'),
+        materials_util.rebar_input,
+        ('fsd', '<i>f</i><sub>sd</sub>', 'N/mm<sup>2</sup>', 330, '普通钢筋抗拉强度设计值'),
+        # ('fsd_',('<i>f</i><sub>sd</sub><sup>\'</sup>','N/mm<sup>2</sup>',330,'普通钢筋抗压强度设计值'),
+        # ('Es',('<i>E</i><sub>s</sub>','MPa',2.0E5,'钢筋弹性模量'),
+        ('r', '<i>r</i>', 'mm', 800, '圆形截面的半径'),
+        ('rs', '<i>r</i><sub>s</sub>', 'mm', 700, '纵向普通钢筋重心所在圆周的半径'),
+        ('l0', '<i>l</i><sub>0</sub>', 'mm', 1000, '构件计算长度'),
+        ('Nd', '<i>N</i><sub>d</sub>', 'kN', 1000.0, '轴力设计值'),
+        ('Md', '<i>M</i><sub>d</sub>', 'kN·m', 100.0, '弯矩设计值'),
+        # ('εcu',('<i>ε</i><sub>cu</sub>','mm',0.0033,'混凝土极限压应变'),
+        ('As', '<i>A</i><sub>s</sub>', 'mm<sup>2</sup>', 0, '全截面钢筋面积'),
+    ]
+    __deriveds__ = [
+        ('e0', '<i>e</i><sub>0</sub>', 'mm', 0, '轴向压力对截面重心的偏心距'),
+        ('h0', '<i>h</i><sub>0</sub>', 'mm', 0, '截面有效高度'),
+        ('h', '<i>h</i>', 'mm', 0, '截面高度'),
+        ('ζ1', '<i>ζ</i><sub>1</sub>', '', 0, '荷载偏心率对截面曲率的影响系数'),
+        ('ζ2', '<i>ζ</i><sub>2</sub>', '', 0, '构件长细比对截面曲率的影响系数'),
+        ('η', '<i>η</i>', '', 0, '偏心距增大系数'),
+        # ('ρ',('<i>ρ</i>','',0,'纵向钢筋配筋率','ρ=As/πr^2'),
+        ('A', '<i>A</i>', 'mm<sup>2</sup>', 0, '圆形截面面积'),
+        ('α', '<i>α</i>', '', 0, '受压区域圆心角与2π的比值'),
+        ('Nud', '<i>N</i><sub>ud</sub>', 'kN', 0, '', '正截面抗压承载力设计值'),
+        ('Mud', '<i>M</i><sub>ud</sub>', 'kN·m', 0, '', '正截面抗弯承载力设计值'),
+        ('Asmin', '<i>A</i><sub>s,min</sub>', 'mm<sup>2</sup>', 0, '', '全截面最小钢筋面积'),
+        ('eql1', '', 'kN', 0, ''),
+        ('eql2', '', 'kN·m', 0, ''),
+    ]
     __toggles__ = {
         'option': {'review': (), 'design': ('As',)},
         'concrete': materials_util.material_toggles['concrete'],
@@ -1838,50 +1893,50 @@ class shear_capacity(abacus, materials_util):
     《公路钢筋混凝土及预应力混凝土桥涵设计规范》（JTG 3362-2018）第5.2.9节
     """
     __title__ = '斜截面抗剪承载力'
-    __inputs__ = OrderedDict((
-        ('γ0', ('<i>γ</i><sub>0</sub>', '', 1.1, '重要性系数')),
-        ('α1', ('<i>α</i><sub>1</sub>', '', 1.0, '异号弯矩影响系数', '简支梁和连续梁近边支点取1.0；连续梁和悬臂梁近中支点取0.9')),
-        ('α2', ('<i>α</i><sub>2</sub>', '', 1.0, '预应力提高系数', '钢筋混凝土取1.0；预应力混凝土取1.25')),
-        ('α3', ('<i>α</i><sub>3</sub>', '', 1.0, '受压翼缘的影响系数', '矩形截面取1.0；T形和I形截面取1.1')),
-        ('Vd', ('<i>V</i><sub>d</sub>', 'kN', 0, '剪力设计值')),
-        ('b', ('<i>b</i>', 'mm', 500, '抗剪计算宽度', '斜截面剪压区对应正截面处，矩形截面宽度，或T形和I形截面腹板宽度')),
-        ('h0', ('<i>h</i><sub>0</sub>', 'mm', 900, '截面有效高度')),
-        materials_util.concrete_item,
-        ('fcuk', ('<i>f</i><sub>cu,k</sub>', 'MPa', 50, '混凝土立方体抗压强度标准值', '取混凝土标号')),
-        ('fcd', ('<i>f</i><sub>cd</sub>', 'N/mm<sup>2</sup>', 22.4, '混凝土轴心抗压强度设计值')),
-        ('ftd', ('<i>f</i><sub>td</sub>', 'MPa', 1.83, '混凝土轴心抗拉强度设计值')),
-        materials_util.rebar_item,
-        ('fsd', ('<i>f</i><sub>sd</sub>', 'MPa', 330, '钢筋抗拉强度设计值')),
-        materials_util.ps_item,
-        ('fpd', ('<i>f</i><sub>pd</sub>', 'MPa', 1320, '受拉区预应力筋抗压强度设计值')),
-        ('ρ', ('<i>ρ</i>', '', 0, '纵向钢筋配筋率')),
-        ('fsv', ('<i>f</i><sub>sv</sub>', 'MPa', 300, '箍筋的抗拉强度设计值')),
-        ('fpv', ('<i>f</i><sub>pv</sub>', 'MPa', 1260, '竖向预应力筋的抗拉强度设计值')),
-        ('σpeex', ('<i>σ</i><sub>pe,ex</sub>', 'MPa', 0, '体外预应力筋有效应力')),
-        ('Asv', ('<i>A</i><sub>sv</sub>', 'mm<sup>2</sup>', 0, '箍筋面积', '斜截面内配置在同一截面内的箍筋总截面面积')),
-        ('Apv', ('<i>A</i><sub>pv</sub>', 'mm<sup>2</sup>', 0, '竖向预应力筋面积', '斜截面内配置在同一截面内的竖向预应力筋总截面面积')),
-        ('sv', ('<i>s</i><sub>v</sub>', 'mm', 100, '箍筋间距', '沿构件长度方向的箍筋间距')),
-        ('sp', ('<i>s</i><sub>p</sub>', 'mm', 100, '竖向预应力筋间距', '沿构件长度方向的竖向预应力筋间距')),
-        ('Asb', ('<i>A</i><sub>sb</sub>', 'mm<sup>2</sup>', 0, '弯起钢筋面积', '斜截面内配置在同一截面内的弯起钢筋总截面面积')),
-        ('Apb', ('<i>A</i><sub>pb</sub>', 'mm<sup>2</sup>', 0, '体内预应力弯起钢筋面积', '斜截面内配置在同一截面内的体内预应力弯起钢筋总截面面积')),
-        ('Aex', ('<i>A</i><sub>ex</sub>', 'mm<sup>2</sup>', 0, '体外预应力弯起钢筋面积', '斜截面内配置在同一截面内的体外预应力弯起钢筋总截面面积')),
-        ('θs', ('<i>θ</i><sub>s</sub>', '°', 45, '普通弯起钢筋切线与水平线夹角')),
-        ('θp', ('<i>θ</i><sub>p</sub>', '°', 30, '体内预应力弯起钢筋切线与水平线夹角')),
-        ('θex', ('<i>θ</i><sub>ex</sub>', '°', 0, '体外预应力弯起钢筋切线与水平线夹角')),
-    ))
-    __deriveds__ = OrderedDict((
-        ('P', ('<i>P</i>', '', 0, '纵向钢筋配筋百分率')),
-        ('ρsv', ('<i>ρ</i><sub>sv</sub>', '', 0, '箍筋配筋率')),
-        ('ρpv', ('<i>ρ</i><sub>pv</sub>', '', 0, '竖向预应力筋配筋率')),
-        ('Vcs', ('<i>V</i><sub>cs</sub>', 'kN', 0, '', '斜截面内混凝土和箍筋共同的抗剪承载力设计值')),
-        ('Vsb', ('<i>V</i><sub>sb</sub>', 'kN', 0, '', '与斜截面相交的普通弯起钢筋抗剪承载力设计值')),
-        ('Vpb', ('<i>V</i><sub>pb</sub>', 'kN', 0, '', '与斜截面相交的体内预应力弯起钢筋抗剪承载力设计值')),
-        ('Vpbex', ('<i>V</i><sub>pb,ex</sub>', 'kN', 0, '', '与斜截面相交的体外预应力弯起钢筋抗剪承载力设计值')),
-        ('Vu', ('<i>V</i><sub>u</sub>', 'kN', 0, '斜截面抗剪承载力')),
-        ('V11', ('', 'kN', 0, '按公式5.2.11计算的抗剪承载力')),
-        ('V12', ('', 'kN', 0, '按公式5.2.12计算的抗剪承载力')),
-        ('γ0Vd', ('', 'kN', 0, '')),
-    ))
+    __inputs__ = [
+        ('γ0', '<i>γ</i><sub>0</sub>', '', 1.1, '重要性系数'),
+        ('α1', '<i>α</i><sub>1</sub>', '', 1.0, '异号弯矩影响系数', '简支梁和连续梁近边支点取1.0；连续梁和悬臂梁近中支点取0.9'),
+        ('α2', '<i>α</i><sub>2</sub>', '', 1.0, '预应力提高系数', '钢筋混凝土取1.0；预应力混凝土取1.25'),
+        ('α3', '<i>α</i><sub>3</sub>', '', 1.0, '受压翼缘的影响系数', '矩形截面取1.0；T形和I形截面取1.1'),
+        ('Vd', '<i>V</i><sub>d</sub>', 'kN', 0, '剪力设计值'),
+        ('b', '<i>b</i>', 'mm', 500, '抗剪计算宽度', '斜截面剪压区对应正截面处，矩形截面宽度，或T形和I形截面腹板宽度'),
+        ('h0', '<i>h</i><sub>0</sub>', 'mm', 900, '截面有效高度'),
+        materials_util.concrete_input,
+        ('fcuk', '<i>f</i><sub>cu,k</sub>', 'MPa', 50, '混凝土立方体抗压强度标准值', '取混凝土标号'),
+        ('fcd', '<i>f</i><sub>cd</sub>', 'N/mm<sup>2</sup>', 22.4, '混凝土轴心抗压强度设计值'),
+        ('ftd', '<i>f</i><sub>td</sub>', 'MPa', 1.83, '混凝土轴心抗拉强度设计值'),
+        materials_util.rebar_input,
+        ('fsd', '<i>f</i><sub>sd</sub>', 'MPa', 330, '钢筋抗拉强度设计值'),
+        materials_util.ps_input,
+        ('fpd', '<i>f</i><sub>pd</sub>', 'MPa', 1320, '受拉区预应力筋抗压强度设计值'),
+        ('ρ', '<i>ρ</i>', '', 0, '纵向钢筋配筋率'),
+        ('fsv', '<i>f</i><sub>sv</sub>', 'MPa', 300, '箍筋的抗拉强度设计值'),
+        ('fpv', '<i>f</i><sub>pv</sub>', 'MPa', 1260, '竖向预应力筋的抗拉强度设计值'),
+        ('σpeex', '<i>σ</i><sub>pe,ex</sub>', 'MPa', 0, '体外预应力筋有效应力'),
+        ('Asv', '<i>A</i><sub>sv</sub>', 'mm<sup>2</sup>', 0, '箍筋面积', '斜截面内配置在同一截面内的箍筋总截面面积'),
+        ('Apv', '<i>A</i><sub>pv</sub>', 'mm<sup>2</sup>', 0, '竖向预应力筋面积', '斜截面内配置在同一截面内的竖向预应力筋总截面面积'),
+        ('sv', '<i>s</i><sub>v</sub>', 'mm', 100, '箍筋间距', '沿构件长度方向的箍筋间距'),
+        ('sp', '<i>s</i><sub>p</sub>', 'mm', 100, '竖向预应力筋间距', '沿构件长度方向的竖向预应力筋间距'),
+        ('Asb', '<i>A</i><sub>sb</sub>', 'mm<sup>2</sup>', 0, '弯起钢筋面积', '斜截面内配置在同一截面内的弯起钢筋总截面面积'),
+        ('Apb', '<i>A</i><sub>pb</sub>', 'mm<sup>2</sup>', 0, '体内预应力弯起钢筋面积', '斜截面内配置在同一截面内的体内预应力弯起钢筋总截面面积'),
+        ('Aex', '<i>A</i><sub>ex</sub>', 'mm<sup>2</sup>', 0, '体外预应力弯起钢筋面积', '斜截面内配置在同一截面内的体外预应力弯起钢筋总截面面积'),
+        ('θs', '<i>θ</i><sub>s</sub>', '°', 45, '普通弯起钢筋切线与水平线夹角'),
+        ('θp', '<i>θ</i><sub>p</sub>', '°', 30, '体内预应力弯起钢筋切线与水平线夹角'),
+        ('θex', '<i>θ</i><sub>ex</sub>', '°', 0, '体外预应力弯起钢筋切线与水平线夹角'),
+    ]
+    __deriveds__ = [
+        ('P', '<i>P</i>', '', 0, '纵向钢筋配筋百分率'),
+        ('ρsv', '<i>ρ</i><sub>sv</sub>', '', 0, '箍筋配筋率'),
+        ('ρpv', '<i>ρ</i><sub>pv</sub>', '', 0, '竖向预应力筋配筋率'),
+        ('Vcs', '<i>V</i><sub>cs</sub>', 'kN', 0, '', '斜截面内混凝土和箍筋共同的抗剪承载力设计值'),
+        ('Vsb', '<i>V</i><sub>sb</sub>', 'kN', 0, '', '与斜截面相交的普通弯起钢筋抗剪承载力设计值'),
+        ('Vpb', '<i>V</i><sub>pb</sub>', 'kN', 0, '', '与斜截面相交的体内预应力弯起钢筋抗剪承载力设计值'),
+        ('Vpbex', '<i>V</i><sub>pb,ex</sub>', 'kN', 0, '', '与斜截面相交的体外预应力弯起钢筋抗剪承载力设计值'),
+        ('Vu', '<i>V</i><sub>u</sub>', 'kN', 0, '斜截面抗剪承载力'),
+        ('V11', '', 'kN', 0, '按公式5.2.11计算的抗剪承载力'),
+        ('V12', '', 'kN', 0, '按公式5.2.12计算的抗剪承载力'),
+        ('γ0Vd', '', 'kN', 0, ''),
+    ]
     __toggles__ = {
         'concrete': materials_util.material_toggles['concrete'],
         'rebar': materials_util.material_toggles['rebar'],
@@ -1949,76 +2004,76 @@ class torsion(abacus, materials_util):
     《公路钢筋混凝土及预应力混凝土桥涵设计规范》（JTG 3362-2018）第5.5节
     """
     __title__ = '矩形和箱形截面抗扭承载力'
-    __inputs__ = OrderedDict((
-        ('γ0', ('<i>γ</i><sub>0</sub>', '', 1.0, '重要性系数')),
-        ('α1', ('<i>α</i><sub>1</sub>', '', 1.0, '异号弯矩影响系数', '简支梁和连续梁近边支点取1.0；连续梁和悬臂梁近中支点取0.9')),
-        ('α2', ('<i>α</i><sub>2</sub>', '', 1.0, '预应力提高系数', '钢筋混凝土取1.0；预应力混凝土取1.25')),
-        ('α3', ('<i>α</i><sub>3</sub>', '', 1.0, '受压翼缘的影响系数', '矩形截面取1.0；T形和I形截面取1.1')),
-        ('Vd', ('<i>V</i><sub>d</sub>', 'kN', 1000.0, '剪力设计值')),
-        ('Td', ('<i>T</i><sub>d</sub>', 'kN·m', 100.0, '扭矩设计值')),
-        materials_util.concrete_item,
-        ('fcuk', ('<i>f</i><sub>cu,k</sub>', 'MPa', 50, '混凝土立方体抗压强度标准值', '取混凝土标号')),
-        ('fcd', ('<i>f</i><sub>cd</sub>', 'N/mm<sup>2</sup>', 14.3, '混凝土轴心抗压强度设计值')),
-        ('ftd', ('<i>f</i><sub>td</sub>', 'MPa', 1.83, '混凝土轴心抗拉强度设计值')),
-        materials_util.rebar_item,
-        ('fsd', ('<i>f</i><sub>sd</sub>', 'N/mm<sup>2</sup>', 330, '普通钢筋抗拉强度设计值')),
-        ('Asv', ('<i>A</i><sub>sv</sub>', 'mm<sup>2</sup>', 0, '箍筋面积', '斜截面内配置在同一截面内的箍筋总截面面积')),
-        ('Asv1', ('<i>A</i><sub>sv1</sub>', 'mm<sup>2</sup>', 0, '纯扭计算中箍筋的单肢截面面积',
-                  '纯扭计算中箍筋的单肢截面面积')),
-        ('fsv', ('<i>f</i><sub>sv</sub>', 'N/mm<sup>2</sup>', 250, '箍筋抗拉强度设计值')),
-        ('section_type', ('截面类型', '', 'rect', '', '', {
-            'rect': '矩形', 'box': '箱形', 'fbox': '带翼缘箱形', 'I': 'T形或I形'})),
+    __inputs__ = [
+        ('γ0', '<i>γ</i><sub>0</sub>', '', 1.0, '重要性系数'),
+        ('α1', '<i>α</i><sub>1</sub>', '', 1.0, '异号弯矩影响系数', '简支梁和连续梁近边支点取1.0；连续梁和悬臂梁近中支点取0.9'),
+        ('α2', '<i>α</i><sub>2</sub>', '', 1.0, '预应力提高系数', '钢筋混凝土取1.0；预应力混凝土取1.25'),
+        ('α3', '<i>α</i><sub>3</sub>', '', 1.0, '受压翼缘的影响系数', '矩形截面取1.0；T形和I形截面取1.1'),
+        ('Vd', '<i>V</i><sub>d</sub>', 'kN', 1000.0, '剪力设计值'),
+        ('Td', '<i>T</i><sub>d</sub>', 'kN·m', 100.0, '扭矩设计值'),
+        materials_util.concrete_input,
+        ('fcuk', '<i>f</i><sub>cu,k</sub>', 'MPa', 50, '混凝土立方体抗压强度标准值', '取混凝土标号'),
+        ('fcd', '<i>f</i><sub>cd</sub>', 'N/mm<sup>2</sup>', 14.3, '混凝土轴心抗压强度设计值'),
+        ('ftd', '<i>f</i><sub>td</sub>', 'MPa', 1.83, '混凝土轴心抗拉强度设计值'),
+        materials_util.rebar_input,
+        ('fsd', '<i>f</i><sub>sd</sub>', 'N/mm<sup>2</sup>', 330, '普通钢筋抗拉强度设计值'),
+        ('Asv', '<i>A</i><sub>sv</sub>', 'mm<sup>2</sup>', 0, '箍筋面积', '斜截面内配置在同一截面内的箍筋总截面面积'),
+        ('Asv1', '<i>A</i><sub>sv1</sub>', 'mm<sup>2</sup>', 0, '纯扭计算中箍筋的单肢截面面积',
+                  '纯扭计算中箍筋的单肢截面面积'),
+        ('fsv', '<i>f</i><sub>sv</sub>', 'N/mm<sup>2</sup>', 250, '箍筋抗拉强度设计值'),
+        ('section_type', '截面类型', '', 'rect', '', '', {
+            'rect': '矩形', 'box': '箱形', 'fbox': '带翼缘箱形', 'I': 'T形或I形'}),
         # 'rect':'矩形截面','box':'箱形截面','fbox':'带翼缘箱形','T':'T形','I':'I形'})),
-        ('b', ('<i>b</i>', 'mm', 1000, '截面宽度')),
-        ('h', ('<i>h</i>', 'mm', 1600, '截面高度')),
-        ('h0', ('<i>h</i><sub>0</sub>', 'mm', 1500, '截面有效高度')),
-        ('bw', ('<i>b</i><sub>w</sub>', 'mm', 1000, '箱形截面腹板总宽度')),
-        ('t1', ('<i>t</i><sub>1</sub>', 'mm', 180, '箱形截面腹板壁厚')),
-        ('t2', ('<i>t</i><sub>2</sub>', 'mm', 180, '箱形截面底板壁厚')),
-        ('bcor', ('<i>b</i><sub>cor</sub>', 'mm', 1500, '核芯面积的短边边长')),
-        ('hcor', ('<i>h</i><sub>cor</sub>', 'mm', 1500, '核芯面积的长边边长')),
-        ('bf', ('<i>b</i><sub>f</sub>', 'mm', 0, '受拉翼缘宽度')),
-        ('hf', ('<i>h</i><sub>f</sub>', 'mm', 0, '受拉翼缘厚度')),
-        ('bf_', ('<i>b</i><sub>f</sub><sup>\'</sup>', 'mm', 0, '受压翼缘宽度')),
-        ('hf_', ('<i>h</i><sub>f</sub><sup>\'</sup>', 'mm', 0, '受压翼缘厚度')),
-        ('Ast', ('<i>A</i><sub>st</sub>', 'mm<sup>2</sup>', 0, '纵向钢筋截面面积',\
-                 '纯扭计算中沿截面周边对称配置的全部普通纵向钢筋截面面积')),
-        ('εcu', ('<i>ε</i><sub>cu</sub>', 'mm', 0.0033, '混凝土极限压应变')),
-        ('sv', ('<i>s</i><sub>v</sub>', 'mm', 100, '箍筋间距', '沿构件长度方向的箍筋间距')),
-        ('ρ', ('<i>ρ</i>', '', 0, '纵向钢筋配筋率')),
-        ('option', ('', '', True, '考虑预应力', '', {True: '是', False: '否'})),
-        ('ep0', ('<i>e</i><sub>p0</sub>', 'mm', 100, '受力筋对换算截面重心轴的偏心距',\
-                 '预应力钢筋和普通钢筋的合力对换算截面重心轴的偏心距，预应力构件按式(6.1.7-2)计算')),
-        ('Np0', ('<i>N</i><sub>p0</sub>', 'kN', 100, '预应力和普通钢筋的合力',\
-                 '混凝土法向预应力等于零时预应力钢筋和普通钢筋的合力')),
-        ('A0', ('<i>A</i><sub>0</sub>', 'mm<sup>2</sup>', 0, '构件的换算截面面积',\
-                '预应力及普通钢筋换算成混凝土后的总截面面积')),
-    ))
-    __deriveds__ = OrderedDict((
-        ('fcv', ('<i>f</i><sub>cv</sub>', 'MPa', 0, '名义剪应力设计值')),
-        ('Wt', ('<i>W</i><sub>t</sub>', 'mm<sup>3</sup>', 0, '截面受扭塑性抵抗矩')),
-        ('Wtw', ('<i>W</i><sub>tw</sub>', 'mm<sup>3</sup>', 0, '腹板或矩形箱体受扭塑性抵抗矩')),
-        ('Acor', ('<i>A</i><sub>cor</sub>', 'mm<sup>2</sup>', 0, '由箍筋内表面包围的截面核芯面积')),
-        ('Ucor', ('<i>U</i><sub>cor</sub>', 'mm', 0, '截面核心面积的周长')),
-        ('ζ', ('<i>ζ</i>', '', 0, '纵筋与箍筋的配筋强度比', '纯扭构件纵向钢筋与箍筋的配筋强度比')),
-        ('ρsv', ('<i>ρ</i><sub>sv</sub>', '', 0, '箍筋配筋率')),
-        ('τd', ('', '', 0, '')),
-        ('βa', ('<i>β</i><sub>a</sub>', '', 0, '箱形截面有效壁厚折减系数')),
-        ('βt', ('<i>β</i><sub>t</sub>', '', 0, '剪扭构件混凝土抗扭承载力降低系数')),
-        ('γ0Vd', ('', 'kN', 0, '')),
-        ('γ0Td', ('', 'kN·m', 0, '')),
-        ('Tu', ('', 'kN', 0, '')),
-        ('Vut', ('', 'kN', 0, '')),
-        ('Tut', ('', 'kN·m', 0, '')),
-        ('Wtf_', ('<i>W</i><sub>tf</sub><sup>\'</sup>', 'mm<sup>3</sup>', 0, '受压翼缘受扭塑性抵抗矩')),
-        ('Wtf', ('<i>W</i><sub>tf</sub>', 'mm<sup>3</sup>', 0, '受拉翼缘受扭塑性抵抗矩')),
-        ('Tfd_', ('<i>T</i><sub>fd</sub><sup>\'</sup>', 'kN·m', 0, '分配给受压翼缘承受的扭矩设计值')),
-        ('Tfd', ('<i>T</i><sub>fd</sub>', 'kN·m', 0, '分配给受拉翼缘承受的扭矩设计值')),
-        ('γ0Tfd_', ('', 'kN·m', 0, '')),
-        ('γ0Tfd', ('', 'kN·m', 0, '')),
-        ('Tfu_', ('', 'kN·m', 0, '')),
-        ('Tfu', ('', 'kN·m', 0, '')),
-    ))
+        ('b', '<i>b</i>', 'mm', 1000, '截面宽度'),
+        ('h', '<i>h</i>', 'mm', 1600, '截面高度'),
+        ('h0', '<i>h</i><sub>0</sub>', 'mm', 1500, '截面有效高度'),
+        ('bw', '<i>b</i><sub>w</sub>', 'mm', 1000, '箱形截面腹板总宽度'),
+        ('t1', '<i>t</i><sub>1</sub>', 'mm', 180, '箱形截面腹板壁厚'),
+        ('t2', '<i>t</i><sub>2</sub>', 'mm', 180, '箱形截面底板壁厚'),
+        ('bcor', '<i>b</i><sub>cor</sub>', 'mm', 1500, '核芯面积的短边边长'),
+        ('hcor', '<i>h</i><sub>cor</sub>', 'mm', 1500, '核芯面积的长边边长'),
+        ('bf', '<i>b</i><sub>f</sub>', 'mm', 0, '受拉翼缘宽度'),
+        ('hf', '<i>h</i><sub>f</sub>', 'mm', 0, '受拉翼缘厚度'),
+        ('bf_', '<i>b</i><sub>f</sub><sup>\'</sup>', 'mm', 0, '受压翼缘宽度'),
+        ('hf_', '<i>h</i><sub>f</sub><sup>\'</sup>', 'mm', 0, '受压翼缘厚度'),
+        ('Ast', '<i>A</i><sub>st</sub>', 'mm<sup>2</sup>', 0, '纵向钢筋截面面积', \
+                 '纯扭计算中沿截面周边对称配置的全部普通纵向钢筋截面面积'),
+        ('εcu', '<i>ε</i><sub>cu</sub>', 'mm', 0.0033, '混凝土极限压应变'),
+        ('sv', '<i>s</i><sub>v</sub>', 'mm', 100, '箍筋间距', '沿构件长度方向的箍筋间距'),
+        ('ρ', '<i>ρ</i>', '', 0, '纵向钢筋配筋率'),
+        ('option', '', '', True, '考虑预应力', '', {True: '是', False: '否'}),
+        ('ep0', '<i>e</i><sub>p0</sub>', 'mm', 100, '受力筋对换算截面重心轴的偏心距',\
+                 '预应力钢筋和普通钢筋的合力对换算截面重心轴的偏心距，预应力构件按式(6.1.7-2)计算'),
+        ('Np0', '<i>N</i><sub>p0</sub>', 'kN', 100, '预应力和普通钢筋的合力',\
+                 '混凝土法向预应力等于零时预应力钢筋和普通钢筋的合力'),
+        ('A0', '<i>A</i><sub>0</sub>', 'mm<sup>2</sup>', 0, '构件的换算截面面积',\
+                '预应力及普通钢筋换算成混凝土后的总截面面积'),
+    ]
+    __deriveds__ = [
+        ('fcv', '<i>f</i><sub>cv</sub>', 'MPa', 0, '名义剪应力设计值'),
+        ('Wt', '<i>W</i><sub>t</sub>', 'mm<sup>3</sup>', 0, '截面受扭塑性抵抗矩'),
+        ('Wtw', '<i>W</i><sub>tw</sub>', 'mm<sup>3</sup>', 0, '腹板或矩形箱体受扭塑性抵抗矩'),
+        ('Acor', '<i>A</i><sub>cor</sub>', 'mm<sup>2</sup>', 0, '由箍筋内表面包围的截面核芯面积'),
+        ('Ucor', '<i>U</i><sub>cor</sub>', 'mm', 0, '截面核心面积的周长'),
+        ('ζ', '<i>ζ</i>', '', 0, '纵筋与箍筋的配筋强度比', '纯扭构件纵向钢筋与箍筋的配筋强度比'),
+        ('ρsv', '<i>ρ</i><sub>sv</sub>', '', 0, '箍筋配筋率'),
+        ('τd', '', '', 0, ''),
+        ('βa', '<i>β</i><sub>a</sub>', '', 0, '箱形截面有效壁厚折减系数'),
+        ('βt', '<i>β</i><sub>t</sub>', '', 0, '剪扭构件混凝土抗扭承载力降低系数'),
+        ('γ0Vd', '', 'kN', 0, ''),
+        ('γ0Td', '', 'kN·m', 0, ''),
+        ('Tu', '', 'kN', 0, ''),
+        ('Vut', '', 'kN', 0, ''),
+        ('Tut', '', 'kN·m', 0, ''),
+        ('Wtf_', '<i>W</i><sub>tf</sub><sup>\'</sup>', 'mm<sup>3</sup>', 0, '受压翼缘受扭塑性抵抗矩'),
+        ('Wtf', '<i>W</i><sub>tf</sub>', 'mm<sup>3</sup>', 0, '受拉翼缘受扭塑性抵抗矩'),
+        ('Tfd_', '<i>T</i><sub>fd</sub><sup>\'</sup>', 'kN·m', 0, '分配给受压翼缘承受的扭矩设计值'),
+        ('Tfd', '<i>T</i><sub>fd</sub>', 'kN·m', 0, '分配给受拉翼缘承受的扭矩设计值'),
+        ('γ0Tfd_', '', 'kN·m', 0, ''),
+        ('γ0Tfd', '', 'kN·m', 0, ''),
+        ('Tfu_', '', 'kN·m', 0, ''),
+        ('Tfu', '', 'kN·m', 0, ''),
+    ]
     __toggles__ = {
         'concrete': materials_util.material_toggles['concrete'],
         'rebar': materials_util.material_toggles['rebar'],
@@ -2177,9 +2232,9 @@ class torsion(abacus, materials_util):
         yield self.format('ζ', digits, eq='fsd*Ast*sv/fsv/Asv1/Ucor', value=self._ζ)
         if self._ζ <= 0.6:
             yield '{0}值不满足5.5.1条要求({0}&ge;0.6)，需增加纵筋面积。按{0}=0.6计算。'.format(
-                self.para_attrs('ζ').symbol)
+                self.replace_by_symbols('ζ'))
         elif self._ζ > 1.7:
-            yield '{0}&gt;1.7，取{0}=1.7。'.format(self.para_attrs('ζ').symbol)
+            yield '{0}&gt;1.7，取{0}=1.7。'.format(self.replace_by_symbols('ζ'))
         yield self.format('βa', digits, eq='4*min(t2/b, t1/h)' if box else None)
         eq = 'b<sup>2</sup>/6*(3*h-b)' if (self.section_type == 'rect' or self.section_type == 'I')\
             else 'b<sup>2</sup>/6*(3*h-b)-(b-2*t1)<sup>2</sup>/6*(3*(h-2*t2)-(b-2*t1))'

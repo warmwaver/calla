@@ -332,7 +332,7 @@ class compressive_rib_buckling_coefficient(abacus):
             self._α = α
             self._γl_ = γl_
 
-            self.γt_critical = 1+n*γl_/4/(at/b)**3  # (B.0.1-7)
+            self.γt_critical = (1+n*γl_)/4/(at/b)**3  # (B.0.1-7)
             γt = E*It/a/D  # (B.0.1-10)
             if γt >= self.γt_critical:
                 # 按仅设纵向加劲肋的四边简支板计算，即case 3
@@ -400,10 +400,13 @@ class compressive_rib_buckling_coefficient(abacus):
             condition = self.γt >= self.γt_critical
             yield '{} {} {}，{}满足刚性加劲肋要求(B.0.1-7)，{}。'.format(
                 self.format('γt', digits, eq='E·It/a/D'), '≥' if condition else '&lt;',
-                self.format('γt_critical', digits, eq='1+n*γl_/4/(at/b)<sup>3</sup>', omit_name=True),
+                self.format('γt_critical', digits, eq='(1+n*γl_)/4/(at/b)<sup>3</sup>', omit_name=True),
                 '' if condition else '不',
                 'k按仅设纵向加劲肋的四边简支板计算' if condition else 'k按(B.0.1-8)式计算')
-            if condition is False:
+            if condition:
+                if rigid:
+                    eq = ''
+            else:
                 yield self.format('α', digits, eq='a/b')
                 yield self.format('γl_', digits, eq=eq)
                 if rigid is False:
@@ -764,7 +767,7 @@ class web_rib(abacus):
             'Q235': [[70, 0, 0], [160, 280, 310]],
             'Q345': [[60, 0, 0], [140, 240, 310]]
         }
-        if not self.steel in op:
+        if self.steel not in op:
             # raise InputError(self, 'steel', '不支持的类型')
             # 规范有遗漏，未给出其它钢材品种的取值说明，计算时标号大于Q345的按Q345取值
             self.steel = 'Q345'
@@ -795,7 +798,7 @@ class web_rib(abacus):
         self.It_min = self.fIt(self.hw, self.tw)
 
         self.ξl = self._ξl = self.fξl(self.a, self.hw)
-        if self.ξl < 1.5:
+        if self.ξl > 1.5:
             self.ξl = 1.5
         self.Il_min = self.fIl(self.ξl, self.hw, self.tw)
 
@@ -843,7 +846,7 @@ class web_rib(abacus):
         yield '(4) 腹板纵向加劲肋惯性矩验算'
         yield '{}{}'.format(
             self.format('ξl', digits, value=self._ξl, eq='(a/hw)**2*(2.5-0.45*(a/hw))'),
-            ' &lt; 1.5, 取 {0} = 1.5。'.format(self._deriveds_['ξl'].symbol) if self._ξl < 1.5 else '')
+            ' &gt; 1.5, 取 {0} = 1.5。'.format(self._deriveds_['ξl'].symbol) if self._ξl > 1.5 else '')
         ok = self.Il >= self.Il_min
         yield self.format_conclusion(
             ok,

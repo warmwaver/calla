@@ -6,8 +6,10 @@
 __all__ = [
     'rib_size',
     'flange_size',
-    'compressive_rib',
-    'compressive_rib_buckling_coefficient',
+    'compressed_stiffened_plate',
+    'plate_buckling_coefficient',
+    'plate_buckling_effective_section',
+    'shear_lag_effective_section',
     'effective_section',
     'stability_bending',
     'stability_bending_compression',
@@ -17,7 +19,6 @@ __all__ = [
     'stability_reduction_factor'
 ]
 
-from collections import OrderedDict
 from calla import abacus, InputError
 from math import pi, sqrt
 
@@ -75,7 +76,7 @@ class rib_size(abacus):
     def _html(self, digits=2):
         disableds = self.disableds()
         for param in self.inputs:  # ('hs','ts','fy'):
-            if not param in disableds:
+            if param not in disableds:
                 yield self.format(param, digits=None)
         if self.type == '2' or self.type == '4':
             ok = self.eql2 <= self.eqr2
@@ -100,15 +101,15 @@ class flange_size(abacus):
     《公路钢结构桥梁设计规范》（JTG D64-2015） 第7.2.1节
     """
     __title__ = '钢板梁翼缘截面尺寸验算'
-    __inputs__ = OrderedDict((
-        ('wfl', ('<i>w</i><sub>fl</sub>', 'mm', 100, '加劲肋宽度')),
-        ('tfl', ('<i>t</i><sub>fl</sub>', 'mm', 10, '加劲肋厚度')),
-        ('fyk', ('<i>f</i><sub>yk</sub>', 'mm', 345, '钢材的屈服强度')),
-    ))
-    __deriveds__ = OrderedDict((
-        ('eql', ('', '', 0, '板肋的宽厚比')),
-        ('eqr', ('', '', 0, '', '')),
-    ))
+    __inputs__ = [
+        ('wfl', '<i>w</i><sub>fl</sub>', 'mm', 100, '加劲肋宽度'),
+        ('tfl', '<i>t</i><sub>fl</sub>', 'mm', 10, '加劲肋厚度'),
+        ('fyk', '<i>f</i><sub>yk</sub>', 'mm', 345, '钢材的屈服强度'),
+    ]
+    __deriveds__ = [
+        ('eql', '', '', 0, '板肋的宽厚比'),
+        ('eqr', '', '', 0, '', ''),
+    ]
 
     def solve(self):
         self.validate('positive', 'fyk')
@@ -125,7 +126,7 @@ class flange_size(abacus):
             '' if ok else '不')
 
 
-class compressive_rib(abacus):
+class compressed_stiffened_plate(abacus):
     """
     受压加劲板刚度
     《公路钢结构桥梁设计规范》（JTG D64-2015） 第5.1.6节
@@ -137,37 +138,38 @@ class compressive_rib(abacus):
         ('a', '<i>a</i>', 'mm', 2000, '加劲板的计算长度', '横隔板或刚性横向加劲肋的间距'),
         ('b', '<i>b</i>', 'mm', 1800, '加劲板的计算宽度', '腹板或刚性纵向加劲肋的间距'),
         ('t', '<i>t</i>', 'mm', 12, '母板厚度'),
-        ('hl', '<i>h</i><sub>l</sub>', 'mm', 90, '纵向加劲肋截面高度'),
-        ('tl', '<i>t</i><sub>l</sub>', 'mm', 10, '纵向加劲肋厚度'),
+        ('Asl', '<i>A</i><sub>sl</sub>', 'mm<sup>2</sup>', 0, '单根纵向加劲肋的截面面积'),
+        ('Il', '<i>I</i><sub>l</sub>', 'mm<sup>4</sup>', 0, '纵向加劲肋惯性矩'),
+        # ('hl', '<i>h</i><sub>l</sub>', 'mm', 90, '纵向加劲肋截面高度'),
+        # ('tl', '<i>t</i><sub>l</sub>', 'mm', 10, '纵向加劲肋厚度'),
         ('nl', '<i>n</i><sub>l</sub>', '', 5, '等间距布置纵向加劲肋根数'),
         ('option', '是否有横向加劲肋', '', False, '', '', {True: '是', False: '否'}),
-        ('ht', '<i>h</i><sub>t</sub>', 'mm', 100, '横向加劲肋截面高度'),
-        ('tt', '<i>t</i><sub>t</sub>', 'mm', 10, '横向加劲肋厚度'),
+        ('It', '<i>I</i><sub>t</sub>', 'mm<sup>4</sup>', 0, '横向加劲肋惯性矩'),
+        # ('ht', '<i>h</i><sub>t</sub>', 'mm', 100, '横向加劲肋截面高度'),
+        # ('tt', '<i>t</i><sub>t</sub>', 'mm', 10, '横向加劲肋厚度'),
         ('at', '<i>a</i><sub>t</sub>', 'mm', 1000, '横向加劲肋间距'),
     ]
     __deriveds__ = [
         ('α', '<i>α</i>', '', 0, '加劲板的长宽比'),
-        ('Il', '<i>I</i><sub>l</sub>', 'mm<sup>4</sup>', 0, '纵向加劲肋惯性矩'),
-        ('It', '<i>I</i><sub>t</sub>', 'mm<sup>4</sup>', 0, '横向加劲肋惯性矩'),
+        # ('Il', '<i>I</i><sub>l</sub>', 'mm<sup>4</sup>', 0, '纵向加劲肋惯性矩'),
+        # ('It', '<i>I</i><sub>t</sub>', 'mm<sup>4</sup>', 0, '横向加劲肋惯性矩'),
         ('D', '<i>D</i>', 'N·mm', 0, '单宽板刚度'),
         ('γl', '<i>γ</i><sub>l</sub>', '', 0, '纵向加劲肋的相对刚度'),
         ('γl_', '<i>γ</i><sub>l</sub><sup>*</sup>', '', 0, '纵向加劲肋的相对刚度限值'),
         ('δl', '<i>δ</i><sub>l</sub>', '', 0, '单根纵向加劲肋的截面面积与母板的面积之比'),
-        ('Asl', '<i>A</i><sub>sl</sub>', 'mm<sup>2</sup>', 0, '单根纵向加劲肋的截面面积'),
-        ('Asl_min', '<i>bt</i>/10<i>n</i>', 'mm<sup>2</sup>', 0, '', '单根纵向加劲肋的截面面积限值'),
+        # ('Asl', '<i>A</i><sub>sl</sub>', 'mm<sup>2</sup>', 0, '单根纵向加劲肋的截面面积'),
+        ('Asl_min', '<i>bt</i>/10<i>n</i>', 'mm<sup>2</sup>', 0, '单根纵向加劲肋的截面面积限值'),
+        ('is_rigid', '', '', True, '是否刚性'),
         ('γt', '<i>γ</i><sub>t</sub>', '', 0, '横向加劲肋的相对刚度'),
         ('γt_min', '1+<i>nγ</i><sub>l</sub><sup>*</sup>/4/(<i>at</i>/<i>b</i>)', '', 0, '横向加劲肋的相对刚度'),
         ('k', '<i>k</i>', '', 0.425, '加劲板的弹性屈曲系数', '加劲肋尺寸符合本规范第5.1.5条规定时，可参考附录B计算'),
     ]
     __toggles__ = [
-        'option', {True: (), False: ('ht', 'tt', 'at')},
+        'option', {True: (), False: ('It', 'ht', 'tt', 'at')},
     ]
 
     @staticmethod
-    def fsolve(E=2.06E5, υ=0.31, a=2000, b=1400, t=12, hl=90, tl=10, ht=100, tt=10, nl=3, at=1000):
-        Asl = hl*tl
-        Il = tl*hl**3/12+Asl*(hl/2)**2
-        It = tt*ht**3/12+tt*ht*(ht/2)**2
+    def fsolve(E=2.06E5, υ=0.31, a=2000, b=1400, t=12, Asl=0, Il=0, It=0, nl=3, at=1000):
         D = E*t**3/12/(1-υ**2)
         γl = E*Il/b/D
         γt = E*It/a/D
@@ -179,7 +181,7 @@ class compressive_rib(abacus):
             else 1/n*((2*n**2*(1+n*δl)-1)**2-1)  # (5.1.6-4)
         Asl_min = b*t/10/n  # (5.1.6-2)
         γt_min = (1+n*γl_)/4/(at/b)**3  # (5.1.6-3)
-        return (Il, It, D, γl, γt, n, α0, α, Asl, δl, γl_, Asl_min, γt_min)
+        return (D, γl, γt, n, α0, α, Asl, δl, γl_, Asl_min, γt_min)
 
     @staticmethod
     def fk(α, α0, γl, δl, n, rigid=True):
@@ -191,15 +193,21 @@ class compressive_rib(abacus):
         self.validate('non-negative', 'υ', 'nl')
         if self.υ >= 1:
             raise InputError(self, 'υ', '应<1')
-        self.Il, self.It, self.D, self.γl, self.γt, self.n, self.α0,\
+        self.D, self.γl, self.γt, self.n, self.α0, \
             self.α, self.Asl, self.δl, self.γl_, self.Asl_min, self.γt_min = \
-            self.fsolve(self.E, self.υ, self.a, self.b, self.t, self.hl, self.tl, self.ht, self.tt, self.nl, self.at)
-        self.k = self.fk(self.α, self.α0, self.γl, self.δl, self.n, self.γl >= self.γl_)
+            self.fsolve(self.E, self.υ, self.a, self.b, self.t, self.Asl, self.Il, self.It, self.nl, self.at)
+
+        if self.γl > 0 and self.n > 1:
+            self.is_rigid = self.γl >= self.γl_
+            self.k = self.fk(self.α, self.α0, self.γl, self.δl, self.n, self.is_rigid)
+        else:
+            self.is_rigid = False
+            self.k = self.fk(self.α, self.α0, 0, 0, 0, self.is_rigid)
 
     def _html(self, digits=2):
         disableds = self.disableds()
         for attr in self.inputs:
-            if hasattr(self, attr) and (not attr in disableds):
+            if hasattr(self, attr) and (attr not in disableds):
                 yield self.format(attr, digits=None)
         yield self.format('D', digits, eq='E·t<sup>3</sup>/12/(1-υ<sup>2</sup>)')
         yield self.format('Il', digits)
@@ -211,13 +219,13 @@ class compressive_rib(abacus):
         eq = '1/n·(4·n<sup>2</sup>·(1+n·δl)·α<sup>2</sup>-(α<sup>2</sup>+1)<sup>2</sup>)' \
             if self.α <= self.α0 else '1/n·((2·n<sup>2</sup>·(1+n·δl)-1)<sup>2</sup>-1)'
         yield self.format('γl_', digits, eq=eq)
-        rigid = self.γl >= self.γl_
+        
         yield self.format_conclusion(
-            rigid,
+            self.is_rigid,
             self.format('γl', digits, eq='E·Il/b/D'),
-            '≥' if rigid else '&lt;',
+            '≥' if self.is_rigid else '&lt;',
             self.format('γl_', digits=digits, omit_name=True),
-            '{}满足刚性加劲肋要求。'.format('' if rigid else '不')
+            '{}满足刚性加劲肋要求。'.format('' if self.is_rigid else '不')
         )
         ok = self.Asl >= self.Asl_min
         yield self.format_conclusion(
@@ -236,7 +244,7 @@ class compressive_rib(abacus):
                 self.format('γt_min', digits=digits, omit_name=True),
                 '{}满足规范要求。'.format('' if ok else '不')
             )
-        if rigid:
+        if self.is_rigid:
             yield self.format('k', digits)
         else:
             eq = '((1+α<sup>2</sup>)<sup>2</sup>+n·γl)/α<sup>2</sup>/(1+n·δl)' if self.α <= self.α0\
@@ -244,7 +252,7 @@ class compressive_rib(abacus):
             yield self.format('k', digits, eq=eq)
 
 
-class compressive_rib_buckling_coefficient(abacus):
+class plate_buckling_coefficient(abacus):
     """
     受压加劲板弹性屈曲系数
     《公路钢结构桥梁设计规范》（JTG D64-2015） 附录B
@@ -373,6 +381,7 @@ class compressive_rib_buckling_coefficient(abacus):
             yield self.format('Il', digits)
             yield self.format('It', digits)
             yield self.format('α0', digits, eq='(1+n*γl)<sup>(1/4)</sup>')
+            yield self.format('α', digits, eq='a/b')
             yield self.format('δl', digits, eq='Al/b/t')
             yield self.format('γl_', digits, eq=eq)
             rigid = self.γl >= self.γl_
@@ -425,33 +434,33 @@ class effective_section(abacus):
     《公路钢结构桥梁设计规范》（JTG D64-2015） 第5.1.7节
     """
     __title__ = '受压加劲板有效截面'
-    __inputs__ = OrderedDict((
-        ('bp', ('<i>b</i><sub>p</sub>', 'mm', 1800, '加劲肋局部稳定计算宽度',
-                '''对开口刚性加劲肋，按加劲肋的间距bi计算[图5.1.7a];
+    __inputs__ = [
+        ('bp', '<i>b</i><sub>p</sub>', 'mm', 1800, '加劲肋局部稳定计算宽度',
+            '''对开口刚性加劲肋，按加劲肋的间距bi计算[图5.1.7a];
         对闭口刚性加劲肋，按加劲肋腹板间的间距计算;
-        对柔性加劲肋，按腹板间距或腹板至悬臂端的宽度bi计算[图5.1.7b]''')),
-        ('t', ('<i>t</i>', 'mm', 12, '母板厚度')),
-        ('fy', ('<i>f</i><sub>y</sub>', 'MPa', 345, '钢材的屈服强度')),
-        ('E', ('<i>E</i>', 'MPa', 2.06E5, '钢材弹性模量')),
-        ('k', ('<i>k</i>', '', 0.425, '加劲板的弹性屈曲系数', '加劲肋尺寸符合本规范第5.1.5条规定时，可参考附录B计算')),
-        ('bi', ('<i>b</i><sub>i</sub>', 'mm', 1800, '第i块受压板段或板元的宽度')),
-        ('beam_type', ('梁类别', '', 'simple', '', '', {'simple': '简支梁', 'continuous': '连续梁', 'cantilever': '悬臂梁'})),
-        ('location', ('截面位置', '', 'middle_span', '', '', {'side_span': '边跨', 'middle_span': '中跨', 'middle_support': '中支点'})),
-        ('L', ('<i>L</i>', 'mm', 0, '跨径')),
-        ('L1', ('<i>L</i><sub>1</sub>', 'mm', 0, '跨径')),
-        ('L2', ('<i>L</i><sub>2</sub>', 'mm', 0, '跨径')),
-    ))
-    __deriveds__ = OrderedDict((
-        ('l', ('<i>l</i>', 'mm', 0, '等效跨径')),
+        对柔性加劲肋，按腹板间距或腹板至悬臂端的宽度bi计算[图5.1.7b]'''),
+        ('t', '<i>t</i>', 'mm', 12, '母板厚度'),
+        ('fy', '<i>f</i><sub>y</sub>', 'MPa', 345, '钢材的屈服强度'),
+        ('E', '<i>E</i>', 'MPa', 2.06E5, '钢材弹性模量'),
+        ('k', '<i>k</i>', '', 0.425, '加劲板的弹性屈曲系数', '加劲肋尺寸符合本规范第5.1.5条规定时，可参考附录B计算'),
+        ('bi', '<i>b</i><sub>i</sub>', 'mm', 1800, '第i块受压板段或板元的宽度'),
+        ('beam_type', '梁类别', '', 'simple', '', '', {'simple': '简支梁', 'continuous': '连续梁', 'cantilever': '悬臂梁'}),
+        ('location', '截面位置', '', 'middle_span', '', '', {'side_span': '边跨', 'middle_span': '中跨', 'middle_support': '中支点'}),
+        ('L', '<i>L</i>', 'mm', 0, '跨径'),
+        ('L1', '<i>L</i><sub>1</sub>', 'mm', 0, '跨径'),
+        ('L2', '<i>L</i><sub>2</sub>', 'mm', 0, '跨径'),
+    ]
+    __deriveds__ = [
+        ('l', '<i>l</i>', 'mm', 0, '等效跨径'),
         # ('option',('适用公式','','A','','',{'A':'(5.1.8-3)','B':'(5.1.8-4)'})),
-        ('λp', ('<span style="text-decoration:overline;"><i>λ</i></span><sub>p</sub>', '', 0, '相对宽厚比')),
-        ('ε0', ('<i>ε</i><sub>0</sub>', '', 0, '')),
-        ('ρip', ('<i>ρ</i><sub>i</sub><sup>p</sup>', '', 0, '第i块受压板段或板元的局部稳定折减系数')),
-        ('beip', ('<i>b</i><sub>e,i</sub><sup>p</sup>', 'mm', 0, '第i块受压板段考虑局部稳定影响的有效宽度')),
-        ('ρis', ('<i>ρ</i><sub>i</sub><sup>s</sup>', '', 0, '考虑剪力滞影响的第i块板段的翼缘有效宽度折减系数')),
-        ('beis', ('<i>b</i><sub>e,i</sub><sup>s</sup>', 'mm', 0, '考虑剪力滞影响的第i块板段的翼缘有效宽度')),
-        ('bei', ('<i>b</i><sub>e,i</sub>', 'mm', 0, '同时考虑剪力滞和局部稳定影响的第i块板段的翼缘有效宽度')),
-    ))
+        ('λp', '<span style="text-decoration:overline;"><i>λ</i></span><sub>p</sub>', '', 0, '相对宽厚比'),
+        ('ε0', '<i>ε</i><sub>0</sub>', '', 0, ''),
+        ('ρip', '<i>ρ</i><sub>i</sub><sup>p</sup>', '', 0, '第i块受压板段或板元的局部稳定折减系数'),
+        ('beip', '<i>b</i><sub>e,i</sub><sup>p</sup>', 'mm', 0, '第i块受压板段考虑局部稳定影响的有效宽度'),
+        ('ρis', '<i>ρ</i><sub>i</sub><sup>s</sup>', '', 0, '考虑剪力滞影响的第i块板段的翼缘有效宽度折减系数'),
+        ('beis', '<i>b</i><sub>e,i</sub><sup>s</sup>', 'mm', 0, '考虑剪力滞影响的第i块板段的翼缘有效宽度'),
+        ('bei', '<i>b</i><sub>e,i</sub>', 'mm', 0, '同时考虑剪力滞和局部稳定影响的第i块板段的翼缘有效宽度'),
+    ]
     __toggles__ = {
         'beam_type': {
             'simple': ('location', 'L1', 'L2'),
@@ -466,9 +475,9 @@ class effective_section(abacus):
 
     @staticmethod
     def fρ(bp, t, fy, E, k):
-        λp = 1.05*bp/t*sqrt(fy/E/k)
-        ε0 = 0.8*(λp-0.4)
-        ρ = 1 if λp <= 0.4 else 0.5*(1+(1+ε0)/λp**2-sqrt((1+(1+ε0)/λp**2)**2-4/λp**2))
+        λp = 1.05*bp/t*sqrt(fy/E/k)  # (5.1.7-5)
+        ε0 = 0.8*(λp-0.4)  # (5.1.7-4)
+        ρ = 1 if λp <= 0.4 else 0.5*(1+(1+ε0)/λp**2-sqrt((1+(1+ε0)/λp**2)**2-4/λp**2))  # (5.1.7-3)
         return (λp, ε0, ρ)
 
     @staticmethod
@@ -531,6 +540,127 @@ class effective_section(abacus):
         self.beis = self.fbeis(self.bi, self.l, option)
         self.ρis = self.beis/self.bi
         self.bei = self.ρis*self.beip
+
+
+class plate_buckling_effective_section(abacus):
+    """
+    考虑局部稳定影响的构件受压加劲板有效截面宽度
+    《公路钢结构桥梁设计规范》（JTG D64-2015） 第5.1.7节
+    """
+    __title__ = '局部稳定影响的受压加劲板有效截面宽度'
+    __inputs__ = [
+        ('t', '<i>t</i>', 'mm', 12, '母板厚度'),
+        ('fy', '<i>f</i><sub>y</sub>', 'MPa', 345, '钢材的屈服强度'),
+        ('E', '<i>E</i>', 'MPa', 2.06E5, '钢材弹性模量'),
+        ('k', '<i>k</i>', '', 0.425, '加劲板的弹性屈曲系数', '加劲肋尺寸符合本规范第5.1.5条规定时，可参考附录B计算'),
+        ('bi', '<i>b</i><sub>i</sub>', 'mm', 1800, '第i块受压板段或板元的宽度'),
+        ('bp', '<i>b</i><sub>p</sub>', 'mm', 1800, '加劲肋局部稳定计算宽度',
+            '''对开口刚性加劲肋，按加劲肋的间距bi计算[图5.1.7a];
+        对闭口刚性加劲肋，按加劲肋腹板间的间距计算;
+        对柔性加劲肋，按腹板间距或腹板至悬臂端的宽度bi计算[图5.1.7b]'''),
+    ]
+    __deriveds__ = [
+        ('l', '<i>l</i>', 'mm', 0, '等效跨径'),
+        # ('option',('适用公式','','A','','',{'A':'(5.1.8-3)','B':'(5.1.8-4)'})),
+        ('λp', '<span style="text-decoration:overline;"><i>λ</i></span><sub>p</sub>', '', 0, '相对宽厚比'),
+        ('ε0', '<i>ε</i><sub>0</sub>', '', 0, ''),
+        ('ρip', '<i>ρ</i><sub>i</sub><sup>p</sup>', '', 0, '第i块受压板段或板元的局部稳定折减系数'),
+        ('beip', '<i>b</i><sub>e,i</sub><sup>p</sup>', 'mm', 0, '第i块受压板段考虑局部稳定影响的有效宽度'),
+        ('ρis', '<i>ρ</i><sub>i</sub><sup>s</sup>', '', 0, '考虑剪力滞影响的第i块板段的翼缘有效宽度折减系数'),
+        ('beis', '<i>b</i><sub>e,i</sub><sup>s</sup>', 'mm', 0, '考虑剪力滞影响的第i块板段的翼缘有效宽度'),
+        ('bei', '<i>b</i><sub>e,i</sub>', 'mm', 0, '同时考虑剪力滞和局部稳定影响的第i块板段的翼缘有效宽度'),
+    ]
+
+    @staticmethod
+    def fρ(bp, t, fy, E, k):
+        λp = 1.05*bp/t*sqrt(fy/E/k)  # (5.1.7-5)
+        ε0 = 0.8*(λp-0.4)  # (5.1.7-4)
+        ρ = 1 if λp <= 0.4 else 0.5*(1+(1+ε0)/λp**2-sqrt((1+(1+ε0)/λp**2)**2-4/λp**2))  # (5.1.7-3)
+        return (λp, ε0, ρ)
+
+    def solve(self):
+        self.validate('positive', 'fy', 'E', 'k')
+        self.λp, self.ε0, self.ρip = self.fρ(self.bp, self.t, self.fy, self.E, self.k)
+        self.beip = self.ρip*self.bi
+
+
+class shear_lag_effective_section(abacus):
+    """
+    考虑剪力滞影响的受弯构件的受拉或受压翼缘有效截面宽度
+    《公路钢结构桥梁设计规范》（JTG D64-2015） 第5.1.8节
+    """
+    __title__ = '剪力滞影响的受弯构件的翼缘有效截面宽度'
+    __inputs__ = [
+        ('bi', '<i>b</i><sub>i</sub>', 'mm', 1800, '第i块受压板段或板元的宽度'),
+        ('beam_type', '梁类别', '', 'simple', '', '', {'simple': '简支梁', 'continuous': '连续梁', 'cantilever': '悬臂梁'}),
+        ('location', '截面位置', '', 'middle_span', '', '', {'side_span': '边跨', 'middle_span': '中跨', 'middle_support': '中支点'}),
+        ('L', '<i>L</i>', 'mm', 0, '跨径'),
+        ('L1', '<i>L</i><sub>1</sub>', 'mm', 0, '跨径'),
+        ('L2', '<i>L</i><sub>2</sub>', 'mm', 0, '跨径'),
+    ]
+    __deriveds__ = [
+        ('l', '<i>l</i>', 'mm', 0, '等效跨径'),
+        ('ρis', '<i>ρ</i><sub>i</sub><sup>s</sup>', '', 0, '考虑剪力滞影响的第i块板段的翼缘有效宽度折减系数'),
+        ('beis', '<i>b</i><sub>e,i</sub><sup>s</sup>', 'mm', 0, '考虑剪力滞影响的第i块板段的翼缘有效宽度'),
+    ]
+    __toggles__ = {
+        'beam_type': {
+            'simple': ('location', 'L1', 'L2'),
+            'continuous': ('L'),
+            'cantilever': ('L')
+        },
+        'location': {
+            'side_span': ('L2'),
+            'middle_span': ('L1'),
+        },
+    }
+
+    @staticmethod
+    def fbeis(bi, l, useEq3=True):
+        c = bi/l
+        if useEq3:
+            # (5.1.8-3)
+            return bi if c <= 0.05 else (1.1-2*bi/l)*bi if c < 0.3 else 0.15*l
+        # (5.1.8-4)
+        # 式(1.06-3.2*bi/l+4.5*(bi/l)**2)*b有误，b应为bi
+        return bi if c <= 0.02 else (1.06-3.2*bi/l+4.5*(bi/l)**2)*bi if c < 0.3 else 0.15*l
+
+    def solve(self):
+        self.validate('positive', 'fy', 'E', 'k')
+        # self.λp, self.ε0, self.ρip = self.fρ(self.bp, self.t, self.fy, self.E, self.k)
+        # self.beip = self.ρip*self.bi
+        if self.beam_type == 'simple':
+            self.validate('positive', 'L')
+            option = True
+            self.l = self.L
+        elif self.beam_type == 'continuous':
+            option = True if (self.location == 'side_span' or self.location == 'middle_span') else False
+            if self.location == 'side_span':
+                self.validate('positive', 'L1')
+                self.l = 0.8*self.L1
+            elif self.location == 'middle_span':
+                self.validate('positive', 'L2')
+                self.l = 0.6*self.L2
+            elif self.location == 'middle_support':
+                self.validate('positive', 'L1', 'L2')
+                self.l = 0.2*(self.L1+self.L2)
+            else:
+                raise InputError(self, 'location', '未知的输入参数')
+        elif self.beam_type == 'cantilever':
+            option = True
+            if self.location == 'side_span':
+                self.validate('positive', 'L1')
+                self.l = 2*self.L1
+            elif self.location == 'middle_span':
+                self.validate('positive', 'L2')
+                self.l = 0.6*self.L2
+            elif self.location == 'middle_support':
+                self.validate('positive', 'L1')
+                self.l = 2*self.L1
+            else:
+                raise InputError(self, 'location', '未知的输入参数')
+        self.beis = self.fbeis(self.bi, self.l, option)
+        self.ρis = self.beis/self.bi
 
 
 class stability_bending(abacus):
@@ -1048,7 +1178,7 @@ class diaphragm(abacus):
     def _html(self, digits=2):
         disableds = self.disableds()
         for attr in self.inputs:
-            if hasattr(self, attr) and (not attr in disableds):
+            if hasattr(self, attr) and (attr not in disableds):
                 yield self.format(attr, digits=None)
         yield self.format('Ifl', digits, eq='tl*(Bl+2*b2)<sup>3</sup>/12')
         yield self.format('Ifu', digits, eq='tu*(Bu+2*b1)<sup>3</sup>/12')

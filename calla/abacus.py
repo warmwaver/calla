@@ -162,7 +162,7 @@ class abacus:
     def deriveds(self):
         """ Get a dictionary of derived parameters. """
         self._init_deriveds_()
-        return { attr:(getattr(self, attr) if hasattr(self, attr) else 0) for attr in self._deriveds_} if hasattr(self, '__deriveds__') else None
+        return {attr: (getattr(self, attr) if hasattr(self, attr) else 0) for attr in self._deriveds_} if hasattr(self, '__deriveds__') else None
 
     @property
     def parameters(self):
@@ -387,7 +387,7 @@ class abacus:
 
     @staticmethod
     def create_param_object(attrs: tuple):
-        """create parameter object with dynamic type"""
+        """create parameter object with dynamic type, using item from inputs or deriveds"""
         if isinstance(attrs, tuple):
             n = len(attrs)
             _choices = None
@@ -426,7 +426,7 @@ class abacus:
         elif parameter in self.__deriveds__:
             attrs = self.__deriveds__[parameter]
         else:
-            raise Exception('parameter not exists.')
+            raise Exception('parameter {} not exists.'.format(parameter))
         n = len(attrs)
         cls_para = type(
                 'para', (object,),
@@ -534,7 +534,7 @@ class abacus:
                 if hasattr(self, attr) and (not attr in disableds):
                     yield self.format(attr, digits = digits)
         
-    def html(self, digits = 2):
+    def html(self, digits=2):
         result = ''
         gen = self._html(digits)
         for p in gen:

@@ -117,6 +117,16 @@ def query_table(table: tuple, row_value: float, col_index: int):
             row_index为行索引值
         row_value: 行查询值，float类型
         col_index: 列索引值，int类型(0, 1, 2, ...)
+
+    表格示例：
+    table_μz = (
+        #(基准高度Z, A, B, C, D)
+        (5, 1.09, 1.00, 0.65, 0.51),
+        (10, 1.28, 1.00, 0.65, 0.51),
+        (15, 1.42, 1.13, 0.65, 0.51),
+        (20, 1.52, 1.23, 0.74, 0.51),
+        (30, 1.67, 1.39, 0.88, 0.51),
+    )
     """
     if row_value <= table[0][0]:
         return table[0][col_index]

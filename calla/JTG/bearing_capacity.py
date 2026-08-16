@@ -524,7 +524,7 @@ class axial_compression(abacus):
         return 0.9*phi*(fc*A+fy_*As_)
 
     @classmethod
-    def _phi(cls, l0, b=0, d=0, i=0):
+    def fphi(cls, l0, b=0, d=0, i=0):
         _b = (8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 40, 42, 44, 46, 48, 50)
         _d = (7, 8.5, 10.5, 12, 14, 15.5, 17, 19, 21, 22.5, 24, 26, 28, 29.5, 31, 33, 34.5, 36.5, 38, 40, 41.5, 43)
         _i = (28, 35, 42, 48, 55, 62, 69, 76, 83, 90, 97, 104, 111, 118, 125, 132, 139, 146, 153, 160, 167, 174)
@@ -556,7 +556,7 @@ class axial_compression(abacus):
     def solve(self):
         if self.b <= 0 and self.r <= 0 and self.i <= 0:
             raise InputError(self, 'i', 'b, r, i输入值必须有一个大于0')
-        self.φ = self._phi(self.l0, self.b, 2*self.r, self.i)
+        self.φ = self.fphi(self.l0, self.b, 2*self.r, self.i)
         self.Nud = self.fNu(self.φ, self.fcd, self.A, self.fsd_, self.As_)*1e-3
         # self.轴压比 = axial_compression.compression_ratio(self.Nd, self.A, self.fcd)*1e3
         self.eql = self.γ0*self.Nd
@@ -1781,7 +1781,7 @@ class eccentric_tension(abacus, materials_util):
 class bc_round(abacus, materials_util):
     """
     圆形截面承载力计算
-    《公路钢筋混凝土及预应力混凝土桥涵设计规范》（JTG 3362-2018）第5.3.8节
+    《公路钢筋混凝土及预应力混凝土桥涵设计规范》（JTG 3362-2018）第5.3.8、5.4.4节
 
     >>> bc_round.solve_As(14.3,360,800,700,pi/4*800**2,0,100*1e6)
     (0.13546417236328123, 373.3362955499133)
@@ -1801,7 +1801,7 @@ class bc_round(abacus, materials_util):
         ('r', '<i>r</i>', 'mm', 800, '圆形截面的半径'),
         ('rs', '<i>r</i><sub>s</sub>', 'mm', 700, '纵向普通钢筋重心所在圆周的半径'),
         ('l0', '<i>l</i><sub>0</sub>', 'mm', 1000, '构件计算长度'),
-        ('Nd', '<i>N</i><sub>d</sub>', 'kN', 1000.0, '轴力设计值'),
+        ('Nd', '<i>N</i><sub>d</sub>', 'kN', 1000.0, '轴力设计值', '正值表示受压，负值表示受拉'),
         ('Md', '<i>M</i><sub>d</sub>', 'kN·m', 100.0, '弯矩设计值'),
         # ('εcu',('<i>ε</i><sub>cu</sub>','mm',0.0033,'混凝土极限压应变'),
         ('As', '<i>A</i><sub>s</sub>', 'mm<sup>2</sup>', 0, '全截面钢筋面积'),
@@ -1816,11 +1816,14 @@ class bc_round(abacus, materials_util):
         # ('ρ',('<i>ρ</i>','',0,'纵向钢筋配筋率','ρ=As/πr^2'),
         ('A', '<i>A</i>', 'mm<sup>2</sup>', 0, '圆形截面面积'),
         ('α', '<i>α</i>', '', 0, '受压区域圆心角与2π的比值'),
-        ('Nud', '<i>N</i><sub>ud</sub>', 'kN', 0, '', '正截面抗压承载力设计值'),
-        ('Mud', '<i>M</i><sub>ud</sub>', 'kN·m', 0, '', '正截面抗弯承载力设计值'),
+        ('αt', '<i>α</i><sub>t</sub>', '', 0, '纵向受拉钢筋面积与全部钢筋面积的比值'),
+        ('Nu', '<i>N</i><sub>ud</sub>', 'kN', 0, '', '正截面抗压承载力设计值'),
+        ('Nu0', '<i>N</i><sub>ud</sub>', 'kN', 0, '轴心抗拉承载力设计值'),
+        ('Mu', '<i>M</i><sub>ud</sub>', 'kN·m', 0, '', '正截面抗弯承载力设计值'),
         ('Asmin', '<i>A</i><sub>s,min</sub>', 'mm<sup>2</sup>', 0, '', '全截面最小钢筋面积'),
-        ('eql1', '', 'kN', 0, ''),
-        ('eql2', '', 'kN·m', 0, ''),
+        ('N', '', 'kN', 0, '', 'γ0Nd'),
+        ('M', '', 'kN·m', 0, '', 'γ0Md'),
+        ('φ', '<i>φ</i>', '', 0, '稳定系数'),
     ]
     __toggles__ = {
         'option': {'review': (), 'design': ('As',)},
@@ -1840,50 +1843,54 @@ class bc_round(abacus, materials_util):
         return (N-α*fc*A*(1-sin(2*pi*α)/2/pi/α))/(α-cls.f_αt(α))/fy
 
     @classmethod
-    def f_N(cls, α, fc, fy, A, As):
-        return α*fc*A*(1-sin(2*pi*α)/2/pi/α)+(α-cls.f_αt(α))*fy*As
+    def f_Nu(cls, α, fc, fy, A, As):
+        return fc*A*(α-sin(2*pi*α)/2/pi)+(α-cls.f_αt(α))*fy*As
 
     @classmethod
-    def f_M(cls, α, fc, fy, r, rs, A, As):
+    def f_Mu(cls, α, fc, fy, r, rs, A, As):
         return 2/3*fc*A*r*sin(pi*α)**3/pi\
             + fy*As*rs*(sin(pi*α)+sin(pi*cls.f_αt(α)))/pi
+
+    @staticmethod
+    def fMeq1(α, fc, fy, r, rs, A, N, M):
+        """由方程（5.3.8-1)得到As的表达式，代入（5.3.8-2)，得到关于α的方程f(α)=0"""
+        if α < 0.625:
+            αt = 1.25-2*α
+        else:
+            αt = 0
+        C1 = 2/3*sin(pi*α)**3/pi
+        C2 = (sin(pi*α)+sin(pi*αt))/pi
+        fyAs = (N-fc*A*(α-sin(2*pi*α)/2/pi))/(α-αt)
+        f = fc*A*r*C1+fyAs*rs*C2-M
+        return f
 
     @classmethod
     def solve_As(cls, fc, fy, r, rs, A, N, M):
         """
         求解α和As,已知N和M
         """
-        def f(α, fc, fy, r, rs, A, N, M):
-            if α < 0.625:
-                αt = 1.25-2*α
-            else:
-                αt = 0
-            C1 = 2/3*sin(pi*α)**3/pi
-            C2 = (sin(pi*α)+sin(pi*αt))/pi
-            fyAs = (N-fc*A*(α-sin(2*pi*α)/2/pi))/(α-αt)
-            f = fc*A*r*C1+fyAs*rs*C2-M
-            return f
-        # 以1.25/3为界查找有值区间
-        x0 = 0
-        x1 = 1.25/3*0.999
-        f0 = f(x0, fc, fy, r, rs, A, N, M)
-        f1 = f(x1, fc, fy, r, rs, A, N, M)
+        # 以1.25/3（函数的无穷间断点）为界查找有值区间
+        x0 = 1.25/3*1.001
+        x1 = 1
+        f0 = cls.fMeq1(x0, fc, fy, r, rs, A, N, M)
+        f1 = cls.fMeq1(x1, fc, fy, r, rs, A, N, M)
         if f0*f1 > 0:
-            x0 = 1.25/3*1.001
-            x1 = 1
-            f0 = f(x0, fc, fy, r, rs, A, N, M)
-            f1 = f(x1, fc, fy, r, rs, A, N, M)
+            x0 = 0
+            x1 = 1.25/3*0.999
+            f0 = cls.fMeq1(x0, fc, fy, r, rs, A, N, M)
+            f1 = cls.fMeq1(x1, fc, fy, r, rs, A, N, M)
             if f0*f1 > 0:
+                # 方程无解，可能意味着无需钢筋即能满足承载力要求，仅需按构造配筋
                 raise numeric.NumericError('No real solution.')
         α = numeric.binary_search_solve(
-            f, x0, x1, fc=fc, fy=fy, r=r, rs=rs, A=A, N=N, M=M)
+            cls.fMeq1, x0, x1, fc=fc, fy=fy, r=r, rs=rs, A=A, N=N, M=M)
         As = cls.f_As(α, fc, fy, A, N)
         return (α, As)
 
     @classmethod
-    def solve_M(cls, fc, fy, r, rs, A, As, N):
+    def solve_alpha_with_N(cls, fc, fy, r, rs, A, As, N):
         """
-        求解alpha和M,已知N和As
+        求解alpha，已知N和As
         """
         def f(α, fc, fy, r, rs, A, As, N):
             if α < 0.625:
@@ -1894,41 +1901,103 @@ class bc_round(abacus, materials_util):
         try:
             α = numeric.iteration_method_solve(
                 f, 0.2, fc=fc, fy=fy, r=r, rs=rs, A=A, As=As, N=N)
-        except Exception:
+        except numeric.NumericError:
             try:
                 α = numeric.iteration_method_solve(
                     f, 0.65, fc=fc, fy=fy, r=r, rs=rs, A=A, As=As, N=N)
-            except Exception:
-                raise
-        if α is not None:
-            Mu = cls.f_M(α, fc, fy, r, rs, A, As)
-            return (α, Mu)
-        raise numeric.NumericError('No real solution')
+            except numeric.NumericError:
+                pass
+        return α
+
+    @classmethod
+    def fMeq(cls, α, fc, fy, r, rs, A, As, ei):
+        # 将式(5.3.8-1)代入到式(5.3.8-2)得到的函数
+        return cls.f_Mu(α, fc, fy, r, rs, A, As)-cls.f_Nu(α, fc, fy, A, As)*ei
+
+    @classmethod
+    def solve_alpha_with_ei(cls, fc, fy, r, rs, A, As, ei):
+        """
+        求解alpha，已知ei和As
+        将式(5.3.8-1)代入到式(5.3.8-2)，消去N，求解α
+        参考：张树仁，《钢筋混凝土及预应力钢筋混凝土桥梁结构设计原理》，5.5节，P189
+        """
+        # 牛顿迭代法要求函数二阶可导，但该函数一阶导数不连续
+        # 采用二分法查找方程的根
+        x0 = 1.25/3
+        x1 = 1
+        y0 = cls.fMeq(x0, fc, fy, r, rs, A, As, ei)
+        y1 = cls.fMeq(x1, fc, fy, r, rs, A, As, ei)
+        if y0*y1 > 0:
+            x0 = 0
+            x1 = 1.25/3
+            y0 = cls.fMeq(x0, fc, fy, r, rs, A, As, ei)
+            y1 = cls.fMeq(x1, fc, fy, r, rs, A, As, ei)
+            if y0*y1 > 0:
+                raise numeric.NumericError('No real solution.')
+        α = numeric.binary_search_solve(
+            cls.fMeq, x0, x1, fc=fc, fy=fy, r=r, rs=rs, A=A, As=As, ei=ei)
+        return α
 
     def solve(self):
+        self.validate('non-negative', 'Md')
+        if self.option == 'design':
+            if self.Nd < 0:
+                raise InputError(self, 'Nd', '截面设计仅支持偏心受压，应≥0')
+        self.validate('positive', 'r', 'rs')
+        if self.rs >= self.r:
+            raise InputError(self, 'rs', 'rs应<r')
         self.adjust_params()
-        self.M = self.Md
         self.h0 = self.r+self.rs
         self.h = 2*self.r
-        if not (self.Nd == 0 or self.Md == 0):
-            self.e0, self.η, self.ζ1, self.ζ2 = f_η(self.Nd*1e3, self.Md*1e6, self.h, self.h0, self.l0)
-            self.M = self.Nd*self.η*self.e0*1e-3  # kNm
         self.A = pi*self.r**2
-        self.has_solution = True
+        self.N = self.γ0*self.Nd
+        self.M = self.γ0*self.Md
+        if self.Nd != 0 and self.h > 0 and self.h0 > 0:
+            self.e0, self.η, self.ζ1, self.ζ2 = f_η(self.Nd*1e3, self.Md*1e6, self.h, self.h0, self.l0)
+            self.ei = self.η*self.e0
+            self.M = self.Nd*self.η*self.e0*1e-3  # kNm
         if self.option == 'review':
-            try:
-                self.α, self.Mud = self.solve_M(
-                    self.fcd, self.fsd, self.r, self.rs, self.A, self.As, self.γ0*self.Nd*1e3)
-                self.Mud *= 1e-6  # kNm
-            except Exception:
-                self.has_solution = False
-                self.α = 0
-                self.Mud = 0
-            if hasattr(self, 'e0') and self.e0 > 0:
-                self.Nud = self.Mud/(self.η*self.e0*1e-3)  # kN
+            if self.Nd == 0:
+                # 受弯
+                self.α = self.solve_alpha_with_N(
+                    self.fcd, self.fsd, self.r, self.rs, self.A, self.As, 0
+                )
+                self.Nu = self.f_Nu(self.α, self.fcd, self.fsd, self.A, self.As)
+                self.Mu = self.f_Mu(self.α, self.fcd, self.fsd, self.r, self.rs, self.A, self.As)
+            elif self.Nd > 0:
+                if self.Md == 0:
+                    # 轴心受压
+                    self.φ = axial_compression.fphi(self.l0, d=self.r*2)
+                    self.Nu = 0.9*self.φ*(self.fcd*self.A+self.fsd*self.As)  # (5.3.1)
+                else:
+                    # 偏心受压
+                    self.α = self.solve_alpha_with_ei(
+                        self.fcd, self.fsd, self.r, self.rs, self.A, self.As, self.ei)
+                    if self.α is not None:
+                        self.Nu = self.f_Nu(self.α, self.fcd, self.fsd, self.A, self.As)*1e-3
+                        self.Mu = self.Nu*self.ei*1e-3  # kN
+            else:
+                if self.Md == 0:
+                    # 轴心受拉
+                    self.Nu = self.fsd*self.As*1e-3  # (6.2.22)
+                else:
+                    # 偏心受拉
+                    # 5.4.4 沿周边均匀配置纵向钢筋的圆形截面钢筋混凝土偏心受拉构构件
+                    # 其正截面受拉承载力应符合公式（5.4.4) 的要求
+                    self.α = self.solve_alpha_with_N(
+                        self.fcd, self.fsd, self.r, self.rs, self.A, self.As, 0)
+                    self.Mu = self.f_Mu(self.α, self.fcd, self.fsd, self.r, self.rs, self.A, self.As)*1e-6
+                    self.Nu0 = self.fsd*self.As*1e-3  # (5.4.1) 忽略预应力项
+                    self.Nu = 1.0/(1.0/self.Nu0+self.e0*1e-3/self.Mu)  # (5.4.4)
         else:
-            self.α, self.As = self.solve_As(
-                self.fcd, self.fsd, self.r, self.rs, self.A, self.γ0*self.Nd*1e3, self.γ0*self.M*1e6)
+            # 截面设计
+            try:
+                self.α, self.As = self.solve_As(
+                    self.fcd, self.fsd, self.r, self.rs, self.A, self.γ0*self.Nd*1e3, self.γ0*self.Md*1e6)
+            except numeric.NumericError:
+                # 按构造配筋
+                self.α = None
+                self.As = 0
 
     def _html(self, digits=2):
         return self._html_Mud(digits) if self.option == 'review' else self._html_As(digits)
@@ -1938,51 +2007,113 @@ class bc_round(abacus, materials_util):
             yield self.format(item, digits=None)
         for item in ('r', 'rs', 'As', 'A', 'Nd', 'Md', 'l0'):
             yield self.format(item, digits=digits)
-        ec = hasattr(self, 'e0') and self.e0 > 0  # 判断是否为偏心受压
-        if ec:
+        if hasattr(self, 'e0') and self.e0 > 0:  # 判断是否为偏心受压
             yield self.format('e0', digits=digits)
             yield self.format('h0', digits=digits, eq='r+rs')
             yield self.format('h', digits=digits, eq='2r')
             yield self.format('ζ1', digits=digits, eq='0.2+2.7*e0/h0')
             yield self.format('ζ2', digits=digits, eq='1.15-0.01*l0/h')
             yield self.format('η', digits=digits, eq='1+1/(1300*e0/h0)*(l0/h)<sup>2</sup>*ζ1*ζ2')
-        if self.has_solution:
-            yield '根据5.3.8节内力平衡方程求解得：'
-        else:
-            yield '5.3.8节内力平衡方程无解，故取'
-        yield self.format('α', digits=digits)
-        if ec:
-            self.eql1 = self.γ0*self.Nd
-            ok = self.eql1 <= self.Nud
-            yield '{0} {1} {2}，{3}满足规范要求。'.format(
-                self.format('eql1', eq='γ0*Nd'),
+        if hasattr(self, 'α'):
+            yield self.format('α', digits=digits)
+        if self.Nd == 0:
+            # 受弯
+            yield '按受弯构件计算'
+            ok = self.M <= self.Mu
+            yield self.format_conclusion(
+                ok,
+                self.format('M', digits, eq='γ0 Nd η e0'),
                 '&le;' if ok else '&gt;',
-                self.format('Nud'),
-                '' if ok else '不')
-        self.eql2 = self.γ0*self.M
-        ok = self.eql2 <= self.Mud
-        yield '{0} {1} {2}，{3}满足规范要求。'.format(
-            self.format('eql2', eq='γ0*Nd*η*e0'),
-            '&le;' if ok else '&gt;',
-            self.format('Mud'),
-            '' if ok else '不')
+                self.format(
+                    'Mu', digits,
+                    eq='2/3 fcd A r sin(π α)<sup>3</sup>/π + fsd As rs (sin(π α)+sin(π αt))/π',
+                    omit_name=True
+                    ),
+                '{}满足规范式(5.3.8-2)要求。'.format('' if ok else '不')
+            )
+        elif self.Nd > 0:
+            if self.Md == 0:
+                # 轴心受压
+                yield self.format('φ', digits)
+                yield '按轴心受压构件计算'
+                ok = self.N <= self.Nu
+                yield self.format_conclusion(
+                    ok,
+                    self.format('N', digits, eq='γ0 Nd', value=abs(self.N)),
+                    '&le;' if ok else '&gt;',
+                    self.format(
+                        'Nu', digits,
+                        eq='0.9 φ (fcd A+fsd As)',
+                        omit_name=True
+                        ),
+                    '{}满足规范式(5.3.1)要求。'.format('' if ok else '不')
+                )
+            else:
+                # 偏心受压
+                yield '按偏心受压构件计算'
+                ok = self.N <= self.Nu
+                yield self.format_conclusion(
+                    ok,
+                    self.format('N', digits, eq='γ0 Nd'),
+                    '&le;' if ok else '&gt;',
+                    self.format('Nu', digits, eq='α fcd A (1-sin(2 π α)/2/π/α)+(α-αt) fsd As', omit_name=True),
+                    '{}满足规范式(5.3.8-1)要求。'.format('' if ok else '不')
+                )
+                ok = self.M <= self.Mu
+                yield self.format_conclusion(
+                    ok,
+                    self.format('M', digits, eq='γ0 Nd η e0'),
+                    '&le;' if ok else '&gt;',
+                    self.format(
+                        'Mu', digits,
+                        eq='2/3 fcd A r sin(π α)<sup>3</sup>/π + fsd As rs (sin(π α)+sin(π αt))/π',
+                        omit_name=True
+                        ),
+                    '{}满足规范式(5.3.8-2)要求。'.format('' if ok else '不')
+                )
+        else:
+            if self.Md == 0:
+                # 轴心受拉
+                yield '按轴心受拉构件计算'
+                ok = abs(self.N) <= self.Nu
+                yield self.format_conclusion(
+                    ok,
+                    '{}（拉）'.format(self.format('N', digits, eq='γ0 Nd', value=abs(self.N))),
+                    '&le;' if ok else '&gt;',
+                    self.format('Nu', digits, eq='fsd As', omit_name=True),
+                    '{}满足规范式(5.4.1)要求。'.format('' if ok else '不')
+                )
+            else:
+                # 偏心受拉
+                yield '按偏心受拉构件计算'
+                ok = abs(self.N) <= self.Nu
+                yield self.format_conclusion(
+                    ok,
+                    '{}（拉）'.format(self.format('N', digits, eq='γ0 Nd', value=abs(self.N))),
+                    '&le;' if ok else '&gt;',
+                    self.format('Nu', digits, eq='1.0/(1.0/Nu0+e0/Mu)', omit_name=True),
+                    '{}满足规范式(5.4.4)要求。'.format('' if ok else '不')
+                )
 
     def _html_As(self, digits=2):
         for item in ('γ0', 'Nd', 'Md', 'fcd', 'fsd'):
             yield self.format(item, digits=None)
         yield self.format('A', digits=digits)
-        ec = hasattr(self, 'e0') and self.e0 > 0  # 判断是否为偏心受压
-        if ec:
+        if hasattr(self, 'e0') and self.e0 > 0:  # 判断是否为偏心受压
             yield self.format('e0', digits=digits)
             yield self.format('h0', digits=digits, eq='r+rs')
             yield self.format('h', digits=digits, eq='2r')
             yield self.format('ζ1', digits=digits, eq='0.2+2.7*e0/h0')
             yield self.format('ζ2', digits=digits, eq='1.15-0.01*l0/h')
             yield self.format('η', digits=digits, eq='1+1/(1300*e0/h0)*(l0/h)<sup>2</sup>*ζ1*ζ2')
-        yield '根据5.3.8节内力平衡方程求解得：'
-        yield self.format('α', digits=digits)
-        yield '进一步得：'
-        yield self.format('As', digits=digits, eq='(Nd-α*fcd*A*(1-sin(2*π*α)/2/π/α))/(α-(1.25-2*α))/fsd')
+        yield '已知Nd和Md，联立公式(5.3.8-1)和(5.3.8-2)求解α和As。'
+        if self.α is None:
+            yield '方程无解，故{}。'.format(
+                self.format('As', digits=digits)
+            )
+        else:
+            yield self.format('α', digits=digits)
+            yield self.format('As', digits=digits, eq='(Nd-α*fcd*A*(1-sin(2*π*α)/2/π/α))/(α-(1.25-2*α))/fsd')
         self.Asmin = self.ρmin*self.A
         ok = self.As >= self.Asmin
         yield '{} {} {}'.format(
@@ -2531,6 +2662,14 @@ class local_pressure(abacus, materials_util):
             self.format('Flud2', digits, omit_name=True, eq='0.9·(ηs·β·fcd+k·ρv·βcor·fsd)·Aln'),
             '{}满足规范第5.7.2条要求。'.format('' if ok else '不')
         )
+
+
+def test1():
+    """测试方程曲线形状"""
+    for i in range(0, 20):
+        x = 0.05*i
+        y = bc_round.fMeq1(x, 18.4, 330, 800, 720, 3.14*800**2, 1000, 100)
+        print(x, y)
 
 
 if __name__ == '__main__':
